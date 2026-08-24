@@ -3,15 +3,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Every document this app writes lives under the owner's uid, so one rule
-    // covers tasks, tags, and anything added later. A signed-in user can reach
-    // their own subtree and nothing else; there is no cross-user read path.
+    // Resolves a username to its email + uid so login-by-username can call
+    // signInWithEmailAndPassword before the user is authenticated — the read
+    // has to be public since there's no session yet at that point.
+    //
+    // GET only: a client always looks up one known username, and `list`
+    // stays denied by omission so the whole namespace can never be
+    // enumerated. `create` is a one-shot claim — !exists() makes concurrent
+    // registrations for the same name race safely (the second write is
+    // rejected once the first has landed) — and only the account that just
+    // signed up may claim its own uid. Usernames are immutable once taken:
+    // no update, no delete.
+    match /usernames/{username} {
+      allow get: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.uid is string
+                    && request.resource.data.email is string
+                    && request.resource.data.createdAt is number
+                    && request.resource.data.keys().hasOnly(['uid', 'email', 'createdAt'])
+                    && !exists(/databases/$(database)/documents/usernames/$(username));
+      allow update, delete: if false;
+    }
+
+    // Everything else this app writes — the profile doc, tasks, tags — lives
+    // under the owner's uid, so one rule covers all of it. A signed-in user
+    // can reach their own subtree and nothing else; there is no cross-user
+    // read path.
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Anything outside /users is not part of this app. Deny by default rather
-    // than leaving a hole for a future collection to fall through.
+    // Anything outside those two collections is not part of this app. Deny
+    // by default rather than leaving a hole for a future collection to fall
+    // through.
     match /{document=**} {
       allow read, write: if false;
     }

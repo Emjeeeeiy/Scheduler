@@ -8,7 +8,8 @@ Five views: **Dashboard** (the summary), **Day** (agenda + inbox), **Week**
 (7-column time grid), **Month** (calendar grid), and **Review** (planned versus
 completed).
 
-Built with React 19 + Vite, data in Firebase Firestore, Google sign-in.
+Built with React 19 + Vite, data in Firebase Firestore. Sign in with Google, or
+with a username and password.
 
 ## Setup
 
@@ -16,11 +17,17 @@ The app needs a Firebase project before it will do anything — until then it
 renders setup instructions instead of a blank page.
 
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
-2. **Authentication** → Sign-in method → enable **Google**
+2. **Authentication** → Sign-in method → enable **Google** *and* **Email/Password**
+   — both, not just one, or the matching sign-in path throws
+   `auth/operation-not-allowed`
 3. **Firestore Database** → Create database → **production mode**
 4. **Project settings** → Your apps → add a **Web app**, copy the config
 5. `cp .env.example .env.local` and paste the values in
 6. Paste [`firestore.rules`](firestore.rules) into Firestore → **Rules** → Publish
+
+If sign-in ever fails with **"Missing or insufficient permissions"**, it's
+almost always step 6 — the rules were never published, so Firestore is still on
+its production-mode default of denying everything.
 
 ```bash
 npm install
@@ -53,12 +60,15 @@ no production module knows it is being tested.
 ## How the data is shaped
 
 ```text
+users/{uid}                    profile — username  email  createdAt
 users/{uid}/tasks/{taskId}
   title  notes  date  startMin  durationMin  tagId  done
   completedAt  createdAt  updatedAt
 
 users/{uid}/tags/{tagId}
   name  slot  order
+
+usernames/{usernameLower}      top-level — uid  email  createdAt
 ```
 
 Three task states fall out of two fields, with no extra flag to keep in sync:
@@ -113,6 +123,20 @@ mechanism, so new tags take the next unused slot. Three light-mode slots sit
 under 3:1 contrast, so anything wearing a tag colour also carries a visible text
 label — never colour alone.
 
+**Username login needs a real email under the hood, because Firebase Auth's
+email/password provider has no concept of a username.** Registration collects
+one anyway (`usernames/{usernameLower} → { uid, email }`, a top-level
+collection separate from the owner-only `/users` tree) so the account can be
+recovered and so `signInWithEmailAndPassword` has something to call. The Auth
+account is created *first*; the username is then reserved as that
+now-signed-in user, and if it's taken, the Auth account is rolled back
+(`deleteUser`) rather than left as an orphan with no profile. Security rules
+allow a `get` on any single known username (needed to resolve it before
+sign-in) but never a `list`, so the namespace can't be enumerated — and every
+login failure, whether the username doesn't exist or the password is wrong,
+shows the identical "Incorrect username/email or password," so a login form
+never doubles as a username-enumeration oracle.
+
 ## Keyboard
 
 | Key | Does |
@@ -135,9 +159,12 @@ src/
     useTheme.js          system / light / dark
     usePersistentState.js
   state/
-    AuthContext.jsx      session
+    AuthContext.jsx      session, Google + username/password
     ScheduleContext.jsx  the single data seam
-  components/            views + shared pieces
+  components/
+    SignIn.jsx           Google button + login/register tab switch
+    LoginForm.jsx  RegisterForm.jsx
+    ...                  views + shared pieces
   styles/
     tokens.css           design tokens, both themes
     app.css

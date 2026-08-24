@@ -1,8 +1,27 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth, firebaseReady, logout, signInWithGoogle } from '../firebase.js'
+import {
+  auth,
+  firebaseReady,
+  logout,
+  registerWithUsername,
+  signInWithGoogle,
+  signInWithUsernameOrEmail,
+} from '../firebase.js'
 
 const AuthContext = createContext(null)
+
+const FRIENDLY_MESSAGES = {
+  'auth/email-already-in-use': 'An account with that email already exists.',
+  'auth/invalid-email': 'Enter a valid email address.',
+  'auth/weak-password': 'Password must be at least 6 characters.',
+  'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
+  'auth/network-request-failed': 'Network error — check your connection and try again.',
+}
+
+function friendlyMessage(error) {
+  return FRIENDLY_MESSAGES[error.code] ?? error.message ?? 'Something went wrong.'
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -25,6 +44,12 @@ export function AuthProvider({ children }) {
       user,
       loading,
       error,
+      clearError: () => setError(null),
+      // Exposed for a form's own pre-submit checks (password mismatch, too
+      // short) so every error — client-side or server round-trip — surfaces
+      // through the same single banner instead of two competing ones.
+      reportError: (message) => setError(message),
+
       async signIn() {
         setError(null)
         try {
@@ -39,9 +64,30 @@ export function AuthProvider({ children }) {
             return
           }
           console.error('Google sign-in failed.', caught)
-          setError(caught.message ?? 'Sign-in failed.')
+          setError(friendlyMessage(caught))
         }
       },
+
+      async signInWithPassword({ identifier, password }) {
+        setError(null)
+        try {
+          await signInWithUsernameOrEmail({ identifier, password })
+        } catch (caught) {
+          console.error('Sign-in failed.', caught)
+          setError(friendlyMessage(caught))
+        }
+      },
+
+      async register({ username, email, password }) {
+        setError(null)
+        try {
+          await registerWithUsername({ username, email, password })
+        } catch (caught) {
+          console.error('Registration failed.', caught)
+          setError(friendlyMessage(caught))
+        }
+      },
+
       async signOut() {
         try {
           await logout()

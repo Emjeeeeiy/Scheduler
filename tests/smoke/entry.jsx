@@ -20,6 +20,8 @@ import { TaskEditor } from '../../src/components/TaskEditor.jsx'
 import { TagManager } from '../../src/components/TagManager.jsx'
 import { TaskInbox } from '../../src/components/TaskInbox.jsx'
 import { SignIn } from '../../src/components/SignIn.jsx'
+import { LoginForm } from '../../src/components/LoginForm.jsx'
+import { RegisterForm } from '../../src/components/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/SetupNotice.jsx'
 import { mockValue } from './mockSchedule.jsx'
 
@@ -29,6 +31,8 @@ const noop = () => {}
 const cases = [
   ['SetupNotice', <SetupNotice missing={['VITE_FIREBASE_API_KEY']} />],
   ['SignIn', <SignIn />],
+  ['LoginForm', <LoginForm onSwitchToRegister={noop} />],
+  ['RegisterForm', <RegisterForm onSwitchToLogin={noop} />],
   ['Dashboard', <Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />],
   ['TodayView', <TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['WeekGrid', <WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />],
@@ -81,6 +85,13 @@ expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
 expect('Review renders its table toggle', html.review.includes('Table view'))
 expect('Review computes a completion rate', html.review.includes('Completion rate'))
+
+const signIn = renderToString(<SignIn />)
+expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))
+expect('Sign-in screen defaults to the login tab', signIn.includes('Username or email'))
+const register = renderToString(<RegisterForm onSwitchToLogin={noop} />)
+expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
+expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))
 
 console.log('')
 for (const [name, ok] of checks) {

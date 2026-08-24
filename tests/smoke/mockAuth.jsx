@@ -9,7 +9,11 @@ export function useAuth() {
     user: { uid: 'smoke-uid', displayName: 'Smoke Tester', email: 'smoke@example.com', photoURL: null },
     loading: false,
     error: null,
+    clearError: () => {},
+    reportError: () => {},
     signIn: async () => {},
+    signInWithPassword: async () => {},
+    register: async () => {},
     signOut: async () => {},
   }
 }
