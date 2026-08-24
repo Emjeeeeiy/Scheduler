@@ -72,9 +72,18 @@ function appError(code, message) {
   return error
 }
 
-const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,24}$/
-
 const normalizeUsername = (raw) => raw.trim().toLowerCase()
+
+/* No length or character-set restriction on a username — the only rejects
+   left are the ones Firestore itself would reject as a document id
+   regardless of what this app wants: empty, a bare "." or "..", or containing
+   "/" (which would otherwise split into a nested path). Everything else a
+   person might type is accepted as-is. */
+function assertUsableUsername(normalized) {
+  if (!normalized || normalized === '.' || normalized === '..' || normalized.includes('/')) {
+    throw appError('app/invalid-username', 'That username isn’t allowed — try something else.')
+  }
+}
 
 /**
  * Firebase Auth's email/password provider has no concept of a username, so an
@@ -93,18 +102,14 @@ const normalizeUsername = (raw) => raw.trim().toLowerCase()
 export async function registerWithUsername({ username, email, password }) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
 
-  const normalized = normalizeUsername(username)
-  if (!USERNAME_PATTERN.test(normalized)) {
-    throw appError(
-      'app/invalid-username',
-      'Username must be 3–24 characters: letters, numbers, "_" or "." only.',
-    )
-  }
+  const trimmedUsername = username.trim()
+  const normalized = normalizeUsername(trimmedUsername)
+  assertUsableUsername(normalized)
 
   const credential = await createUserWithEmailAndPassword(auth, email, password)
 
   try {
-    await updateProfile(credential.user, { displayName: username })
+    await updateProfile(credential.user, { displayName: trimmedUsername })
 
     await runTransaction(db, async (tx) => {
       const usernameRef = doc(db, 'usernames', normalized)
@@ -114,7 +119,7 @@ export async function registerWithUsername({ username, email, password }) {
       }
       const stamp = Date.now()
       tx.set(usernameRef, { uid: credential.user.uid, email, createdAt: stamp })
-      tx.set(doc(db, 'users', credential.user.uid), { username, email, createdAt: stamp })
+      tx.set(doc(db, 'users', credential.user.uid), { username: trimmedUsername, email, createdAt: stamp })
     })
   } catch (caught) {
     await deleteUser(credential.user).catch(() => {})

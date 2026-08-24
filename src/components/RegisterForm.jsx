@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 
-const USERNAME_HINT = '3–24 characters: letters, numbers, "_" or "." only.'
-
 export function RegisterForm({ onSwitchToLogin }) {
   const { register, reportError, clearError } = useAuth()
   const [username, setUsername] = useState('')
@@ -43,11 +41,8 @@ export function RegisterForm({ onSwitchToLogin }) {
           onChange={(e) => setUsername(e.target.value)}
           autoComplete="username"
           placeholder="yourname"
-          minLength={3}
-          maxLength={24}
           required
         />
-        <span className="field__hint">{USERNAME_HINT}</span>
       </label>
 
       <label className="field">
