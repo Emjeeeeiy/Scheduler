@@ -1,0 +1,148 @@
+import { useState } from 'react'
+import { useSchedule } from '../state/ScheduleContext.jsx'
+import { useNow } from '../lib/useNow.js'
+import { DRAG_TYPE } from './DayColumn.jsx'
+import {
+  dayOfMonth,
+  durationLabel,
+  formatMonthLabel,
+  minToLabel,
+  monthOf,
+  monthGrid,
+  WEEKDAY_HEADERS,
+} from '../lib/date.js'
+import { dayStats } from '../lib/stats.js'
+
+const MAX_CHIPS = 3
+
+export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
+  const { tasksOn, getTag, updateTask } = useSchedule()
+  const now = useNow()
+  const [dropKey, setDropKey] = useState(null)
+
+  const keys = monthGrid(focusKey)
+  const month = monthOf(focusKey)
+
+  async function onDrop(event, key) {
+    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+    event.preventDefault()
+    setDropKey(null)
+    try {
+      const { id } = JSON.parse(event.dataTransfer.getData(DRAG_TYPE))
+      // Only the day changes here — whatever time the block already had is
+      // still what the user meant, so it rides along.
+      if (id) await updateTask(id, { date: key })
+    } catch (caught) {
+      console.error('Could not move task.', caught)
+    }
+  }
+
+  return (
+    <section className="card month" aria-label={formatMonthLabel(focusKey)}>
+      <div className="month__head" aria-hidden="true">
+        {WEEKDAY_HEADERS.map((label) => (
+          <span key={label} className="month__dow">
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <div className="month__grid">
+        {keys.map((key) => {
+          const tasks = tasksOn(key)
+          const stats = dayStats(tasks)
+          const outside = monthOf(key) !== month
+          const isToday = key === now.key
+          const shown = tasks.slice(0, MAX_CHIPS)
+          const overflow = tasks.length - shown.length
+
+          return (
+            <div
+              key={key}
+              className={[
+                'month__cell',
+                outside ? 'month__cell--outside' : '',
+                isToday ? 'month__cell--today' : '',
+                dropKey === key ? 'month__cell--drop' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onDragOver={(event) => {
+                if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+                event.preventDefault()
+                setDropKey(key)
+              }}
+              onDragLeave={() => setDropKey((current) => (current === key ? null : current))}
+              onDrop={(event) => onDrop(event, key)}
+            >
+              <div className="month__cell-head">
+                <button
+                  type="button"
+                  className="month__daynum"
+                  onClick={() => onFocusDay(key)}
+                  aria-label={`Open ${key}`}
+                >
+                  {dayOfMonth(key)}
+                </button>
+                {stats.plannedMin > 0 && (
+                  <span className="month__load">{durationLabel(stats.plannedMin)}</span>
+                )}
+              </div>
+
+              <ul className="month__chips">
+                {shown.map((task) => {
+                  const tag = getTag(task.tagId)
+                  return (
+                    <li key={task.id}>
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move'
+                          event.dataTransfer.setData(
+                            DRAG_TYPE,
+                            JSON.stringify({ id: task.id, grabOffsetMin: 0 }),
+                          )
+                        }}
+                        className={`chip chip--dot${task.done ? ' chip--done' : ''}`}
+                        style={{ '--tag': tag?.color ?? 'var(--series-1)' }}
+                        onClick={() => onFocusDay(key)}
+                        title={
+                          Number.isFinite(task.startMin)
+                            ? `${minToLabel(task.startMin)} · ${task.title}`
+                            : task.title
+                        }
+                      >
+                        <span className="chip__dot" aria-hidden="true" />
+                        {Number.isFinite(task.startMin) && (
+                          <span className="chip__time">{minToLabel(task.startMin)}</span>
+                        )}
+                        <span className="chip__title">{task.title}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+                {overflow > 0 && (
+                  <li>
+                    <button type="button" className="month__more" onClick={() => onFocusDay(key)}>
+                      +{overflow} more
+                    </button>
+                  </li>
+                )}
+              </ul>
+
+              <button
+                type="button"
+                className="month__add"
+                onClick={() => onCreate?.({ date: key })}
+                aria-label={`Add a task on ${key}`}
+              >
+                +
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}

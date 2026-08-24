@@ -1,0 +1,39 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Local Firebase config — never commit real project credentials
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local AI-agent tooling (e.g. the "Impeccable" design-review skill) —
+# machine-local config/hooks, not part of the app
+.agent
+.agents
+.claude
+.codex
+.cursor
+.gemini
+.impeccable
