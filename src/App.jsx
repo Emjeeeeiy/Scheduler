@@ -21,6 +21,7 @@ import { MonthCalendar } from './components/MonthCalendar.jsx'
 import { ReviewView } from './components/ReviewView.jsx'
 import { TaskEditor } from './components/TaskEditor.jsx'
 import { TagManager } from './components/TagManager.jsx'
+import { NotificationBell } from './components/NotificationBell.jsx'
 import './styles/app.css'
 
 const NAV_ITEMS = [
@@ -148,6 +149,7 @@ function AppShell() {
         <div className="sidebar__spacer" />
 
         <div className="sidebar__footer">
+          <NotificationBell onEdit={openEdit} />
           <button
             type="button"
             className="icon-button"

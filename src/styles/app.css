@@ -110,6 +110,116 @@
   border-top: 1px solid var(--border);
 }
 
+/* ======================================================== notifications == */
+
+.notif {
+  position: relative;
+}
+
+.notif__trigger {
+  position: relative;
+}
+
+.notif__badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--critical);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+
+/* position/top/left/right come from NotificationBell's own JS-computed
+   placement (position: fixed, escaping the sidebar's overflow so it can
+   never be clipped) — this rule is visual styling only. */
+.notif__panel {
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 10px;
+  z-index: 55;
+}
+
+.notif__head {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 6px 8px;
+}
+
+.notif__list {
+  display: grid;
+  gap: 2px;
+}
+
+.notif__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notif__item:hover {
+  background: var(--surface-2);
+}
+
+.notif__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex: none;
+}
+
+.notif__dot--overdue {
+  background: var(--critical);
+}
+
+.notif__dot--now {
+  background: var(--series-1);
+}
+
+.notif__dot--soon {
+  background: var(--warning);
+}
+
+.notif__body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.notif__title {
+  font-size: 13px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .app-content {
   flex: 1;
   min-width: 0;

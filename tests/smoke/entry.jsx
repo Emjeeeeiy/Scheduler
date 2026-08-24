@@ -23,6 +23,7 @@ import { SignIn } from '../../src/components/SignIn.jsx'
 import { LoginForm } from '../../src/components/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/SetupNotice.jsx'
+import { NotificationBell } from '../../src/components/NotificationBell.jsx'
 import { mockValue } from './mockSchedule.jsx'
 
 const KEY = todayKey()
@@ -42,6 +43,7 @@ const cases = [
   ['TagManager', <TagManager onClose={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
   ['TaskEditor (edit)', <TaskEditor editor={{ mode: 'edit', task: mockValue.tasks[0] }} onClose={noop} />],
+  ['NotificationBell', <NotificationBell onEdit={noop} />],
 ]
 
 let failed = 0
@@ -92,6 +94,14 @@ expect('Sign-in screen defaults to the login tab', signIn.includes('Username or 
 const register = renderToString(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))
+
+// The fixture's "Overdue thing" is fixed two days before "today", so it is
+// overdue no matter what real wall-clock time this suite happens to run at
+// — a stable, time-independent thing to assert on. The "now"/"soon" fixture
+// tasks sit at fixed clock times and would make the badge count flaky
+// depending on the hour the suite runs, so those are left to notifications.test.js.
+const bell = renderToString(<NotificationBell onEdit={noop} />)
+expect('Notification bell shows a badge when something needs attention', bell.includes('notif__badge'))
 
 console.log('')
 for (const [name, ok] of checks) {
