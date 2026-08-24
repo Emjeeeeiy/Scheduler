@@ -1,17 +1,29 @@
 /* ============================================================== app shell == */
 
-.app {
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 20px 24px 64px;
+.app-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100dvh;
 }
 
-.app__header {
+.sidebar {
+  width: 232px;
+  flex: none;
   display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  padding-bottom: 16px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 14px;
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.sidebar__brand {
+  padding: 4px 10px 18px;
 }
 
 .brand {
@@ -31,11 +43,85 @@
   font-size: 17px;
 }
 
-.app__actions {
+.sidebar__new-task {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar__link:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.sidebar__link--active {
+  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+  color: var(--series-1);
+  font-weight: 600;
+}
+
+.sidebar__icon {
+  font-size: 15px;
+  width: 18px;
+  flex: none;
+  text-align: center;
+}
+
+.sidebar__link--secondary {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar__spacer {
+  flex: 1;
+}
+
+.sidebar__footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 24px 64px;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  padding-bottom: 16px;
 }
 
 .app__main {
@@ -179,36 +265,6 @@
 .date-nav--static .date-nav__label {
   color: var(--text-secondary);
   font-weight: 450;
-}
-
-/* ================================================================== tabs == */
-
-.tabs {
-  display: flex;
-  gap: 2px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}
-
-.tab {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-secondary);
-  padding: 9px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  margin-bottom: -1px;
-}
-
-.tab:hover {
-  color: var(--text-primary);
-}
-
-.tab--active {
-  color: var(--text-primary);
-  border-bottom-color: var(--series-1);
-  font-weight: 550;
 }
 
 /* ================================================== cards & common bits == */
@@ -1634,25 +1690,112 @@ code {
   .inbox {
     position: static;
   }
+
+  /* The sidebar becomes a wrapping top bar rather than a left column: brand +
+     new-task on one row, the nav on its own full-width row (flex-basis: 100%
+     forces the wrap), tags + theme + avatar trailing on a third. Same markup,
+     no JS branch — it's the sidebar's own flex-direction that flips, so
+     nothing needs to duplicate across a breakpoint.
+
+     The nav row goes icon-only here rather than relying on horizontal scroll:
+     five labelled pills don't fit a phone width, and a scrollable row with no
+     affordance just hides "Review" off-screen with nothing to suggest it's
+     there — the opposite of what a navigation redesign is for. The label
+     stays in the DOM (screen readers still get it) via the same visually-
+     hidden technique as .visually-hidden, plus a title= tooltip for mouse
+     users on a narrow window. */
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 8px;
+    column-gap: 10px;
+    padding: 10px 14px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar__brand {
+    padding: 0;
+  }
+
+  .sidebar__new-task {
+    width: auto;
+    margin-bottom: 0;
+    margin-left: auto;
+  }
+
+  .sidebar__nav {
+    flex: 1 1 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 4px;
+  }
+
+  .sidebar__link {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .sidebar__nav .sidebar__link {
+    padding: 9px 11px;
+    justify-content: center;
+  }
+
+  .sidebar__nav .sidebar__icon {
+    width: auto;
+    font-size: 17px;
+  }
+
+  .sidebar__nav .sidebar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidebar__link--secondary {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    width: auto;
+  }
+
+  .sidebar__spacer {
+    display: none;
+  }
+
+  .sidebar__footer {
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .app-content {
+    max-width: none;
+    margin: 0;
+  }
 }
 
 @media (max-width: 640px) {
-  .app {
+  .app-content {
     padding: 14px 12px 48px;
   }
 
   .app__header {
-    gap: 12px;
-  }
-
-  .date-nav {
-    order: 3;
-    width: 100%;
     justify-content: center;
-  }
-
-  .app__actions {
-    gap: 6px;
+    padding-bottom: 12px;
   }
 
   .hero__value {

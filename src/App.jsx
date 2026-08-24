@@ -23,12 +23,12 @@ import { TaskEditor } from './components/TaskEditor.jsx'
 import { TagManager } from './components/TagManager.jsx'
 import './styles/app.css'
 
-const TABS = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'today', label: 'Day' },
-  { id: 'week', label: 'Week' },
-  { id: 'month', label: 'Month' },
-  { id: 'review', label: 'Review' },
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: '▣' },
+  { id: 'today', label: 'Day', icon: '▤' },
+  { id: 'week', label: 'Week', icon: '▦' },
+  { id: 'month', label: 'Month', icon: '▩' },
+  { id: 'review', label: 'Review', icon: '◔' },
 ]
 
 /** Which views carry a date cursor, and how far one arrow press moves it. */
@@ -105,51 +105,49 @@ function AppShell() {
   }, [view, focusKey])
 
   return (
-    <div className="app">
-      <header className="app__header">
-        <div className="brand">
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="sidebar__brand">
           <span className="brand__mark" aria-hidden="true">◷</span>
           <span className="brand__name">Scheduler</span>
         </div>
 
-        {step ? (
-          <div className="date-nav">
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Previous"
-              onClick={() => setFocusKey(step(focusKey, -1))}
-            >
-              ‹
-            </button>
-            <span className="date-nav__label">{dateLabel}</span>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Next"
-              onClick={() => setFocusKey(step(focusKey, 1))}
-            >
-              ›
-            </button>
-            {focusKey !== todayKey() && (
-              <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
-                Today
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="date-nav date-nav--static">
-            <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
-          </div>
-        )}
+        <button
+          type="button"
+          className="primary-button sidebar__new-task"
+          onClick={() => openCreate({})}
+        >
+          <span aria-hidden="true">+</span> New task
+        </button>
 
-        <div className="app__actions">
-          <button type="button" className="primary-button" onClick={() => openCreate({})}>
-            <span aria-hidden="true">+</span> New task
-          </button>
-          <button type="button" className="ghost-button" onClick={() => setTagsOpen(true)}>
-            Tags
-          </button>
+        <nav className="sidebar__nav" aria-label="Views">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`sidebar__link${view === item.id ? ' sidebar__link--active' : ''}`}
+              aria-current={view === item.id ? 'page' : undefined}
+              title={item.label}
+              onClick={() => setView(item.id)}
+            >
+              <span className="sidebar__icon" aria-hidden="true">{item.icon}</span>
+              <span className="sidebar__label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          className="sidebar__link sidebar__link--secondary"
+          onClick={() => setTagsOpen(true)}
+        >
+          <span className="sidebar__icon" aria-hidden="true">◈</span>
+          Tags
+        </button>
+
+        <div className="sidebar__spacer" />
+
+        <div className="sidebar__footer">
           <button
             type="button"
             className="icon-button"
@@ -173,49 +171,70 @@ function AppShell() {
             <span className="visually-hidden">Sign out</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      <nav className="tabs" aria-label="Views">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className={`tab${view === tab.id ? ' tab--active' : ''}`}
-            aria-current={view === tab.id ? 'page' : undefined}
-            onClick={() => setView(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <div className="app-content">
+        <header className="app__header">
+          {step ? (
+            <div className="date-nav">
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Previous"
+                onClick={() => setFocusKey(step(focusKey, -1))}
+              >
+                ‹
+              </button>
+              <span className="date-nav__label">{dateLabel}</span>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Next"
+                onClick={() => setFocusKey(step(focusKey, 1))}
+              >
+                ›
+              </button>
+              {focusKey !== todayKey() && (
+                <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
+                  Today
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="date-nav date-nav--static">
+              <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
+            </div>
+          )}
+        </header>
 
-      {error && (
-        <p className="banner banner--error" role="alert">
-          <span aria-hidden="true">⚠</span> {error}
-        </p>
-      )}
-
-      <main className="app__main">
-        {loading ? (
-          <p className="empty">Loading your schedule…</p>
-        ) : (
-          <>
-            {view === 'dashboard' && (
-              <Dashboard onFocusDay={focusDay} onEdit={openEdit} onCreate={openCreate} />
-            )}
-            {view === 'today' && (
-              <TodayView focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
-            )}
-            {view === 'week' && (
-              <WeekGrid focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
-            )}
-            {view === 'month' && (
-              <MonthCalendar focusKey={focusKey} onFocusDay={focusDay} onCreate={openCreate} />
-            )}
-            {view === 'review' && <ReviewView focusKey={focusKey} />}
-          </>
+        {error && (
+          <p className="banner banner--error" role="alert">
+            <span aria-hidden="true">⚠</span> {error}
+          </p>
         )}
-      </main>
+
+        <main className="app__main">
+          {loading ? (
+            <p className="empty">Loading your schedule…</p>
+          ) : (
+            <>
+              {view === 'dashboard' && (
+                <Dashboard onFocusDay={focusDay} onEdit={openEdit} onCreate={openCreate} />
+              )}
+              {view === 'today' && (
+                <TodayView focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
+              )}
+              {view === 'week' && (
+                <WeekGrid focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
+              )}
+              {view === 'month' && (
+                <MonthCalendar focusKey={focusKey} onFocusDay={focusDay} onCreate={openCreate} />
+              )}
+              {view === 'review' && <ReviewView focusKey={focusKey} />}
+            </>
+          )}
+        </main>
+      </div>
 
       {editor && <TaskEditor editor={editor} onClose={closeEditor} />}
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
