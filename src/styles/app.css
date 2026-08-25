@@ -6,6 +6,32 @@
   min-height: 100dvh;
 }
 
+/* A quiet dot-grid, visible only in the negative space between cards — dense
+   at the two corners a screen's eye lands on last, fading out well before
+   the center so it never competes with content. Fixed to the viewport (not
+   the scrolling content) and z-index 0 so the sidebar and every card, both
+   flex children of .app-shell, paint above it without needing their own
+   opaque background to "hide" it. pointer-events: none is load-bearing —
+   this app lives on drag-and-drop, and a decorative layer must never be able
+   to catch a drop event. */
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image:
+    radial-gradient(ellipse 60% 55% at 100% 0%, black 0%, transparent 70%),
+    radial-gradient(ellipse 60% 55% at 0% 100%, black 0%, transparent 70%);
+  mask-composite: add;
+  -webkit-mask-image:
+    radial-gradient(ellipse 60% 55% at 100% 0%, black 0%, transparent 70%),
+    radial-gradient(ellipse 60% 55% at 0% 100%, black 0%, transparent 70%);
+  -webkit-mask-composite: source-over;
+}
+
 .sidebar {
   width: 232px;
   flex: none;
@@ -20,6 +46,7 @@
   align-self: flex-start;
   height: 100dvh;
   overflow-y: auto;
+  z-index: 1;
 }
 
 .sidebar__brand {
@@ -230,6 +257,8 @@
   max-width: 1320px;
   margin: 0 auto;
   padding: 20px 24px 64px;
+  position: relative;
+  z-index: 1;
 }
 
 .app__header {
@@ -390,7 +419,7 @@
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 18px;
 }
 
@@ -469,22 +498,19 @@
 
 /* =========================================================== setup/login == */
 
-.setup,
-.signin {
+.setup {
   max-width: 520px;
   text-align: left;
 }
 
-.setup__title,
-.signin__title {
+.setup__title {
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.02em;
   margin-bottom: 8px;
 }
 
-.setup__lead,
-.signin__lead {
+.setup__lead {
   color: var(--text-secondary);
   margin-bottom: 18px;
 }
@@ -522,28 +548,187 @@
 
 code {
   background: var(--surface-sunken);
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 1px 5px;
   font-size: 0.9em;
   font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
 }
 
-.signin {
+/* ============================================================ auth shell == */
+
+/* Fixed, always-dark — see the comment on SignIn.jsx. Every color below is a
+   literal, not a --token, on purpose: this screen does not follow the app's
+   light/dark toggle. */
+
+.auth-shell {
+  display: flex;
+  min-height: 100dvh;
+}
+
+.auth-shell :focus-visible {
+  outline-color: #a78bfa;
+}
+
+.auth-hero {
+  flex: 0 0 44%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 48px;
+  text-align: center;
+  color: #fff;
+  background-image:
+    radial-gradient(ellipse 90% 50% at 50% 8%, rgba(233, 213, 255, 0.9), rgba(233, 213, 255, 0) 60%),
+    linear-gradient(180deg, #7c3aed 0%, #4c1d95 35%, #1a0b2e 65%, #000000 100%);
+  background-color: #000;
+}
+
+.auth-hero__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.auth-hero__mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.auth-hero__copy {
+  max-width: 380px;
+}
+
+.auth-hero__title {
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.auth-hero__lead {
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.auth-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: #050505;
+}
+
+.auth-panel__inner {
+  width: 100%;
+  max-width: 360px;
+}
+
+.auth-panel__head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-panel__title {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.auth-panel__lead {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.auth-panel__note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
   text-align: center;
 }
 
-.signin__mark {
-  width: 34px;
-  height: 34px;
-  color: var(--series-1);
-  display: block;
-  margin: 0 auto;
+.google-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 120ms ease;
 }
 
-.signin__note {
-  margin-top: 16px;
-  font-size: 13px;
-  color: var(--text-muted);
+.google-button:hover {
+  background: #ececec;
+}
+
+.auth-panel .auth-divider {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.auth-panel .auth-divider::before,
+.auth-panel .auth-divider::after {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.auth-panel .field__label {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.auth-panel .field__hint {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.auth-panel .input {
+  background: #17171a;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.auth-panel .input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.auth-panel .input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.auth-panel .auth-form__switch {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.auth-panel .link-button {
+  color: #a78bfa;
+}
+
+.auth-panel .banner--error {
+  background: rgba(224, 82, 82, 0.16);
+  color: #ff9d9d;
+}
+
+@media (max-width: 860px) {
+  .auth-hero {
+    display: none;
+  }
+
+  .auth-panel {
+    min-height: 100dvh;
+  }
 }
 
 .auth-divider {
@@ -563,37 +748,6 @@ code {
   flex: 1;
   height: 1px;
   background: var(--border);
-}
-
-.auth-tabs {
-  display: flex;
-  gap: 2px;
-  background: var(--surface-2);
-  border-radius: var(--radius-sm);
-  padding: 3px;
-  margin-bottom: 16px;
-}
-
-.auth-tab {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
-  padding: 7px 10px;
-  font-size: 13px;
-  font-weight: 550;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.auth-tab:hover {
-  color: var(--text-primary);
-}
-
-.auth-tab--active {
-  background: var(--surface-1);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
 }
 
 .auth-form {
@@ -637,6 +791,9 @@ code {
   display: grid;
   justify-items: start;
   gap: 2px;
+  /* The one place the Auth Shell's glow motif reappears in the main app —
+     a low-key echo, not a repeat of its full intensity. */
+  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--glow-violet), transparent 70%);
 }
 
 .hero__label {
@@ -677,6 +834,34 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.stat-tile:hover {
+  background: var(--surface-2);
+  box-shadow: var(--shadow-card);
+}
+
+.stat-tile__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-tile__icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.stat-tile--critical .stat-tile__icon {
+  color: var(--critical-text);
+}
+
+.stat-tile--good .stat-tile__icon {
+  color: var(--good-text);
 }
 
 .stat-tile__label {
@@ -833,7 +1018,7 @@ code {
   padding: 0;
   cursor: pointer;
   /* Rounded at the data end, square at the baseline. */
-  border-radius: 4px 4px 0 0;
+  border-radius: 3px 3px 0 0;
   min-height: 2px;
 }
 
@@ -847,7 +1032,7 @@ code {
 }
 
 .chart__fill--complete {
-  border-radius: 4px 4px 0 0;
+  border-radius: 3px 3px 0 0;
 }
 
 .chart__band--hover .chart__bar {
@@ -960,7 +1145,7 @@ code {
 
 .tag-bars__track {
   background: var(--surface-sunken);
-  border-radius: 4px;
+  border-radius: 3px;
   height: 12px;
   overflow: hidden;
 }
@@ -1072,7 +1257,7 @@ code {
   font-weight: 600;
   background: var(--series-1);
   color: #fff;
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0 4px;
 }
 
@@ -1104,7 +1289,7 @@ code {
   padding: 3px 6px;
   border: none;
   border-left: 3px solid var(--tag);
-  border-radius: 4px;
+  border-radius: 3px;
   background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
   color: var(--text-primary);
   cursor: grab;
@@ -1346,7 +1531,7 @@ code {
   gap: 4px;
   background: var(--surface-2);
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 2px 6px;
   font-size: 11px;
   color: var(--text-primary);
@@ -1479,7 +1664,7 @@ code {
   font-weight: 550;
   color: var(--text-primary);
   padding: 1px 4px;
-  border-radius: 4px;
+  border-radius: 3px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1521,7 +1706,7 @@ code {
   height: 20px;
   display: grid;
   place-items: center;
-  border-radius: 4px;
+  border-radius: 3px;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -1837,7 +2022,7 @@ code {
 .tag-swatch {
   width: 14px;
   height: 14px;
-  border-radius: 4px;
+  border-radius: 3px;
   flex: none;
 }
 
@@ -1850,7 +2035,7 @@ code {
 .tag-colors__dot {
   width: 15px;
   height: 15px;
-  border-radius: 4px;
+  border-radius: 3px;
   border: 2px solid transparent;
   cursor: pointer;
   padding: 0;

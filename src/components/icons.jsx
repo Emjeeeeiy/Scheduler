@@ -162,6 +162,61 @@ export function PlusIcon(props) {
   )
 }
 
+/** A tray catching something dropped in — the inbox stat tile. */
+export function InboxIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 12h4l1.5 3h5L16 12h4" />
+      <path d="M5.5 6h13L20 12v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6L5.5 6Z" />
+    </Icon>
+  )
+}
+
+export function CheckIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 13l4 4L19 7" />
+    </Icon>
+  )
+}
+
+/** An upward line — the completion-rate stat tile. */
+export function TrendIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 16l5-5 4 4 7-8" />
+      <path d="M15 7h5v5" />
+    </Icon>
+  )
+}
+
+/* The one deliberate exception to the stroke grammar above: a third-party
+   brand mark (Google's "G") is shown as its own real multi-colour logo on an
+   OAuth button, per standard sign-in-button convention — not drawn in this
+   app's own icon voice. */
+export function GoogleIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" {...props}>
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.92l-3.88-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.1C3.25 21.3 7.31 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27v-3.1H1.27C.46 8.24 0 10.06 0 12s.46 3.76 1.27 5.37l4-3.1z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.63l4 3.1c.95-2.85 3.6-4.98 6.73-4.98z"
+      />
+    </svg>
+  )
+}
+
 /* Moved from NotificationBell.jsx so every drawn icon lives in one file. */
 export function BellIcon(props) {
   return (

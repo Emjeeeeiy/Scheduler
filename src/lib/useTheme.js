@@ -7,9 +7,12 @@ const THEME_KEY = 'cadence-app:theme'
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
     try {
-      return localStorage.getItem(THEME_KEY) ?? 'system'
+      // A first-time visitor with no stored preference lands on dark — the
+      // app's primary identity now. Anyone who has already chosen anything,
+      // including 'system' or 'light', keeps exactly that choice.
+      return localStorage.getItem(THEME_KEY) ?? 'dark'
     } catch {
-      return 'system'
+      return 'dark'
     }
   })
 

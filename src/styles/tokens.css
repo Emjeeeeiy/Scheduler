@@ -23,8 +23,8 @@
   --baseline:        #c3c2b7;
 
   /* data — categorical slot 1 (single-series charts use this and only this) */
-  --series-1:        #2a78d6;
-  --series-1-soft:   #cde2fb;
+  --series-1:        #7c3aed;
+  --series-1-soft:   #e5d9fb;
 
   /* status — fixed, never themed. Always shipped with an icon + label. */
   --good:            #0ca30c;
@@ -34,15 +34,24 @@
   --good-text:       #006300;
   --critical-text:   #b02b2b;
 
-  --focus:           #2a78d6;
+  --focus:           #7c3aed;
   --shadow-sm:       0 1px 2px rgba(11, 11, 11, 0.06);
   --shadow-md:       0 6px 24px rgba(11, 11, 11, 0.08);
+  /* A deliberately deeper step than --shadow-sm, for the enhanced card
+     treatment — see the Cards section in app.css. Dark mode's version is a
+     hairline ring, not a bigger black shadow: a black shadow is invisible
+     against a near-black page, so definition comes from an edge instead. */
+  --shadow-card:     0 2px 10px rgba(11, 11, 11, 0.08);
+  /* The decorative violet glow shared by the dot-pattern background and the
+     Dashboard hero card — the Auth Shell's motif, echoed at low intensity. */
+  --glow-violet:     rgba(124, 58, 237, 0.06);
+  --dot-color:       rgba(124, 58, 237, 0.14);
 
-  --radius-sm:  6px;
-  --radius-md:  10px;
-  --radius-lg:  16px;
+  --radius-sm:  4px;
+  --radius-md:  7px;
+  --radius-lg:  10px;
 
-  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* --- scheduler additions ------------------------------------------------ */
 
@@ -75,23 +84,29 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --page:            #0d0d0d;
-    --surface-1:       #1a1a19;
-    --surface-2:       #222220;
-    --surface-sunken:  #131312;
+    /* Deepened toward the Auth Shell's true black (#050505) rather than the
+       softer near-black this app used before it existed — same relative
+       step between page/card/hover as before, just shifted darker. */
+    --page:            #050505;
+    --surface-1:       #131313;
+    --surface-2:       #1e1e1e;
+    --surface-sunken:  #0a0a0a;
     --text-primary:    #ffffff;
     --text-secondary:  #c3c2b7;
     --text-muted:      #898781;
     --border:          rgba(255, 255, 255, 0.10);
-    --gridline:        #2c2c2a;
-    --baseline:        #383835;
-    --series-1:        #3987e5;
-    --series-1-soft:   #184f95;
+    --gridline:        #232323;
+    --baseline:        #2e2e2e;
+    --series-1:        #8b5cf6;
+    --series-1-soft:   #3b2172;
     --good-text:       #0ca30c;
     --critical-text:   #e66767;
-    --focus:           #3987e5;
+    --focus:           #8b5cf6;
     --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-md:       0 6px 24px rgba(0, 0, 0, 0.45);
+    --shadow-card:     0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.5);
+    --glow-violet:     rgba(139, 92, 246, 0.16);
+    --dot-color:       rgba(139, 92, 246, 0.22);
 
     --now-line:        #e66767;
     --tag-blue:        #3987e5;
@@ -107,23 +122,26 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page:            #0d0d0d;
-  --surface-1:       #1a1a19;
-  --surface-2:       #222220;
-  --surface-sunken:  #131312;
+  --page:            #050505;
+  --surface-1:       #131313;
+  --surface-2:       #1e1e1e;
+  --surface-sunken:  #0a0a0a;
   --text-primary:    #ffffff;
   --text-secondary:  #c3c2b7;
   --text-muted:      #898781;
   --border:          rgba(255, 255, 255, 0.10);
-  --gridline:        #2c2c2a;
-  --baseline:        #383835;
-  --series-1:        #3987e5;
-  --series-1-soft:   #184f95;
+  --gridline:        #232323;
+  --baseline:        #2e2e2e;
+  --series-1:        #8b5cf6;
+  --series-1-soft:   #3b2172;
   --good-text:       #0ca30c;
   --critical-text:   #e66767;
-  --focus:           #3987e5;
+  --focus:           #8b5cf6;
   --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md:       0 6px 24px rgba(0, 0, 0, 0.45);
+  --shadow-card:     0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.5);
+  --glow-violet:     rgba(139, 92, 246, 0.16);
+  --dot-color:       rgba(139, 92, 246, 0.22);
 
   --now-line:        #e66767;
   --tag-blue:        #3987e5;

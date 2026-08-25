@@ -57,6 +57,17 @@ textarea {
   border-radius: var(--radius-sm);
 }
 
+/* Scrolling stays fully functional everywhere (sidebar, the time grid, modal
+   panels, the notification dropdown) — only the chrome is gone. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

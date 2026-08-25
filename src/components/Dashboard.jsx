@@ -24,6 +24,7 @@ import { StatTile } from './StatTile.jsx'
 import { BarChart } from './BarChart.jsx'
 import { TagBars } from './TagBars.jsx'
 import { TaskRow } from './TaskRow.jsx'
+import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from './icons.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
    next one — enough for "Next up" without walking the calendar forever. */
@@ -95,22 +96,26 @@ export function Dashboard({ onFocusDay, onEdit, onCreate }) {
 
       <div className="tile-row">
         <StatTile
+          icon={DayIcon}
           label="Open today"
           value={todayTotals.openCount}
           hint={`${todayTotals.count} scheduled in total`}
         />
         <StatTile
+          icon={WarningIcon}
           label="Overdue"
           value={overdue.length}
           tone={overdue.length > 0 ? 'critical' : 'neutral'}
           hint={overdue.length === 0 ? 'Nothing left behind' : 'Open, and the day has passed'}
         />
         <StatTile
+          icon={InboxIcon}
           label="In the inbox"
           value={openInbox}
           hint={openInbox === 0 ? 'All captured work is scheduled' : 'Waiting for a slot'}
         />
         <StatTile
+          icon={CheckIcon}
           label="Done this week"
           value={week.completionRate === null ? '—' : Math.round(week.completionRate * 100)}
           unit={week.completionRate === null ? '' : '%'}
@@ -174,12 +179,14 @@ export function Dashboard({ onFocusDay, onEdit, onCreate }) {
 
       <div className="tile-row">
         <StatTile
+          icon={ClockIcon}
           label="Hours planned"
           value={toHours(rangeTotals.plannedMin)}
           unit="h"
           hint={`across ${activeDays} active day${activeDays === 1 ? '' : 's'}`}
         />
         <StatTile
+          icon={CheckIcon}
           label="Hours completed"
           value={toHours(rangeTotals.completedMin)}
           unit="h"
@@ -190,11 +197,13 @@ export function Dashboard({ onFocusDay, onEdit, onCreate }) {
           }
         />
         <StatTile
+          icon={CheckIcon}
           label="Tasks done"
           value={rangeTotals.doneCount}
           hint={`of ${rangeTotals.count} scheduled`}
         />
         <StatTile
+          icon={TrendIcon}
           label="Completion rate"
           value={rangeTotals.completionRate === null ? '—' : Math.round(rangeTotals.completionRate * 100)}
           unit={rangeTotals.completionRate === null ? '' : '%'}

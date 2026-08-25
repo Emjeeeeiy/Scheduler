@@ -87,7 +87,7 @@ expect('Dashboard trends compute a completion rate', html.dashboard.includes('Co
 
 const signIn = renderToString(<SignIn />)
 expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))
-expect('Sign-in screen defaults to the login tab', signIn.includes('Username or email'))
+expect('Sign-in screen defaults to the login form', signIn.includes('Username or email'))
 const register = renderToString(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))
