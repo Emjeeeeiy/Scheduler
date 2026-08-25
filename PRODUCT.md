@@ -24,12 +24,15 @@ Used solo, in-browser, as part of a personal daily/weekly planning ritual — no
 
 ## Capabilities and Constraints
 
-- Four views: **Dashboard** (today's summary/stats, plus a Trends section — planned vs. completed over a 7/30-day range), **Day** (agenda + inbox), **Week** (7-column time grid), **Month** (calendar grid).
+- Four views: **Dashboard** (today's summary/stats, a mini calendar showing per-day load density, plus a Trends section — planned vs. completed over a 7/30-day range), **Day** (a time grid or a chronological agenda, whichever you pick, plus a free-slot finder and the inbox), **Week** (7-column time grid with a spanning all-day row; drag down a column to block out time, drag a block's edges to resize it), **Month** (calendar grid with multi-day event bars and a day-peek popover).
 - Sign-in: Google, or username/password (username resolves to a real email under the hood; Firebase Auth has no native username concept).
 - Tags are color-coded categories from a validated, colorblind-safe 8-color palette, stored as a color *slot name* (not a hex) so light and dark themes each get a correctly-stepped color. Three light-mode slots fall under 3:1 contrast, so color is never the only signal — a text label always accompanies a tag color.
 - Data lives in Firebase Firestore behind one `onSnapshot` listener sliced in memory — sized for a personal scheduler (hundreds of documents), not built to scale to a shared or high-volume dataset.
 - `date` is stored as a `'YYYY-MM-DD'` string and `startMin` as an integer count of minutes from local midnight — deliberately not a Timestamp, so a block's wall-clock time survives timezone/DST changes instead of silently drifting.
-- Keyboard shortcuts: `n` new task, `t` jump to today, `←`/`→` move the date cursor, `Esc` close a dialog.
+- **Events** are a second, distinct kind of item alongside tasks: they happen rather than get done. An event has a start and end *date* (so it can run across several days), is either all-day or timed, carries a tag and notes — and has **no** done checkbox and no repeat. They live in their own `users/{uid}/events` collection, which is what keeps them structurally out of every task-shaped code path. **Events never count toward planned hours or any completion rate**: a three-day conference is a commitment, not seventy-two hours of work you failed to complete. They do count as busy time when the Day view looks for free slots.
+- Keyboard shortcuts: `n` new task, `e` new event, `t` jump to today, `←`/`→` move the date cursor, `Esc` close a dialog.
+- The date cursor is restored from the last session and snapped forward if the day it points at has already passed — but only on load. A tab left open past midnight keeps the day you were looking at rather than jumping; `t` and the Today button are the way back.
+- Deliberately not built: **recurring events**. The recurrence contract (one rule document, occurrences synthesised on read, a single day detached on edit) is built on a task's single `date` and its `done` state. Neither generalises to a span, and the cost of making it would be large for a personal planner.
 - Recurring tasks: a task can repeat daily, every weekday, or on chosen weekdays, expanded from one document on read rather than stored per occurrence. Editing, completing, or deleting a single day detaches just that day; nothing else changes shape. No end date — a repeat runs until deleted.
 - Deliberately not yet built: browser reminders, JSON export.
 

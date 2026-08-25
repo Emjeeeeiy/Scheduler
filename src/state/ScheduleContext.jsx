@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { useAuth } from './AuthContext.jsx'
-import { clampMin, isValidKey } from '../lib/date.js'
+import { addDays, clampMin, daysBetween, isValidKey } from '../lib/date.js'
 import {
   normalizeOverrides,
   normalizeRecurrence,
@@ -24,6 +24,15 @@ import {
 const ScheduleContext = createContext(null)
 
 export const DEFAULT_DURATION_MIN = 30
+
+/** A timed event with no end time covers an hour, the same way a task with no
+    stated duration covers thirty minutes. */
+export const DEFAULT_EVENT_DURATION_MIN = 60
+
+/* An event may legitimately run for months (a sabbatical, a long project), but
+   not for centuries. This is a guard against corrupt data, not a product
+   limit — see the cap in normalizeEvent. */
+const MAX_EVENT_DAYS = 366
 
 /* The colour menu, in validated slot order (see the tag palette note in
    tokens.css). A tag doc stores the slot NAME, not a hex: the two themes need
@@ -83,6 +92,53 @@ function normalizeTask(id, raw) {
   }
 }
 
+/* An event is a commitment, not work to get through: no done state, no
+   recurrence, and it may cover a range of days rather than sitting on one.
+   Because a timed event still carries startMin and a derived durationMin, it
+   flows through layoutDay/visibleWindow exactly like a task does — the grid
+   needs no second code path to draw one. */
+function normalizeEvent(id, raw) {
+  const startDate = isValidKey(raw?.startDate) ? raw.startDate : null
+  const rawEnd = isValidKey(raw?.endDate) ? raw.endDate : null
+  // An end can never sit before its start; a malformed range collapses to the
+  // single day it started on rather than rendering as a bar of negative width.
+  let endDate = startDate && rawEnd && rawEnd > startDate ? rawEnd : startDate
+  /* And a corrupt far-future end is capped rather than trusted. The month lane
+     packer walks a span day by day, so a stray '2999-12-31' would not merely
+     draw something wrong — it would spin through ~350,000 iterations per
+     render. Bound it here, at the same edge every other field is coerced. */
+  if (endDate !== null && daysBetween(startDate, endDate) >= MAX_EVENT_DAYS) {
+    endDate = addDays(startDate, MAX_EVENT_DAYS - 1)
+  }
+  const startMin = startDate && Number.isFinite(raw?.startMin) ? clampMin(raw.startMin) : null
+  /* An end *time* only means something inside a single day. Across a range the
+     bar covers whole days, and a clock time would be ambiguous about which. */
+  const endMin =
+    startDate === endDate && startMin !== null && Number.isFinite(raw?.endMin)
+      ? clampMin(raw.endMin)
+      : null
+  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
+
+  return {
+    id,
+    title: title || 'Untitled event',
+    notes: typeof raw?.notes === 'string' ? raw.notes : '',
+    startDate,
+    endDate,
+    startMin,
+    endMin,
+    durationMin:
+      startMin === null
+        ? null
+        : endMin !== null && endMin > startMin
+          ? endMin - startMin
+          : DEFAULT_EVENT_DURATION_MIN,
+    tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
+    createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
+    updatedAt: Number.isFinite(raw?.updatedAt) ? raw.updatedAt : 0,
+  }
+}
+
 function normalizeTag(id, raw) {
   const name = typeof raw?.name === 'string' ? raw.name.trim() : ''
   const slot = TAG_SLOTS.includes(raw?.slot) ? raw.slot : TAG_SLOTS[0]
@@ -112,6 +168,7 @@ export function ScheduleProvider({ children }) {
 
   const [tasks, setTasks] = useState([])
   const [tags, setTags] = useState([])
+  const [events, setEvents] = useState([])
   const [readyUid, setReadyUid] = useState(null)
   const [error, setError] = useState(null)
 
@@ -126,8 +183,12 @@ export function ScheduleProvider({ children }) {
 
     let tasksReady = false
     let tagsReady = false
+    let eventsReady = false
+    /* Every branch below — including every error branch — must mark its own
+       flag before calling this. A listener that fails without doing so leaves
+       the app on "loading" forever rather than showing what it does have. */
     const markReady = () => {
-      if (tasksReady && tagsReady) setReadyUid(uid)
+      if (tasksReady && tagsReady && eventsReady) setReadyUid(uid)
     }
 
     /* One listener over the whole collection, sliced in memory by each view.
@@ -175,9 +236,31 @@ export function ScheduleProvider({ children }) {
       },
     )
 
+    const unsubscribeEvents = onSnapshot(
+      collection(db, 'users', uid, 'events'),
+      (snapshot) => {
+        setEvents(
+          snapshot.docs
+            .map((d) => normalizeEvent(d.id, d.data()))
+            // An event with no valid start date cannot be placed anywhere in
+            // the UI, so it is dropped rather than given an invented day.
+            .filter((e) => e.startDate !== null),
+        )
+        eventsReady = true
+        markReady()
+      },
+      (caught) => {
+        console.error('Could not read events.', caught)
+        setError(caught.message ?? 'Could not read events.')
+        eventsReady = true
+        markReady()
+      },
+    )
+
     return () => {
       unsubscribeTasks()
       unsubscribeTags()
+      unsubscribeEvents()
     }
   }, [uid])
 
@@ -185,11 +268,14 @@ export function ScheduleProvider({ children }) {
     const tasksCol = () => collection(db, 'users', uid, 'tasks')
     const taskDoc = (id) => doc(db, 'users', uid, 'tasks', id)
     const tagDoc = (id) => doc(db, 'users', uid, 'tags', id)
+    const eventsCol = () => collection(db, 'users', uid, 'events')
+    const eventDoc = (id) => doc(db, 'users', uid, 'events', id)
 
     // Until this user's own snapshots have landed, show nothing rather than
     // whatever the last account left in state.
     const visibleTasks = loading ? [] : tasks
     const visibleTags = loading ? [] : tags
+    const visibleEvents = loading ? [] : events
 
     const tagById = new Map(visibleTags.map((t) => [t.id, t]))
 
@@ -254,6 +340,33 @@ export function ScheduleProvider({ children }) {
       (a, b) => a.order - b.order || a.name.localeCompare(b.name),
     )
 
+    /* Sorted once, here, in the order the lane packer wants to consume them:
+       earliest first, then longest first so a week-long bar claims its lane
+       before a one-day bar can push it down, then id to keep it stable. */
+    const sortedEvents = [...visibleEvents].sort(
+      (a, b) =>
+        a.startDate.localeCompare(b.startDate) ||
+        b.endDate.localeCompare(a.endDate) ||
+        a.id.localeCompare(b.id),
+    )
+
+    /* Day keys are strings precisely so a range test is a string comparison —
+       no Date objects, no timezone, no DST. */
+    const eventsInRange = (startKey, endKey) =>
+      sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+
+    /* Mirrors dayCache: a month render asks 42 times, and each call would
+       otherwise rescan every event. The cache also keeps the returned array
+       referentially stable across those calls. */
+    const eventDayCache = new Map()
+    const eventsOn = (key) => {
+      const cached = eventDayCache.get(key)
+      if (cached) return cached
+      const found = sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate)
+      eventDayCache.set(key, found)
+      return found
+    }
+
     /* An id from the UI can name a real document or one day of a series. Every
        mutation below resolves it first, because the two need different writes:
        a document is edited in place, a day of a series is an exception recorded
@@ -307,9 +420,19 @@ export function ScheduleProvider({ children }) {
       error,
 
       getTag: (id) => (id ? tagById.get(id) ?? null : null),
+      /* tasksOn stays task-only, deliberately and permanently. Merging events
+         into it would put them straight into dayStats, overdueTasks,
+         upcomingTasks and every future caller by default — the exact leak
+         keeping events in their own collection exists to prevent. Views
+         compose tasksOn and eventsOn; nothing else does it for them. */
       tasksOn,
       occurrencesOn,
       getSeries: (id) => seriesById.get(id) ?? null,
+
+      events: sortedEvents,
+      eventsOn,
+      eventsInRange,
+      getEvent: (id) => sortedEvents.find((e) => e.id === id) ?? null,
 
       async addTask(draft) {
         const stamp = now()
@@ -399,6 +522,56 @@ export function ScheduleProvider({ children }) {
         return updateDoc(taskDoc(id), { ...patch, updatedAt: now() })
       },
 
+      /* Events carry no recurrence, so none of the occurrence machinery above
+         applies: an event id is always a real document id. */
+      async addEvent(draft) {
+        const stamp = now()
+        const startDate = isValidKey(draft.startDate) ? draft.startDate : null
+        if (startDate === null) throw new Error('An event needs a start date.')
+        const endDate =
+          isValidKey(draft.endDate) && draft.endDate > startDate ? draft.endDate : startDate
+        const startMin = Number.isFinite(draft.startMin) ? clampMin(draft.startMin) : null
+        return addDoc(eventsCol(), {
+          title: (draft.title ?? '').trim() || 'Untitled event',
+          notes: draft.notes ?? '',
+          startDate,
+          endDate,
+          startMin,
+          endMin:
+            startDate === endDate && startMin !== null && Number.isFinite(draft.endMin)
+              ? clampMin(draft.endMin)
+              : null,
+          tagId: draft.tagId ?? null,
+          createdAt: stamp,
+          updatedAt: stamp,
+        })
+      },
+
+      async updateEvent(id, patch) {
+        return updateDoc(eventDoc(id), { ...patch, updatedAt: now() })
+      },
+
+      async removeEvent(id) {
+        return deleteDoc(eventDoc(id))
+      },
+
+      /** Move a whole event to a new day, keeping its span. `grabOffsetDays`
+          is the day-scale twin of the grid's grabOffsetMin: dropping the third
+          day of a five-day bar onto Wednesday puts *that day* on Wednesday. */
+      async moveEvent(id, toKey, grabOffsetDays = 0) {
+        const event = sortedEvents.find((e) => e.id === id)
+        if (!event || !isValidKey(toKey)) return undefined
+        const startDate = addDays(toKey, -grabOffsetDays)
+        // Shift both ends by the same delta so the span is preserved by
+        // construction rather than recomputed and rounded.
+        const delta = daysBetween(event.startDate, startDate)
+        return updateDoc(eventDoc(id), {
+          startDate,
+          endDate: addDays(event.endDate, delta),
+          updatedAt: now(),
+        })
+      },
+
       async addTag(draft) {
         return addDoc(collection(db, 'users', uid, 'tags'), {
           name: (draft.name ?? '').trim() || 'Untitled',
@@ -417,21 +590,27 @@ export function ScheduleProvider({ children }) {
       },
 
       /** Work outlives the label you filed it under: clear the tag from its
-          tasks rather than deleting the history along with it. */
+          tasks rather than deleting the history along with it. Events wear the
+          same tags, so they are swept in the same pass — a tag deleted out
+          from under an event would otherwise leave it painting from a token
+          that no longer resolves. */
       async removeTag(id) {
-        const affected = visibleTasks.filter((t) => t.tagId === id)
+        const affected = [
+          ...visibleTasks.filter((t) => t.tagId === id).map((t) => taskDoc(t.id)),
+          ...sortedEvents.filter((e) => e.tagId === id).map((e) => eventDoc(e.id)),
+        ]
         // writeBatch caps at 500 operations, so chunk rather than assume.
         for (let i = 0; i < affected.length; i += 400) {
           const batch = writeBatch(db)
-          for (const task of affected.slice(i, i + 400)) {
-            batch.update(taskDoc(task.id), { tagId: null, updatedAt: now() })
+          for (const ref of affected.slice(i, i + 400)) {
+            batch.update(ref, { tagId: null, updatedAt: now() })
           }
           await batch.commit()
         }
         return deleteDoc(tagDoc(id))
       },
     }
-  }, [uid, tasks, tags, loading, error])
+  }, [uid, tasks, tags, events, loading, error])
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>
 }

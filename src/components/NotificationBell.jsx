@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
+import { usePopoverPlacement } from '../lib/usePopoverPlacement.js'
 import { buildNotifications } from '../lib/notifications.js'
 import { durationLabel, minToLabel, relativeDayLabel } from '../lib/date.js'
 import { BellIcon } from './icons.jsx'
@@ -14,7 +15,6 @@ function describe(item) {
 
 const PANEL_WIDTH = 300
 const PANEL_MAX_HEIGHT = 360
-const GAP = 8
 
 /**
  * Purely derived from the live task list and the clock — no read/dismissed
@@ -26,9 +26,17 @@ export function NotificationBell({ onEdit }) {
   const { tasks, occurrencesOn } = useSchedule()
   const now = useNow()
   const [open, setOpen] = useState(false)
-  const [placement, setPlacement] = useState(null)
-  const triggerRef = useRef(null)
-  const panelRef = useRef(null)
+  const dismiss = useCallback(() => setOpen(false), [])
+  /* Placement and dismissal both live in the shared hook — see the note there
+     about fixed positioning and the single clamped `left`. The month's day
+     peek needs identical behaviour, and this logic is too subtle to keep in
+     two places. */
+  const { placement, triggerRef, panelRef } = usePopoverPlacement({
+    open,
+    onDismiss: dismiss,
+    width: PANEL_WIDTH,
+    maxHeight: PANEL_MAX_HEIGHT,
+  })
 
   /* Stored tasks carry the overdue scan, which reaches arbitrarily far back;
      today's repeats have to be expanded before they can be noticed at all. */
@@ -37,58 +45,6 @@ export function NotificationBell({ onEdit }) {
     now.key,
     now.min,
   )
-
-  /* The sidebar scrolls its own overflow, which would clip a dropdown
-     positioned relative to it — so this measures the trigger in viewport
-     coordinates and renders the panel `position: fixed`, escaping that
-     ancestor entirely, and flips above/below or left/right of the button
-     based on actual available space rather than a fixed per-breakpoint
-     guess (the trigger sits at the sidebar's bottom on desktop but in a top
-     bar on mobile — opposite ends of the screen). */
-  useLayoutEffect(() => {
-    if (!open) return
-    const rect = triggerRef.current?.getBoundingClientRect()
-    if (!rect) return
-
-    const openUpward = rect.bottom + PANEL_MAX_HEIGHT + GAP > window.innerHeight && rect.top > PANEL_MAX_HEIGHT
-
-    /* Always a single `left`, clamped into the viewport, rather than ever
-       switching to `right` — mixing `right` with the panel's fixed CSS width
-       lets the browser compute an implicit `left` that goes negative the
-       moment the trigger sits closer to one edge than the panel is wide
-       (exactly the case with a mobile trigger a hundred-odd px from the left:
-       right-aligning to it left nowhere for the other 300px to go). Clamping
-       one coordinate handles a trigger anywhere on screen uniformly. */
-    const maxLeft = window.innerWidth - PANEL_WIDTH - 12
-    const clampedLeft = Math.min(Math.max(rect.left, 12), Math.max(maxLeft, 12))
-
-    setPlacement({
-      position: 'fixed',
-      ...(openUpward
-        ? { bottom: window.innerHeight - rect.top + GAP }
-        : { top: rect.bottom + GAP }),
-      left: clampedLeft,
-    })
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return undefined
-    function onPointerDown(event) {
-      if (triggerRef.current?.contains(event.target) || panelRef.current?.contains(event.target)) {
-        return
-      }
-      setOpen(false)
-    }
-    function onKeyDown(event) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
 
   return (
     <div className="notif">

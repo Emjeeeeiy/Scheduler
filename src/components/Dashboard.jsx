@@ -24,6 +24,7 @@ import { StatTile } from './StatTile.jsx'
 import { BarChart } from './BarChart.jsx'
 import { TagBars } from './TagBars.jsx'
 import { TaskRow } from './TaskRow.jsx'
+import { MiniCalendar } from './MiniCalendar.jsx'
 import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from './icons.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
@@ -35,7 +36,7 @@ const RANGES = [
   { id: 30, label: 'Last 30 days' },
 ]
 
-export function Dashboard({ onFocusDay, onEdit, onCreate }) {
+export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
   const now = useNow()
   const [days, setDays] = useState(7)
@@ -76,23 +77,31 @@ export function Dashboard({ onFocusDay, onEdit, onCreate }) {
 
   return (
     <div className="dashboard">
-      <section className="card hero" aria-label="Today at a glance">
-        <p className="hero__label">Planned today</p>
-        <p className="hero__value">
-          {toHours(todayTotals.plannedMin)}
-          <span className="hero__unit">h</span>
-        </p>
-        <p className="hero__hint">
-          {todayTotals.count === 0
-            ? 'Nothing on the books yet.'
-            : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
-                todayTotals.remainingMin,
-              )} left to work through`}
-        </p>
-        <button type="button" className="primary-button" onClick={() => onCreate?.({ date: now.key })}>
-          Plan something for today
-        </button>
-      </section>
+      <div className="dashboard__top">
+        <section className="card hero" aria-label="Today at a glance">
+          <p className="hero__label">Planned today</p>
+          <p className="hero__value">
+            {toHours(todayTotals.plannedMin)}
+            <span className="hero__unit">h</span>
+          </p>
+          <p className="hero__hint">
+            {todayTotals.count === 0
+              ? 'Nothing on the books yet.'
+              : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
+                  todayTotals.remainingMin,
+                )} left to work through`}
+          </p>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => onCreate?.({ date: now.key })}
+          >
+            Plan something for today
+          </button>
+        </section>
+
+        <MiniCalendar onFocusDay={onFocusDay} onFocusMonth={onFocusMonth} />
+      </div>
 
       <div className="tile-row">
         <StatTile

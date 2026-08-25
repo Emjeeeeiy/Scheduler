@@ -1,37 +1,58 @@
 import { useRef, useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '../lib/layout.js'
+import { DRAG_TASK, hasDrag, readDrag } from '../lib/dnd.js'
 import { durationLabel, minToLabel, snapMin } from '../lib/date.js'
 import { recurrenceLabel } from '../lib/recurrence.js'
 import { RepeatIcon } from './icons.jsx'
 
-/** Custom MIME type so a drop handler can tell one of our tasks from a file or
-    a stray text selection dragged in from elsewhere. */
-export const DRAG_TYPE = 'application/x-cadence-task'
-
 const SNAP_MIN = 15
+const MIN_DURATION_MIN = 15
 
 /**
- * One day as a time grid: hour rules, positioned blocks, click-to-create, and
- * drop-to-schedule. Both the Week view (seven of these) and the Day view (one
- * wide one) render it, so scheduling behaves identically in both.
+ * One day as a time grid: hour rules, positioned blocks, drag-to-create, block
+ * resizing, and drop-to-schedule. Both the Week view (seven of these) and the
+ * Day view (one wide one) render it, so scheduling behaves identically in both
+ * — a gesture added here is a gesture both views gain.
+ *
+ * Three gestures share this surface, and they are kept apart deliberately:
+ *   - Moving a block is HTML5 drag-and-drop, because it transfers a task
+ *     between columns and views (the inbox and the month accept the same drop).
+ *   - Creating by dragging a range, and resizing a block, are Pointer Events.
+ *     Neither transfers anything, and pointer events work under touch, which
+ *     HTML5 dragstart does not fire for at all.
+ * The resize handles are rendered as siblings of the block rather than
+ * children of it: the block carries `draggable`, and a native dragstart fires
+ * on press-and-move regardless of pointer capture, so a handle nested inside
+ * it would race the drag every time.
  */
 export function DayColumn({
   dateKey,
   tasks,
+  events = [],
   windowStart,
   windowEnd,
   hourMarkList,
   onCreate,
   onEdit,
+  onEditEvent,
   nowMinute = null,
 }) {
   const { scheduleTask, getTag } = useSchedule()
   const surfaceRef = useRef(null)
   const [hoverMin, setHoverMin] = useState(null)
+  const [draft, setDraft] = useState(null)
+  const [resizing, setResizing] = useState(null)
 
   const timed = tasks.filter((t) => Number.isFinite(t.startMin))
-  const blocks = layoutDay(timed, windowStart, windowEnd)
+  /* A single-day timed event sits in the grid alongside tasks; an all-day or
+     multi-day one is drawn as a bar by the view above, never sliced into
+     per-day pieces here. Both kinds go through layoutDay together so an event
+     and a task that overlap split the column instead of stacking. */
+  const timedEvents = events.filter(
+    (e) => Number.isFinite(e.startMin) && e.startDate === e.endDate && e.startDate === dateKey,
+  )
+  const blocks = layoutDay([...timed, ...timedEvents], windowStart, windowEnd)
 
   /** Which minute a pointer at `clientY` is over, snapped to the grid. */
   function minuteAt(clientY) {
@@ -40,11 +61,82 @@ export function DayColumn({
     return ratioToMin((clientY - rect.top) / rect.height, windowStart, windowEnd, SNAP_MIN)
   }
 
-  function onSurfaceClick(event) {
-    // Clicks that started on a block are the block's business, not the day's.
+  /* ------------------------------------------------------ create by drag -- */
+
+  function onSurfacePointerDown(event) {
+    if (event.button !== 0) return
     if (event.target !== event.currentTarget) return
-    onCreate?.({ date: dateKey, startMin: minuteAt(event.clientY) })
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const at = minuteAt(event.clientY)
+    setDraft({ from: at, to: at })
   }
+
+  function onSurfacePointerMove(event) {
+    if (!draft) return
+    setDraft((current) => (current ? { ...current, to: minuteAt(event.clientY) } : null))
+  }
+
+  function onSurfacePointerUp(event) {
+    if (!draft) return
+    const to = minuteAt(event.clientY)
+    const start = Math.min(draft.from, to)
+    const span = Math.abs(to - draft.from)
+    setDraft(null)
+    /* A press with no travel is still a click, and still means "put a task
+       here" at the default length — the behaviour this surface had before it
+       could do ranges. Resolving it here rather than leaving an onClick in
+       place is what stops the two firing for the same gesture. */
+    if (span < SNAP_MIN) onCreate?.({ date: dateKey, startMin: minuteAt(event.clientY) })
+    else onCreate?.({ date: dateKey, startMin: start, durationMin: span })
+  }
+
+  /* ----------------------------------------------------------- resizing -- */
+
+  function onResizePointerDown(event, block, edge) {
+    if (event.button !== 0) return
+    // Keep the press off the block underneath, which would start a native drag.
+    event.stopPropagation()
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setResizing({
+      id: block.task.id,
+      edge,
+      startMin: block.task.startMin,
+      endMin: block.task.startMin + block.task.durationMin,
+    })
+  }
+
+  function onResizePointerMove(event) {
+    if (!resizing) return
+    const at = snapMin(minuteAt(event.clientY), SNAP_MIN)
+    setResizing((current) => {
+      if (!current) return null
+      if (current.edge === 'bottom') {
+        return { ...current, endMin: Math.max(at, current.startMin + MIN_DURATION_MIN) }
+      }
+      return { ...current, startMin: Math.min(at, current.endMin - MIN_DURATION_MIN) }
+    })
+  }
+
+  async function onResizePointerUp() {
+    if (!resizing) return
+    const { id, startMin, endMin } = resizing
+    setResizing(null)
+    try {
+      /* scheduleTask, not updateTask: it resolves an occurrence id and detaches
+         that one day of a repeating task, so resizing this Tuesday's standup
+         does not reshape every Tuesday. */
+      await scheduleTask(id, {
+        date: dateKey,
+        startMin,
+        durationMin: Math.max(MIN_DURATION_MIN, endMin - startMin),
+      })
+    } catch (caught) {
+      console.error('Could not resize task.', caught)
+    }
+  }
+
+  /* ------------------------------------------------------------- moving -- */
 
   function onDragStart(event, block) {
     const rect = event.currentTarget.getBoundingClientRect()
@@ -53,34 +145,21 @@ export function DayColumn({
     const grabRatio = rect.height === 0 ? 0 : (event.clientY - rect.top) / rect.height
     const grabOffsetMin = Math.round(grabRatio * block.task.durationMin)
     event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData(
-      DRAG_TYPE,
-      JSON.stringify({ id: block.task.id, grabOffsetMin }),
-    )
-  }
-
-  function readDrag(event) {
-    const raw = event.dataTransfer.getData(DRAG_TYPE)
-    if (!raw) return null
-    try {
-      return JSON.parse(raw)
-    } catch {
-      return null
-    }
+    event.dataTransfer.setData(DRAG_TASK, JSON.stringify({ id: block.task.id, grabOffsetMin }))
   }
 
   function onDragOver(event) {
-    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+    if (!hasDrag(event, DRAG_TASK)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     setHoverMin(minuteAt(event.clientY))
   }
 
   async function onDrop(event) {
-    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+    if (!hasDrag(event, DRAG_TASK)) return
     event.preventDefault()
     setHoverMin(null)
-    const payload = readDrag(event)
+    const payload = readDrag(event, DRAG_TASK)
     if (!payload?.id) return
     const startMin = snapMin(minuteAt(event.clientY) - (payload.grabOffsetMin ?? 0), SNAP_MIN)
     try {
@@ -89,6 +168,9 @@ export function DayColumn({
       console.error('Could not move task.', caught)
     }
   }
+
+  const draftTop = draft ? Math.min(draft.from, draft.to) : 0
+  const draftSpan = draft ? Math.abs(draft.to - draft.from) : 0
 
   return (
     <div
@@ -106,14 +188,32 @@ export function DayColumn({
         />
       ))}
 
-      {/* The click/drop surface sits under the blocks so a click on empty space
-          creates a task while a click on a block edits it. */}
+      {/* The click/drop surface sits under the blocks so a press on empty space
+          creates a task while a press on a block edits it. */}
       <div
         ref={surfaceRef}
         className="day-column__surface"
-        onClick={onSurfaceClick}
+        onPointerDown={onSurfacePointerDown}
+        onPointerMove={onSurfacePointerMove}
+        onPointerUp={onSurfacePointerUp}
+        // A cancelled pointer (a system gesture, a lost capture) must clear the
+        // draft too, or the ghost rectangle sticks to the grid forever.
+        onPointerCancel={() => setDraft(null)}
         role="presentation"
       />
+
+      {draft && draftSpan >= SNAP_MIN && (
+        <div
+          className="day-column__draft"
+          style={{
+            top: `${minToPercent(draftTop, windowStart, windowEnd)}%`,
+            height: `${(draftSpan / (windowEnd - windowStart)) * 100}%`,
+          }}
+          aria-hidden="true"
+        >
+          <span>{durationLabel(draftSpan)}</span>
+        </div>
+      )}
 
       {hoverMin !== null && (
         <div
@@ -134,47 +234,92 @@ export function DayColumn({
       )}
 
       {blocks.map((block) => {
-        const tag = getTag(block.task.tagId)
+        const item = block.task
+        const isEvent = item.startDate !== undefined
+        const tag = getTag(item.tagId)
+        const live = resizing?.id === item.id ? resizing : null
+        // While dragging an edge the block follows the pointer directly, so the
+        // gesture reads as continuous instead of snapping only once on release.
+        const top = live
+          ? minToPercent(live.startMin, windowStart, windowEnd)
+          : block.top
+        const height = live
+          ? ((live.endMin - live.startMin) / (windowEnd - windowStart)) * 100
+          : block.height
+
         return (
-          <button
-            key={block.task.id}
-            type="button"
-            draggable
-            onDragStart={(event) => onDragStart(event, block)}
-            onClick={() => onEdit?.(block.task)}
-            className={`block${block.task.done ? ' block--done' : ''}${
-              block.columns > 1 ? ' block--split' : ''
-            }`}
-            style={{
-              top: `${block.top}%`,
-              // 2px of surface between touching blocks, and between a block and
-              // the column edge — the gap separates them, never a stroke.
-              height: `calc(${block.height}% - 2px)`,
-              left: `calc(${block.left}% + 1px)`,
-              width: `calc(${block.width}% - 2px)`,
-              '--tag': tag?.color ?? 'var(--series-1)',
-            }}
-            title={[
-              block.task.title,
-              minToLabel(block.task.startMin),
-              durationLabel(block.task.durationMin),
-              block.task.recurrence && recurrenceLabel(block.task.recurrence),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          >
-            <span className="block__title">{block.task.title}</span>
-            <span className="block__time">
-              {minToLabel(block.task.startMin)} · {durationLabel(block.task.durationMin)}
-              {block.task.recurrence && (
-                <>
-                  {' · '}
-                  <RepeatIcon className="block__repeat" />
-                  <span className="visually-hidden">{recurrenceLabel(block.task.recurrence)}</span>
-                </>
-              )}
-            </span>
-          </button>
+          <div key={item.id} className="block-slot">
+            <button
+              type="button"
+              draggable={!isEvent && !live}
+              onDragStart={(event) => !isEvent && onDragStart(event, block)}
+              onClick={() => (isEvent ? onEditEvent?.(item) : onEdit?.(item))}
+              className={[
+                'block',
+                isEvent ? 'block--event' : '',
+                item.done ? 'block--done' : '',
+                block.columns > 1 ? 'block--split' : '',
+                live ? 'block--resizing' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              style={{
+                top: `${top}%`,
+                // 2px of surface between touching blocks, and between a block and
+                // the column edge — the gap separates them, never a stroke.
+                height: `calc(${height}% - 2px)`,
+                left: `calc(${block.left}% + 1px)`,
+                width: `calc(${block.width}% - 2px)`,
+                '--tag': tag?.color ?? 'var(--series-1)',
+              }}
+              title={[
+                item.title,
+                minToLabel(live ? live.startMin : item.startMin),
+                durationLabel(live ? live.endMin - live.startMin : item.durationMin),
+                isEvent ? 'Event' : null,
+                item.recurrence && recurrenceLabel(item.recurrence),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            >
+              <span className="block__title">{item.title}</span>
+              <span className="block__time">
+                {minToLabel(live ? live.startMin : item.startMin)} ·{' '}
+                {durationLabel(live ? live.endMin - live.startMin : item.durationMin)}
+                {item.recurrence && (
+                  <>
+                    {' · '}
+                    <RepeatIcon className="block__repeat" />
+                    <span className="visually-hidden">{recurrenceLabel(item.recurrence)}</span>
+                  </>
+                )}
+              </span>
+            </button>
+
+            {/* Siblings, not children — see the note at the top of this file.
+                Events are not resized here: their length is a span between two
+                wall-clock points, edited in their own form. */}
+            {!isEvent &&
+              ['top', 'bottom'].map((edge) => (
+                <div
+                  key={edge}
+                  className={`block__handle block__handle--${edge}`}
+                  style={{
+                    top:
+                      edge === 'top'
+                        ? `calc(${top}% - 3px)`
+                        : `calc(${top}% + ${height}% - 5px)`,
+                    left: `calc(${block.left}% + 1px)`,
+                    width: `calc(${block.width}% - 2px)`,
+                  }}
+                  onPointerDown={(event) => onResizePointerDown(event, block, edge)}
+                  onPointerMove={onResizePointerMove}
+                  onPointerUp={onResizePointerUp}
+                  onPointerCancel={() => setResizing(null)}
+                  role="presentation"
+                />
+              ))}
+          </div>
         )
       })}
     </div>

@@ -60,6 +60,53 @@ const tasks = [
   }),
 ]
 
+const event = (id, patch) => ({
+  id,
+  title: `Event ${id}`,
+  notes: '',
+  startDate: TODAY,
+  endDate: TODAY,
+  startMin: null,
+  endMin: null,
+  durationMin: null,
+  tagId: null,
+  createdAt: 1,
+  updatedAt: 1,
+  ...patch,
+})
+
+/* Deliberately awkward fixtures, same spirit as the tasks above: a bar that
+   straddles a week boundary (the lane packer's hardest case), two overlapping
+   multi-day bars (which force a second lane), a single-day timed event (which
+   draws in the grid rather than as a bar), and a plain all-day one. */
+const events = [
+  /* Eleven days long on purpose: any span this size must cross at least one
+     Mon–Sun boundary whatever weekday the suite happens to run on, so the
+     clipping and continuation path is always exercised. A shorter fixture
+     passed or failed depending on the day of the week. */
+  event('e1', {
+    title: 'Team offsite',
+    startDate: addDays(TODAY, -3),
+    endDate: addDays(TODAY, 7),
+    tagId: 'work',
+  }),
+  event('e2', {
+    title: 'Design sprint',
+    startDate: TODAY,
+    endDate: addDays(TODAY, 2),
+    tagId: 'personal',
+  }),
+  event('e3', { title: 'Product launch', startDate: TODAY }),
+  event('e4', {
+    title: 'Dentist',
+    startDate: TODAY,
+    startMin: 15 * 60,
+    endMin: 16 * 60,
+    durationMin: 60,
+    tagId: 'personal',
+  }),
+]
+
 const series = tasks.filter((t) => t.recurrence)
 
 const tagById = new Map(tags.map((t) => [t.id, t]))
@@ -84,6 +131,18 @@ const tasksOn = (key) =>
 
 const noop = async () => {}
 
+const sortedEvents = [...events].sort(
+  (a, b) =>
+    a.startDate.localeCompare(b.startDate) ||
+    b.endDate.localeCompare(a.endDate) ||
+    a.id.localeCompare(b.id),
+)
+
+const eventsOn = (key) => sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate)
+
+const eventsInRange = (startKey, endKey) =>
+  sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+
 export const mockValue = {
   tasks,
   tags,
@@ -95,12 +154,20 @@ export const mockValue = {
   tasksOn,
   occurrencesOn,
   getSeries: (id) => series.find((s) => s.id === id) ?? null,
+  events: sortedEvents,
+  eventsOn,
+  eventsInRange,
+  getEvent: (id) => sortedEvents.find((e) => e.id === id) ?? null,
   addTask: noop,
   updateTask: noop,
   toggleDone: noop,
   removeTask: noop,
   scheduleTask: noop,
   unscheduleTask: noop,
+  addEvent: noop,
+  updateEvent: noop,
+  removeEvent: noop,
+  moveEvent: noop,
   addTag: noop,
   updateTag: noop,
   removeTag: noop,

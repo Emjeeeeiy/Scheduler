@@ -10,6 +10,7 @@ import {
 } from '../lib/date.js'
 import { daysForPreset, presetOf, recurrenceLabel } from '../lib/recurrence.js'
 import { CloseIcon, RepeatIcon } from './icons.jsx'
+import { EditorKindToggle } from './EditorKindToggle.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
 
@@ -58,7 +59,7 @@ function WeekdayPicker({ days, onChange }) {
 
 /** Create and edit share one form: the fields are identical, and keeping them
     together means a change to the time model can only be made in one place. */
-export function TaskEditor({ editor, onClose, onEditTask }) {
+export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const { addTask, updateTask, removeTask, tags, getSeries } = useSchedule()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.task : editor.draft
@@ -165,6 +166,8 @@ export function TaskEditor({ editor, onClose, onEditTask }) {
               <CloseIcon />
             </button>
           </div>
+
+          {!isEdit && <EditorKindToggle kind="task" onChangeKind={onChangeKind} />}
 
           {isOccurrence && (
             <div className="series-note">

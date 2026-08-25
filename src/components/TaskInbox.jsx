@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
-import { DRAG_TYPE } from './DayColumn.jsx'
+/* Only DRAG_TASK is ever named here, and that is the whole guard: an event
+   dragged over the inbox matches nothing, shows no drop affordance, and can
+   never reach unscheduleTask — which would write to a task document that does
+   not exist. Events have no inbox, because an undated thing that runs for
+   three days is a task, not an event. */
+import { DRAG_TASK, readDrag } from '../lib/dnd.js'
 import { todayKey } from '../lib/date.js'
 
 /**
@@ -32,12 +37,13 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
   }
 
   async function onDrop(event) {
-    if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+    if (!event.dataTransfer.types.includes(DRAG_TASK)) return
     event.preventDefault()
     setDropActive(false)
+    const payload = readDrag(event, DRAG_TASK)
+    if (!payload?.id) return
     try {
-      const { id } = JSON.parse(event.dataTransfer.getData(DRAG_TYPE))
-      if (id) await unscheduleTask(id)
+      await unscheduleTask(payload.id)
     } catch (caught) {
       console.error('Could not return task to the inbox.', caught)
     }
@@ -47,11 +53,16 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
     <section
       className={`inbox card${dropActive ? ' inbox--drop' : ''}`}
       onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes(DRAG_TYPE)) return
+        if (!event.dataTransfer.types.includes(DRAG_TASK)) return
         event.preventDefault()
         setDropActive(true)
       }}
-      onDragLeave={() => setDropActive(false)}
+      /* Only clear on a boundary the pointer actually left, not on every
+         crossing into a child — otherwise the highlight flickers as the
+         cursor passes over each row on its way in. */
+      onDragLeave={(event) =>
+        !event.currentTarget.contains(event.relatedTarget) && setDropActive(false)
+      }
       onDrop={onDrop}
       aria-label="Inbox"
     >
@@ -95,7 +106,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
                 draggable
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move'
-                  event.dataTransfer.setData(DRAG_TYPE, JSON.stringify({ id: task.id, grabOffsetMin: 0 }))
+                  event.dataTransfer.setData(DRAG_TASK, JSON.stringify({ id: task.id, grabOffsetMin: 0 }))
                 }}
               >
                 <input

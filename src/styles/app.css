@@ -75,7 +75,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-bottom: 16px;
+  /* The two create buttons are one pair; the gap to the nav below comes from
+     the second one, not from between them. */
+  margin-bottom: 6px;
 }
 
 .button-icon {
@@ -1450,6 +1452,18 @@ code {
   align-items: center;
   padding: 6px 4px 10px;
   gap: 1px;
+  /* A button now — the header zooms into that day — but it keeps the same
+     chrome-free look at rest; the feedback is the usual surface step. */
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.week__day:hover {
+  background: var(--surface-2);
 }
 
 .week__dow {
@@ -1509,13 +1523,77 @@ code {
   padding: 6px 0;
 }
 
-.week__allday-cell {
+/* Holds the spanning bars and the per-day cells in one stack, so both align to
+   the same seven tracks the grid below uses. */
+.week__allday-track {
   flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.week__spans {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 17px;
+  row-gap: 2px;
+}
+
+.week__span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0 3px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: grab;
+}
+
+.week__span:hover {
+  background: color-mix(in srgb, var(--tag) 26%, var(--surface-1));
+}
+
+.week__span-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week__span-carry {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.week__allday-cells {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.week__allday-cell {
   min-width: 0;
   display: grid;
   gap: 3px;
   padding: 0 3px;
   align-content: start;
+  /* A drop target has to keep a little height even when empty, or there is
+     nothing to aim at when returning the last item to a day. */
+  min-height: 20px;
+  border-radius: var(--radius-sm);
+}
+
+.week__allday-cell--drop {
+  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+}
+
+.week__events {
+  color: var(--text-muted);
 }
 
 .week__hint {
@@ -1595,12 +1673,81 @@ code {
   letter-spacing: 0.04em;
 }
 
+/* Six week rows rather than one flat run of 42 cells: an event bar has to
+   cross cell boundaries, so it cannot live inside a cell, and a row is the
+   furthest a bar can ever reach — it cannot span a line break. */
 .month__grid {
+  display: grid;
+  border-top: 1px solid var(--gridline);
+  border-left: 1px solid var(--gridline);
+}
+
+.month__week {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   grid-auto-rows: minmax(96px, auto);
-  border-top: 1px solid var(--gridline);
-  border-left: 1px solid var(--gridline);
+}
+
+/* The bars sit in their own layer over the same seven tracks the cells use,
+   which is what makes a bar line up exactly with the days it covers — no
+   percentage arithmetic and nothing to measure, so it is identical under SSR.
+   pointer-events off here and back on per bar keeps the cells underneath
+   droppable; this app runs on drag and drop, and an overlay that swallowed
+   drops would break the month outright. */
+.month__lanes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 26px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 15px;
+  row-gap: 2px;
+  padding: 0 5px;
+  pointer-events: none;
+}
+
+.month__bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius-tight);
+  /* The same fill recipe as a time-grid block, so an event reads as the same
+     material — but with no left border, which stays reserved for the block and
+     would in any case imply "starts here" on a bar that may be clipped. */
+  background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: grab;
+}
+
+.month__bar:hover {
+  background: color-mix(in srgb, var(--tag) 26%, var(--surface-1));
+}
+
+.month__bar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month__bar-carry {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+/* Reserves exactly the height the row's lanes take, so chips begin below the
+   bars instead of underneath them. --lanes is set on the row by the packer. */
+.month__lane-spacer {
+  height: calc(var(--lanes, 0) * 17px);
+  flex: none;
 }
 
 .month__cell {
@@ -2315,11 +2462,510 @@ code {
     gap: 0;
   }
 
-  .month__grid {
+  /* Moved with grid-auto-rows itself, which now lives on the week row. */
+  .month__week {
     grid-auto-rows: minmax(74px, auto);
   }
 
   .card {
     padding: 14px;
+  }
+}
+
+/* ================================================== events & new gestures == */
+
+/* The range being dragged out on the grid, previewed live. Uses the soft step
+   of the one accent rather than a new colour — it is a proposal, not a thing
+   that exists yet. */
+.day-column__draft {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  border-radius: var(--radius-tight);
+  background: var(--series-1-soft);
+  border: 1px dashed var(--series-1);
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 4px;
+}
+
+.day-column__draft span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--series-1);
+}
+
+/* Siblings of the block, not children: the block is `draggable`, and a native
+   dragstart fires on press-and-move regardless of pointer capture, so a handle
+   nested inside it would race the drag every time. */
+.block__handle {
+  position: absolute;
+  height: 8px;
+  z-index: 4;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* Invisible at rest: the cursor is the affordance, and a visible grip on every
+   block would clutter a full day. */
+.block__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--series-1);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.block-slot:hover .block__handle::after,
+.block__handle:hover::after {
+  opacity: 0.75;
+}
+
+.block--resizing {
+  cursor: ns-resize;
+}
+
+/* An event in the grid: the same material as a task block, but without the tag
+   stripe and with nothing to tick off, so it reads as a different kind of
+   thing without reaching for a second colour. */
+.block--event {
+  border-left: none;
+  background: color-mix(in srgb, var(--tag) 22%, var(--surface-1));
+  border-top: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  cursor: pointer;
+}
+
+.day-peek {
+  z-index: 40;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+}
+
+.day-peek__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 8px;
+}
+
+.day-peek__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.day-peek__list {
+  display: grid;
+  gap: 2px;
+}
+
+.day-peek__item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.day-peek__item:hover {
+  background: var(--surface-2);
+}
+
+.day-peek__item--event {
+  background: color-mix(in srgb, var(--tag) 10%, transparent);
+}
+
+.day-peek__item--done .day-peek__label {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.day-peek__when {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+}
+
+.day-peek__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-peek__note {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.event-rail {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.event-rail__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tag) 14%, var(--surface-1));
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.event-rail__item:hover {
+  background: color-mix(in srgb, var(--tag) 24%, var(--surface-1));
+}
+
+.event-rail__mark {
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.event-rail__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-rail__meta {
+  flex: none;
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--text-secondary);
+}
+
+.free-slots {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.free-slots__label {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.free-slots__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.free-slots__slot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.free-slots__slot:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.free-slots__when {
+  font-variant-numeric: tabular-nums;
+}
+
+.free-slots__len {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.agenda {
+  display: grid;
+  gap: 2px;
+}
+
+.agenda__row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agenda__row:hover {
+  background: var(--surface-2);
+}
+
+.agenda__row--event {
+  background: color-mix(in srgb, var(--tag) 9%, transparent);
+}
+
+.agenda__row--done .agenda__title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.agenda__when {
+  flex: none;
+  min-width: 68px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.agenda__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda__meta {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.day-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The hero keeps the flexible column because one big number reflows happily;
+   the calendar takes a fixed one so seven day columns stay on a predictable
+   grid — the same split .day-layout already makes with its inbox. */
+.dashboard__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.mini-cal {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+}
+
+.mini-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mini-cal__label {
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mini-cal__label:hover {
+  background: var(--surface-2);
+}
+
+.mini-cal__nav {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-button--sm {
+  width: 24px;
+  height: 24px;
+}
+
+.mini-cal__dow,
+.mini-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.mini-cal__dow span {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.mini-cal__day {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-cal__day:hover {
+  background: var(--surface-2);
+}
+
+.mini-cal__day--outside .mini-cal__num {
+  color: var(--text-muted);
+}
+
+.mini-cal__num {
+  line-height: 1;
+}
+
+/* A day carrying an event fills its numeral — a shape change rather than a
+   second colour, so it stacks with the load dots instead of competing. */
+.mini-cal__day--event .mini-cal__num,
+.mini-cal__day--today .mini-cal__num {
+  border-radius: 999px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+}
+
+.mini-cal__day--event .mini-cal__num {
+  background: var(--surface-2);
+}
+
+.mini-cal__day--today .mini-cal__num {
+  background: var(--series-1);
+  color: #fff;
+}
+
+.mini-cal__dots {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  height: 3px;
+}
+
+.mini-cal__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--series-1);
+}
+
+.mini-cal__day--heavy .mini-cal__dot {
+  background: var(--critical);
+}
+
+.editor-kind__options {
+  display: flex;
+  gap: 6px;
+}
+
+/* Matches .sidebar__new-task's box exactly — without display:flex the icon
+   sits on the text baseline and pushes the button taller than the primary one
+   above it, which reads as a mistake rather than a hierarchy. */
+.sidebar__new-event {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.modal__note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+@media (max-width: 900px) {
+  /* Drops below the hero rather than squeezing — the same "collapse the
+     structure, do not merely shrink it" move the sidebar and day layout
+     already make at this width. */
+  .dashboard__top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Capped once it is no longer in a fixed column: the day cells are square,
+     so a full-width calendar would grow them to ~100px each and turn a glance
+     control into the tallest thing on the page. */
+  .mini-cal {
+    max-width: 360px;
+  }
+
+  /* Sits beside the primary button in the top bar rather than stretching
+     across it — full width is a sidebar shape, not a toolbar one. This has to
+     live here, after the base rule above: the sidebar's other ≤900px
+     overrides sit earlier in the file, and at equal specificity the later
+     declaration wins regardless of the media query. */
+  .sidebar__new-event {
+    width: auto;
+    margin-bottom: 0;
   }
 }

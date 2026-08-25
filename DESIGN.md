@@ -372,6 +372,35 @@ Sign-in and sign-up are a fixed, always-dark two-column screen (`.auth-shell`) �
 - **Focus & links:** `.auth-shell :focus-visible` and `.auth-panel .link-button` both use Auth Link `#a78bfa` rather than the themed `--focus`/`--series-1`, chosen for its own contrast against black (7.14:1) regardless of which theme the visitor's browser or OS prefers.
 - **Why fixed, not themed:** this is the one branded moment before the app's own theme toggle is even reachable to a visitor — matching a supplied reference image's specific violet-to-black gradient exactly, in every theme, is the point.
 
+### Event Bar
+The calendar's vocabulary for an event — a thing that *happens*, as opposed to a task, which gets *done*. Wherever an event covers whole days it draws as a continuous filled bar spanning them: `.month__bar` in the month grid, `.week__span` in the week's all-day row. Both use the Time-Grid Block's exact fill recipe (`color-mix(in srgb, var(--tag) 15%, var(--surface-1))`) at 3px corners, so an event reads as the same *material* as a block — but with **no left border**. That is deliberate twice over: the colored left border is the Time-Grid Block's own sanctioned exception and does not generalise, and a bar clipped at a week boundary carrying a left edge would imply "starts here" on a day it does not.
+
+A bar clipped by the end of a row shows a 10px `ChevronLeftIcon`/`ChevronRightIcon` on the clipped side — the existing icon grammar, semantically exact ("it continues that way"), and never the only signal: a `visually-hidden` "Continues from earlier" / "Continues afterwards" rides alongside. Clipped corners stay rounded; nothing in this system is cut or asymmetric.
+
+**Lane packing.** `src/lib/spans.js` is the one implementation, shared by the month row, the week all-day row, and the day view's single-day rail. Bars are clipped to the row, sorted longest-first, and given the lowest free lane. The critical rule, and the exact inverse of `layoutDay`'s cluster behaviour: **a row's lane bookkeeping is never reset partway across it**. A lane is a vertical offset shared by all seven columns, so restarting it mid-row makes bars disagree from one column to the next and the row reads as a staircase.
+
+Bars live in an overlay grid using the *same* seven tracks as the cells (`grid-column: {start} / span {n}`), which is what makes them align exactly with no measurement and no percentage arithmetic — and renders identically under SSR. The overlay is `pointer-events: none` with each bar restoring `pointer-events: auto`, so the cells underneath stay droppable. This app runs on drag and drop; an overlay that swallowed drops would break the month outright.
+
+### A single-day timed event
+Draws as a `.block--event` in the time grid alongside tasks, sharing `layoutDay` so an event and a task that overlap split the column. It drops the tag stripe for a tag-tinted top and bottom rule and has nothing to tick off. **A multi-day event is never sliced into per-day grid segments** — it would need synthetic per-day objects (breaking `id`-keyed lists) and make "which piece did you grab?" a real question. All-day or spanning ⇒ a bar; single-day timed ⇒ a block. That one rule is why `layoutDay` needed no changes at all.
+
+### Mini Calendar
+A month at a glance beside the Dashboard hero (`.dashboard__top`, a `minmax(0,1fr) 300px` split that collapses below 900px). Two orthogonal signals per day, neither of them a new color: **1–3 load dots** banded against the same 10-hour reference the week and month load bars use, stepping to Critical past it; and a **filled numeral** when a day carries an event — a shape change, so it stacks with the dots instead of competing. Every cell's `title` spells both out in words. It keeps its own month cursor rather than sharing the app's `focusKey`, so browsing ahead does not move the date every other view is pointed at; clicking a day is what commits.
+
+### Day Peek
+The month's "+N more" opens an anchored popover listing that day in place, instead of navigating out of the month to find out what was hidden. Placement comes from `usePopoverPlacement`, extracted from the notification dropdown once a second popover needed the same two non-obvious behaviours: `position: fixed` measured in viewport coordinates (both triggers sit inside a scrolling ancestor that would clip a relatively-positioned panel), and always a single clamped `left` rather than ever switching to `right`.
+
+### Grid Gestures
+Three gestures share the time-grid surface and are kept apart on purpose:
+- **Moving** a block is HTML5 drag-and-drop, because it transfers a task across columns, views, the month, and the inbox.
+- **Creating by dragging a range** and **resizing a block** are Pointer Events. Neither transfers anything, and pointer events work under touch, which `dragstart` never fires for.
+- Resize handles render as **siblings** of the block, never children: the block carries `draggable`, and a native `dragstart` fires on press-and-move regardless of pointer capture, so a nested handle would race the drag every time.
+
+The in-progress range previews as `.day-column__draft` — a dashed Signal Violet outline over `--series-1-soft`, labelled with its length. It is a proposal, so it uses the accent's soft step rather than a new color. A press with no travel still creates at the default length, resolved in `pointerup`; there is no separate `onClick`, which would double-fire.
+
+### Free Slots
+The inverse of the schedule, and the question a time-blocker actually asks: not "what is on today" but "where can this go". A row of pill buttons under the day's head, each a real gap of 30 minutes or more; clicking one creates a task there. Events count as busy even though they never count as planned work.
+
 ### Time-Grid Block (signature component)
 The calendar's own vocabulary for a scheduled task, and the one place a colored border appears anywhere in the system. A `.block` gets a 3px left border in the task's own tag color, a matching 15%-tint background (`color-mix(in srgb, var(--tag) 15%, var(--surface-1))`), and 3px corners. This is functional color-coding for the task's category, not a decorative accent — it is the one sanctioned exception to "no colored left borders," confirmed for this component alone and not a pattern to extend to generic cards or list items. A repeating occurrence adds a small repeat icon after its time label; a completed block drops its border and gets a strikethrough title.
 
@@ -389,6 +418,10 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Do** reuse the load-indicator's 10-hour reference and color logic (Signal Violet → Critical) for any new "how full is this day" treatment, rather than inventing a second capacity number.
 - **Do** reuse Glow Violet and Dot Color for any future decorative echo of the Auth Shell's motif, rather than picking a new violet by eye.
 - **Do** treat dark as the default a new visitor sees; test new work there first, then confirm light still holds — not the other way around.
+- **Do** distinguish an event from a task by **shape and fill**, never by a new hue: a bar with no checkbox and no tag stripe, against a chip or block that has both. There is still exactly one accent.
+- **Do** name a specific drag MIME type (`DRAG_TASK` or `DRAG_EVENT`) on every drop target. A target opts into what it accepts by which type it checks, which is what makes it *impossible* to drop an event on the inbox — rather than merely wrong.
+- **Do** use `packSpans` for any new "things that cover a range of days" surface, rather than writing a second lane packer.
+- **Do** use Pointer Events for a new gesture that only manipulates something in place, and leave HTML5 drag-and-drop to gestures that actually transfer an item between containers.
 
 ### Don't:
 - **Don't** add a second saturated accent color outside the validated 8-slot tag palette.
@@ -399,3 +432,7 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Don't** borrow a display or serif typeface for emphasis. Voice comes from size, weight, and tracking within Inter — including the Dashboard's hero number.
 - **Don't** add a second decorative background effect. Glow Violet and the dot-grid are the one motif; a new surface doesn't get its own new pattern.
 - **Don't** set tabular numerals on a standalone figure. Tabular spacing is for aligned columns only.
+- **Don't** let an event into `dayStats`, `overdueTasks`, `upcomingTasks`, `tagBreakdown`, or any completion rate. Events are commitments, not work: counting a three-day conference as seventy-two planned hours would make the completion rate a ratio against things that cannot be completed. `tasksOn(key)` stays task-only permanently — views compose it with `eventsOn(key)` themselves.
+- **Don't** give events a second load bar or capacity meter. A count beside the existing bar is the legal move; a second number answering "how full is this day" would contradict the first.
+- **Don't** nest a pointer-driven control inside an element carrying `draggable`. Native `dragstart` fires on press-and-move regardless of pointer capture and will win the race.
+- **Don't** slice a multi-day event into per-day pieces to fit an existing per-day renderer. All-day or spanning means a bar; only a single-day timed event belongs in the time grid.

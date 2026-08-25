@@ -8,6 +8,7 @@ import {
   addDays,
   formatMonthLabel,
   formatWeekLabel,
+  isValidKey,
   relativeDayLabel,
   shiftMonth,
   todayKey,
@@ -19,6 +20,7 @@ import { TodayView } from './components/TodayView.jsx'
 import { WeekGrid } from './components/WeekGrid.jsx'
 import { MonthCalendar } from './components/MonthCalendar.jsx'
 import { TaskEditor } from './components/TaskEditor.jsx'
+import { EventEditor } from './components/EventEditor.jsx'
 import { TagManager } from './components/TagManager.jsx'
 import { NotificationBell } from './components/NotificationBell.jsx'
 import {
@@ -29,6 +31,7 @@ import {
   DayIcon,
   MonthIcon,
   PlusIcon,
+  SpanIcon,
   TagIcon,
   ThemeDarkIcon,
   ThemeLightIcon,
@@ -66,23 +69,87 @@ function AppShell() {
   // A view id from a build that no longer exists (the removed Review page)
   // falls back to Dashboard rather than rendering nothing.
   const view = VIEW_IDS.has(storedView) ? storedView : 'dashboard'
-  const [storedKey, setStoredKey] = usePersistentState('cadence-app:focus', todayKey)
+  /* Keeping your place across a refresh is useful; being dropped on yesterday
+     when you open the app the next morning is not. So a cursor restored from a
+     previous session snaps forward — but that correction belongs to the
+     *restore*, which is why it lives in `revive` and not in a derived value.
+     Deriving it (`storedKey < todayKey() ? todayKey() : storedKey`) re-ran on
+     every render and silently undid every backward step: the arrow wrote
+     yesterday to storage, the next render clamped it straight back. That is
+     why Previous did nothing in any view, and why Dashboard's "Go to" on an
+     overdue day could never land on the day it named.
+
+     isValidKey also stops a corrupt stored value reaching addDays and
+     formatWeekLabel, which previously took whatever localStorage held. */
+  const [focusKey, setFocusKey] = usePersistentState('cadence-app:focus', todayKey, (stored) =>
+    isValidKey(stored) && stored >= todayKey() ? stored : todayKey(),
+  )
   const [editor, setEditor] = useState(null)
   const [tagsOpen, setTagsOpen] = useState(false)
 
-  /* Keeping your place across a refresh is useful; being dropped on yesterday
-     when you open the app the next morning is not. Stale cursors snap forward. */
-  const focusKey = storedKey < todayKey() ? todayKey() : storedKey
-  const setFocusKey = setStoredKey
-
-  const openCreate = useCallback((draft = {}) => setEditor({ mode: 'create', draft }), [])
-  const openEdit = useCallback((task) => setEditor({ mode: 'edit', task }), [])
+  /* The editor is one slot holding either kind. `kind` decides which component
+     renders; `draft`/`task`/`event` carries what it starts from. */
+  const openCreate = useCallback(
+    (draft = {}) => setEditor({ mode: 'create', kind: 'task', draft }),
+    [],
+  )
+  const openEdit = useCallback((task) => setEditor({ mode: 'edit', kind: 'task', task }), [])
+  const openCreateEvent = useCallback(
+    (draft = {}) => setEditor({ mode: 'create', kind: 'event', draft }),
+    [],
+  )
+  const openEditEvent = useCallback(
+    (event) => setEditor({ mode: 'edit', kind: 'event', event }),
+    [],
+  )
   const closeEditor = useCallback(() => setEditor(null), [])
+
+  /* Switching kind mid-create keeps the day you had already chosen — that is
+     usually the reason you opened the editor from a particular cell, and
+     making you pick it again would be the only thing the switch cost you. */
+  const changeEditorKind = useCallback((kind) => {
+    setEditor((current) => {
+      if (!current || current.mode !== 'create' || current.kind === kind) return current
+      const draft = current.draft ?? {}
+      if (kind === 'event') {
+        const startDate = draft.date ?? draft.startDate ?? null
+        return {
+          mode: 'create',
+          kind: 'event',
+          draft: {
+            title: draft.title,
+            startDate,
+            endDate: startDate,
+            startMin: draft.startMin ?? null,
+            tagId: draft.tagId ?? null,
+          },
+        }
+      }
+      return {
+        mode: 'create',
+        kind: 'task',
+        draft: {
+          title: draft.title,
+          date: draft.startDate ?? draft.date ?? null,
+          startMin: draft.startMin ?? null,
+          tagId: draft.tagId ?? null,
+        },
+      }
+    })
+  }, [])
 
   const focusDay = useCallback(
     (key) => {
       setFocusKey(key)
       setView('today')
+    },
+    [setFocusKey, setView],
+  )
+
+  const focusMonth = useCallback(
+    (key) => {
+      setFocusKey(key)
+      setView('month')
     },
     [setFocusKey, setView],
   )
@@ -99,9 +166,21 @@ function AppShell() {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (editor || tagsOpen) return
 
+      // Holding a key repeats it; without this, leaning on `n` stacks modals.
+      if (event.repeat) return
+
+      const onDatedView = view === 'today' || view === 'week' || view === 'month'
+
       if (event.key === 'n') {
         event.preventDefault()
-        openCreate(view === 'today' || view === 'week' || view === 'month' ? { date: focusKey } : {})
+        openCreate(onDatedView ? { date: focusKey } : {})
+      } else if (event.key === 'e') {
+        event.preventDefault()
+        openCreateEvent(
+          onDatedView
+            ? { startDate: focusKey, endDate: focusKey }
+            : { startDate: todayKey(), endDate: todayKey() },
+        )
       } else if (event.key === 't') {
         event.preventDefault()
         setFocusKey(todayKey())
@@ -115,7 +194,7 @@ function AppShell() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editor, tagsOpen, view, focusKey, step, openCreate, setFocusKey])
+  }, [editor, tagsOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
 
   const dateLabel = useMemo(() => {
     if (view === 'week') return formatWeekLabel(focusKey)
@@ -139,6 +218,17 @@ function AppShell() {
           onClick={() => openCreate({})}
         >
           <PlusIcon className="button-icon" /> New task
+        </button>
+
+        {/* Two stacked buttons rather than a split menu: there are exactly two
+            kinds, and hiding one behind a disclosure would cost a click to
+            save nothing. */}
+        <button
+          type="button"
+          className="ghost-button sidebar__new-event"
+          onClick={() => openCreateEvent({ startDate: focusKey, endDate: focusKey })}
+        >
+          <SpanIcon className="button-icon" /> New event
         </button>
 
         <nav className="sidebar__nav" aria-label="Views">
@@ -241,16 +331,40 @@ function AppShell() {
           ) : (
             <>
               {view === 'dashboard' && (
-                <Dashboard onFocusDay={focusDay} onEdit={openEdit} onCreate={openCreate} />
+                <Dashboard
+                  onFocusDay={focusDay}
+                  onFocusMonth={focusMonth}
+                  onEdit={openEdit}
+                  onCreate={openCreate}
+                />
               )}
               {view === 'today' && (
-                <TodayView focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
+                <TodayView
+                  focusKey={focusKey}
+                  onEdit={openEdit}
+                  onCreate={openCreate}
+                  onEditEvent={openEditEvent}
+                  onCreateEvent={openCreateEvent}
+                />
               )}
               {view === 'week' && (
-                <WeekGrid focusKey={focusKey} onEdit={openEdit} onCreate={openCreate} />
+                <WeekGrid
+                  focusKey={focusKey}
+                  onEdit={openEdit}
+                  onCreate={openCreate}
+                  onEditEvent={openEditEvent}
+                  onCreateEvent={openCreateEvent}
+                  onFocusDay={focusDay}
+                />
               )}
               {view === 'month' && (
-                <MonthCalendar focusKey={focusKey} onFocusDay={focusDay} onCreate={openCreate} />
+                <MonthCalendar
+                  focusKey={focusKey}
+                  onFocusDay={focusDay}
+                  onCreate={openCreate}
+                  onEdit={openEdit}
+                  onEditEvent={openEditEvent}
+                />
               )}
             </>
           )}
@@ -258,13 +372,24 @@ function AppShell() {
       </div>
 
       {/* Keyed so that stepping from one day of a repeating task to the rule
-          behind it rebuilds the form rather than keeping the old day's state. */}
-      {editor && (
+          behind it rebuilds the form rather than keeping the old day's state.
+          The kind is part of the key too, so switching Task/Event mid-create
+          mounts the other form fresh instead of reusing the first one's state. */}
+      {editor && editor.kind === 'event' && (
+        <EventEditor
+          key={editor.mode === 'edit' ? `event-${editor.event.id}` : 'create-event'}
+          editor={editor}
+          onClose={closeEditor}
+          onChangeKind={changeEditorKind}
+        />
+      )}
+      {editor && editor.kind !== 'event' && (
         <TaskEditor
-          key={editor.mode === 'edit' ? editor.task.id : 'create'}
+          key={editor.mode === 'edit' ? editor.task.id : 'create-task'}
           editor={editor}
           onClose={closeEditor}
           onEditTask={openEdit}
+          onChangeKind={changeEditorKind}
         />
       )}
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}

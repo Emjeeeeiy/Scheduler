@@ -190,6 +190,20 @@ export function TrendIcon(props) {
   )
 }
 
+/** A measured run with a tick at each end — an event, which occupies a span of
+    days rather than sitting on one. Deliberately not a second calendar glyph:
+    MonthIcon already owns that shape, and the thing that distinguishes an
+    event from a task here is the range, not the calendar. */
+export function SpanIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 12h16" />
+      <path d="M4 8v8" />
+      <path d="M20 8v8" />
+    </Icon>
+  )
+}
+
 /* The one deliberate exception to the stroke grammar above: a third-party
    brand mark (Google's "G") is shown as its own real multi-colour logo on an
    OAuth button, per standard sign-in-button convention — not drawn in this

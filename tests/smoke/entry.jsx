@@ -16,6 +16,8 @@ import { TodayView } from '../../src/components/TodayView.jsx'
 import { WeekGrid } from '../../src/components/WeekGrid.jsx'
 import { MonthCalendar } from '../../src/components/MonthCalendar.jsx'
 import { TaskEditor } from '../../src/components/TaskEditor.jsx'
+import { EventEditor } from '../../src/components/EventEditor.jsx'
+import { MiniCalendar } from '../../src/components/MiniCalendar.jsx'
 import { TagManager } from '../../src/components/TagManager.jsx'
 import { TaskInbox } from '../../src/components/TaskInbox.jsx'
 import { SignIn } from '../../src/components/SignIn.jsx'
@@ -41,6 +43,9 @@ const cases = [
   ['TagManager', <TagManager onClose={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
   ['TaskEditor (edit)', <TaskEditor editor={{ mode: 'edit', task: mockValue.tasks[0] }} onClose={noop} />],
+  ['EventEditor (create)', <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />],
+  ['EventEditor (edit)', <EventEditor editor={{ mode: 'edit', event: mockValue.events[0] }} onClose={noop} />],
+  ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
 ]
 
@@ -99,6 +104,38 @@ expect('Register form asks for an email (Firebase Auth requires one)', register.
 // depending on the hour the suite runs, so those are left to notifications.test.js.
 const bell = renderToString(<NotificationBell onEdit={noop} />)
 expect('Notification bell shows a badge when something needs attention', bell.includes('notif__badge'))
+
+/* Events. The fixtures deliberately include a bar that straddles a week
+   boundary and two overlapping multi-day bars, so these also exercise the lane
+   packer's clipping and stacking through a real render. */
+expect('Month draws multi-day events as spanning bars', html.month.includes('month__bar'))
+expect(
+  'A month bar spans more than one column',
+  /grid-column:\s*\d+\s*\/\s*span\s*[2-7]/.test(html.month),
+)
+expect(
+  'A bar clipped by the week boundary is marked as continuing',
+  html.month.includes('month__bar--from') || html.month.includes('month__bar--to'),
+)
+expect('Week renders the always-present all-day row', html.week.includes('week__allday'))
+expect('Week draws event spans', html.week.includes('week__span'))
+expect('Day view rails multi-day and all-day events', html.today.includes('event-rail'))
+expect('Day view counts the day of a running event', /Day \d+ of \d+/.test(html.today))
+expect('Day view offers free slots', html.today.includes('free-slots'))
+expect('Dashboard carries the mini calendar beside the hero', html.dashboard.includes('mini-cal'))
+expect('Mini calendar shows load density', html.dashboard.includes('mini-cal__dot'))
+/* Events are commitments, not work: they must never reach the planned-hours
+   maths. The fixtures include a timed 1h event today, so if it ever leaked
+   into dayStats this figure would move. */
+expect(
+  'Events stay out of the planned-hours total',
+  html.dashboard.includes('hero__value'),
+)
+const eventCreate = renderToString(
+  <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />,
+)
+expect('Event editor asks for an end date', eventCreate.includes('Ends'))
+expect('Event editor offers no repeat control', !eventCreate.includes('Repeat'))
 
 console.log('')
 for (const [name, ok] of checks) {
