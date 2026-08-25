@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   dayStats,
+  isSeriesTemplate,
   overdueTasks,
   rangeStats,
   summarize,
@@ -60,7 +61,7 @@ describe('dayStats', () => {
 describe('summarize', () => {
   it('reports an empty range as undefined, not 0%', () => {
     // Averaging an empty day in as zero would quietly punish deliberate rest.
-    const totals = summarize(rangeStats(new Map(), ['2026-08-24', '2026-08-25']))
+    const totals = summarize(rangeStats(() => [], ['2026-08-24', '2026-08-25']))
     assert.equal(totals.completionRate, null)
     assert.equal(totals.hourRate, null)
   })
@@ -70,7 +71,9 @@ describe('summarize', () => {
       ['2026-08-24', [timed('a', '2026-08-24', 540, 60, true)]],
       ['2026-08-25', [timed('b', '2026-08-25', 540, 60)]],
     ])
-    const totals = summarize(rangeStats(byDate, ['2026-08-24', '2026-08-25']))
+    const totals = summarize(
+      rangeStats((key) => byDate.get(key) ?? [], ['2026-08-24', '2026-08-25']),
+    )
     assert.equal(totals.plannedMin, 120)
     assert.equal(totals.completedMin, 60)
     assert.equal(totals.completionRate, 0.5)
@@ -114,6 +117,25 @@ describe('overdueTasks', () => {
       out.map((t) => t.id),
       ['past-open'],
     )
+  })
+
+  it('never piles up a repeating task’s own anchor document', () => {
+    // Missing Tuesday's run is not work left behind; it is a day of a habit
+    // that comes back on its own, not something for the overdue list to carry.
+    const out = overdueTasks(
+      [{ ...timed('habit', '2026-08-20', 540, 60), recurrence: { days: [0, 1, 2, 3, 4, 5, 6] } }],
+      '2026-08-24',
+    )
+    assert.equal(out.length, 0)
+  })
+})
+
+describe('isSeriesTemplate', () => {
+  it('is true only for a rule document, not one of its expanded days', () => {
+    const rule = { recurrence: { days: [1] } }
+    assert.equal(isSeriesTemplate(rule), true)
+    assert.equal(isSeriesTemplate({ ...rule, occurrenceDate: '2026-08-24' }), false)
+    assert.equal(isSeriesTemplate({ recurrence: null }), false)
   })
 })
 

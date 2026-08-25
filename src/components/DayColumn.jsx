@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '../lib/layout.js'
 import { durationLabel, minToLabel, snapMin } from '../lib/date.js'
+import { recurrenceLabel } from '../lib/recurrence.js'
 
 /** Custom MIME type so a drop handler can tell one of our tasks from a file or
     a stray text selection dragged in from elsewhere. */
@@ -152,13 +153,25 @@ export function DayColumn({
               width: `calc(${block.width}% - 2px)`,
               '--tag': tag?.color ?? 'var(--series-1)',
             }}
-            title={`${block.task.title} · ${minToLabel(block.task.startMin)} · ${durationLabel(
-              block.task.durationMin,
-            )}`}
+            title={[
+              block.task.title,
+              minToLabel(block.task.startMin),
+              durationLabel(block.task.durationMin),
+              block.task.recurrence && recurrenceLabel(block.task.recurrence),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           >
             <span className="block__title">{block.task.title}</span>
             <span className="block__time">
               {minToLabel(block.task.startMin)} · {durationLabel(block.task.durationMin)}
+              {block.task.recurrence && (
+                <>
+                  {' · '}
+                  <span aria-hidden="true">↻</span>
+                  <span className="visually-hidden">{recurrenceLabel(block.task.recurrence)}</span>
+                </>
+              )}
             </span>
           </button>
         )

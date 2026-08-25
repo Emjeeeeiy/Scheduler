@@ -12,6 +12,7 @@ import {
   WEEKDAY_HEADERS,
 } from '../lib/date.js'
 import { dayStats } from '../lib/stats.js'
+import { recurrenceLabel } from '../lib/recurrence.js'
 
 const MAX_CHIPS = 3
 
@@ -107,11 +108,16 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
                         className={`chip chip--dot${task.done ? ' chip--done' : ''}`}
                         style={{ '--tag': tag?.color ?? 'var(--series-1)' }}
                         onClick={() => onFocusDay(key)}
-                        title={
-                          Number.isFinite(task.startMin)
-                            ? `${minToLabel(task.startMin)} · ${task.title}`
-                            : task.title
-                        }
+                        /* A month cell is too narrow for a repeat marker beside
+                           the dot, time, and title, so the rule rides in the
+                           tooltip and the day and week views carry the glyph. */
+                        title={[
+                          Number.isFinite(task.startMin) ? minToLabel(task.startMin) : null,
+                          task.title,
+                          task.recurrence && recurrenceLabel(task.recurrence),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       >
                         <span className="chip__dot" aria-hidden="true" />
                         {Number.isFinite(task.startMin) && (

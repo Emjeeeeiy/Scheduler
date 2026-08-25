@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import {
+  FieldPath,
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   onSnapshot,
   setDoc,
@@ -12,6 +14,12 @@ import {
 import { db } from '../firebase.js'
 import { useAuth } from './AuthContext.jsx'
 import { clampMin, isValidKey } from '../lib/date.js'
+import {
+  normalizeOverrides,
+  normalizeRecurrence,
+  occurrenceOn,
+  parseOccurrenceId,
+} from '../lib/recurrence.js'
 
 const ScheduleContext = createContext(null)
 
@@ -54,6 +62,7 @@ function normalizeTask(id, raw) {
   // inbox, not floating on a day that does not exist.
   const startMin = date && Number.isFinite(raw?.startMin) ? clampMin(raw.startMin) : null
   const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
+  const recurrence = normalizeRecurrence(raw?.recurrence, date)
 
   return {
     id,
@@ -67,6 +76,8 @@ function normalizeTask(id, raw) {
     tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
     done: raw?.done === true,
     completedAt: Number.isFinite(raw?.completedAt) ? raw.completedAt : null,
+    recurrence,
+    overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
     updatedAt: Number.isFinite(raw?.updatedAt) ? raw.updatedAt : 0,
   }
@@ -182,11 +193,27 @@ export function ScheduleProvider({ children }) {
 
     const tagById = new Map(visibleTags.map((t) => [t.id, t]))
 
+    // All-day items (no startMin) sort ahead of timed blocks; ties by creation
+    // so a day's order never shuffles between renders.
+    const byTimeOfDay = (a, b) =>
+      (a.startMin ?? -1) - (b.startMin ?? -1) ||
+      a.createdAt - b.createdAt ||
+      a.id.localeCompare(b.id)
+
     /* Pre-bucket by day once per snapshot. Every view would otherwise filter the
-       full array on each render — the month grid alone would do it 42 times. */
+       full array on each render — the month grid alone would do it 42 times.
+
+       A repeating task's document is a rule, not a thing on the calendar, so it
+       is held aside here and expanded per day below rather than bucketed on its
+       anchor date. */
+    const series = []
     const tasksByDate = new Map()
     const inbox = []
     for (const task of visibleTasks) {
+      if (task.recurrence) {
+        series.push(task)
+        continue
+      }
       if (task.date === null) {
         inbox.push(task)
         continue
@@ -195,33 +222,94 @@ export function ScheduleProvider({ children }) {
       if (bucket) bucket.push(task)
       else tasksByDate.set(task.date, [task])
     }
-    // All-day items (no startMin) sort ahead of timed blocks; ties by creation
-    // so a day's order never shuffles between renders.
-    for (const bucket of tasksByDate.values()) {
-      bucket.sort(
-        (a, b) =>
-          (a.startMin ?? -1) - (b.startMin ?? -1) ||
-          a.createdAt - b.createdAt ||
-          a.id.localeCompare(b.id),
-      )
-    }
+    for (const bucket of tasksByDate.values()) bucket.sort(byTimeOfDay)
     inbox.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id))
+
+    const seriesById = new Map(series.map((s) => [s.id, s]))
+
+    const occurrencesOn = (key) => {
+      const out = []
+      for (const parent of series) {
+        const occurrence = occurrenceOn(parent, key)
+        if (occurrence) out.push(occurrence)
+      }
+      return out
+    }
+
+    /* Cached per snapshot: a month render asks for 42 days, and every one of
+       them would otherwise rebuild and re-sort its merged list. The cache also
+       keeps the returned array referentially stable across those calls. */
+    const dayCache = new Map()
+    const tasksOn = (key) => {
+      const cached = dayCache.get(key)
+      if (cached) return cached
+      const fixed = tasksByDate.get(key) ?? []
+      const merged =
+        series.length === 0 ? fixed : [...fixed, ...occurrencesOn(key)].sort(byTimeOfDay)
+      dayCache.set(key, merged)
+      return merged
+    }
 
     const sortedTags = [...visibleTags].sort(
       (a, b) => a.order - b.order || a.name.localeCompare(b.name),
     )
 
+    /* An id from the UI can name a real document or one day of a series. Every
+       mutation below resolves it first, because the two need different writes:
+       a document is edited in place, a day of a series is an exception recorded
+       on its parent. */
+    const resolveOccurrence = (id) => {
+      const parsed = parseOccurrenceId(id)
+      if (!parsed) return null
+      const parent = seriesById.get(parsed.seriesId)
+      if (!parent) return null
+      return { parent, dateKey: parsed.dateKey, task: occurrenceOn(parent, parsed.dateKey) }
+    }
+
+    /* A day key is not a legal dotted field path — it starts with a digit and
+       contains hyphens — so the override map is always addressed by FieldPath. */
+    const overrideAt = (dateKey) => new FieldPath('overrides', dateKey)
+
+    /** Editing or moving one day of a series takes that day out of it: the
+        occurrence is written out as its own ordinary task and the series marks
+        the date taken. "This occurrence only" is the whole contract — the rule
+        never changes shape because one morning did. */
+    const detachOccurrence = async ({ parent, dateKey, task }, patch) => {
+      const stamp = now()
+      const {
+        id: _id,
+        seriesId: _seriesId,
+        occurrenceDate: _occurrenceDate,
+        recurrence: _recurrence,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...fields
+      } = task
+      const batch = writeBatch(db)
+      batch.set(doc(tasksCol()), {
+        ...fields,
+        ...patch,
+        recurrence: null,
+        overrides: {},
+        createdAt: stamp,
+        updatedAt: stamp,
+      })
+      batch.update(taskDoc(parent.id), overrideAt(dateKey), { detached: true }, 'updatedAt', stamp)
+      return batch.commit()
+    }
+
     return {
       tasks: visibleTasks,
       tags: sortedTags,
       tagById,
-      tasksByDate,
       inbox,
       loading,
       error,
 
       getTag: (id) => (id ? tagById.get(id) ?? null : null),
-      tasksOn: (key) => tasksByDate.get(key) ?? [],
+      tasksOn,
+      occurrencesOn,
+      getSeries: (id) => seriesById.get(id) ?? null,
 
       async addTask(draft) {
         const stamp = now()
@@ -237,16 +325,34 @@ export function ScheduleProvider({ children }) {
           tagId: draft.tagId ?? null,
           done: false,
           completedAt: null,
+          recurrence: normalizeRecurrence(draft.recurrence, date),
+          overrides: {},
           createdAt: stamp,
           updatedAt: stamp,
         })
       },
 
       async updateTask(id, patch) {
+        const occurrence = resolveOccurrence(id)
+        if (occurrence) return detachOccurrence(occurrence, patch)
         return updateDoc(taskDoc(id), { ...patch, updatedAt: now() })
       },
 
       async toggleDone(id) {
+        const occurrence = resolveOccurrence(id)
+        if (occurrence) {
+          const done = !occurrence.task.done
+          return updateDoc(
+            taskDoc(occurrence.parent.id),
+            overrideAt(occurrence.dateKey),
+            /* Un-ticking clears the entry rather than storing done:false, so a
+               series document stays proportional to the days actually ticked
+               off and not to how long the habit has been running. */
+            done ? { done: true, completedAt: now() } : deleteField(),
+            'updatedAt',
+            now(),
+          )
+        }
         const task = visibleTasks.find((t) => t.id === id)
         if (!task) return undefined
         const done = !task.done
@@ -257,22 +363,40 @@ export function ScheduleProvider({ children }) {
         })
       },
 
+      /** Deleting one day of a series skips that day; deleting the series
+          document takes every occurrence with it. */
       async removeTask(id) {
+        const occurrence = resolveOccurrence(id)
+        if (occurrence) {
+          return updateDoc(
+            taskDoc(occurrence.parent.id),
+            overrideAt(occurrence.dateKey),
+            { detached: true },
+            'updatedAt',
+            now(),
+          )
+        }
         return deleteDoc(taskDoc(id))
       },
 
       /** Drop a task into a slot — the one write the week grid and the inbox
           both go through, so scheduling behaves identically wherever it starts. */
       async scheduleTask(id, { date, startMin, durationMin }) {
-        const patch = { date: isValidKey(date) ? date : null, updatedAt: now() }
+        const patch = { date: isValidKey(date) ? date : null }
         patch.startMin =
           patch.date !== null && Number.isFinite(startMin) ? clampMin(startMin) : null
         if (Number.isFinite(durationMin)) patch.durationMin = durationMin
-        return updateDoc(taskDoc(id), patch)
+
+        const occurrence = resolveOccurrence(id)
+        if (occurrence) return detachOccurrence(occurrence, patch)
+        return updateDoc(taskDoc(id), { ...patch, updatedAt: now() })
       },
 
       async unscheduleTask(id) {
-        return updateDoc(taskDoc(id), { date: null, startMin: null, updatedAt: now() })
+        const patch = { date: null, startMin: null }
+        const occurrence = resolveOccurrence(id)
+        if (occurrence) return detachOccurrence(occurrence, patch)
+        return updateDoc(taskDoc(id), { ...patch, updatedAt: now() })
       },
 
       async addTag(draft) {

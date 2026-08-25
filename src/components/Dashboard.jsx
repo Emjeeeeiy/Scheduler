@@ -1,32 +1,42 @@
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
 import { rangeStats, dayStats, overdueTasks, summarize, tagBreakdown, upcomingTasks } from '../lib/stats.js'
-import { durationLabel, formatDayLabel, relativeDayLabel, toHours, weekKeys, WEEKDAY_HEADERS } from '../lib/date.js'
+import { addDays, durationLabel, formatDayLabel, relativeDayLabel, toHours, weekKeys, WEEKDAY_HEADERS } from '../lib/date.js'
 import { StatTile } from './StatTile.jsx'
 import { BarChart } from './BarChart.jsx'
 import { TagBars } from './TagBars.jsx'
 import { TaskRow } from './TaskRow.jsx'
 
+/* Repeats land at least weekly, so two weeks of expansion always contains the
+   next one — enough for "Next up" without walking the calendar forever. */
+const UPCOMING_HORIZON_DAYS = 15
+
 export function Dashboard({ onFocusDay, onEdit, onCreate }) {
-  const { tasks, tags, tasksByDate, tasksOn, inbox } = useSchedule()
+  const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
   const now = useNow()
 
   const today = tasksOn(now.key)
   const todayTotals = dayStats(today)
 
   const keys = weekKeys(now.key)
-  const rows = rangeStats(tasksByDate, keys).map((row, index) => ({
+  const rows = rangeStats(tasksOn, keys).map((row, index) => ({
     ...row,
     short: WEEKDAY_HEADERS[index],
     label: formatDayLabel(row.key),
   }))
   const week = summarize(rows)
 
-  const weekTasks = keys.flatMap((key) => tasksByDate.get(key) ?? [])
+  const weekTasks = keys.flatMap(tasksOn)
   const byTag = tagBreakdown(weekTasks, tags)
 
   const overdue = overdueTasks(tasks, now.key)
-  const next = upcomingTasks(tasks, now.key, now.min, 3)
+  /* Stored tasks reach as far ahead as they were scheduled, so they go in
+     whole; occurrences only exist once expanded, so they come from the
+     horizon. */
+  const horizon = Array.from({ length: UPCOMING_HORIZON_DAYS }, (_, i) =>
+    occurrencesOn(addDays(now.key, i)),
+  )
+  const next = upcomingTasks([...tasks, ...horizon.flat()], now.key, now.min, 3)
   const openInbox = inbox.filter((t) => !t.done).length
 
   return (

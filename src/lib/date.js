@@ -75,8 +75,13 @@ export function lastNDays(key, n) {
   return Array.from({ length: n }, (_, i) => addDays(key, i - n + 1))
 }
 
+/** 0 = Sunday … 6 = Saturday, for the day a key names. */
+export function weekdayOf(key) {
+  return fromKey(key).getDay()
+}
+
 export function isWeekend(key) {
-  const day = fromKey(key).getDay()
+  const day = weekdayOf(key)
   return day === 0 || day === 6
 }
 
@@ -172,19 +177,21 @@ export function toHours(min) {
 
 /* ---------------------------------------------------------------- labels -- */
 
-const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+/* Indexed by getDay(), so 0 is Sunday whatever the week starts on. */
+export const DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH_LONG = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+/** getDay() indices in display order — Monday first. Anything that lays out a
+    week of weekdays walks this rather than 0..6. */
+export const WEEKDAY_ORDER = Array.from({ length: 7 }, (_, i) => (WEEK_STARTS_ON + i) % 7)
+
 /** Weekday initials in display order, for the month grid header. */
-export const WEEKDAY_HEADERS = Array.from(
-  { length: 7 },
-  (_, i) => DAY_SHORT[(WEEK_STARTS_ON + i) % 7],
-)
+export const WEEKDAY_HEADERS = WEEKDAY_ORDER.map((day) => DAY_SHORT[day])
 
 export function dayOfMonth(key) {
   return fromKey(key).getDate()

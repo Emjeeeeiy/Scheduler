@@ -1,5 +1,6 @@
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { durationLabel, minToLabel, relativeDayLabel } from '../lib/date.js'
+import { recurrenceLabel } from '../lib/recurrence.js'
 
 /** One task as a line item — used by the inbox, the day agenda, the dashboard,
     and the overdue list, so the checkbox and tag chip look the same everywhere. */
@@ -30,6 +31,12 @@ export function TaskRow({ task, onEdit, showDate = false, showTime = true }) {
           )}
           {showTime && task.date && !Number.isFinite(task.startMin) && (
             <span className="task-row__when">All day</span>
+          )}
+          {task.recurrence && (
+            <span className="repeat-mark" title={recurrenceLabel(task.recurrence)}>
+              <span aria-hidden="true">↻</span>
+              <span className="visually-hidden">{recurrenceLabel(task.recurrence)}</span>
+            </span>
           )}
           {tag && (
             <span className="tag-chip" style={{ '--tag': tag.color }}>

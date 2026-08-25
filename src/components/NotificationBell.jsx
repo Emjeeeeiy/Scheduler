@@ -46,14 +46,20 @@ const GAP = 8
  * moment it's no longer true (completed, rescheduled, or its window passes).
  */
 export function NotificationBell({ onEdit }) {
-  const { tasks } = useSchedule()
+  const { tasks, occurrencesOn } = useSchedule()
   const now = useNow()
   const [open, setOpen] = useState(false)
   const [placement, setPlacement] = useState(null)
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
 
-  const notifications = buildNotifications(tasks, now.key, now.min)
+  /* Stored tasks carry the overdue scan, which reaches arbitrarily far back;
+     today's repeats have to be expanded before they can be noticed at all. */
+  const notifications = buildNotifications(
+    [...tasks, ...occurrencesOn(now.key)],
+    now.key,
+    now.min,
+  )
 
   /* The sidebar scrolls its own overflow, which would clip a dropdown
      positioned relative to it — so this measures the trigger in viewport

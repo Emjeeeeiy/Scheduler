@@ -13,12 +13,12 @@ const RANGES = [
 ]
 
 export function ReviewView() {
-  const { tags, tasksByDate } = useSchedule()
+  const { tags, tasksOn } = useSchedule()
   const now = useNow()
   const [days, setDays] = useState(7)
 
   const keys = lastNDays(now.key, days)
-  const rows = rangeStats(tasksByDate, keys).map((row, index) => ({
+  const rows = rangeStats(tasksOn, keys).map((row, index) => ({
     ...row,
     // At 30 columns every label would collide, so thin them out and let the
     // tooltip and table carry the exact day.
@@ -27,7 +27,7 @@ export function ReviewView() {
   }))
 
   const totals = summarize(rows)
-  const rangeTasks = keys.flatMap((key) => tasksByDate.get(key) ?? [])
+  const rangeTasks = keys.flatMap(tasksOn)
   const byTag = tagBreakdown(rangeTasks, tags)
   const weakest = weakestTag(rangeTasks, tags)
 

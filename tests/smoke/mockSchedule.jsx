@@ -2,6 +2,7 @@
    tests/smoke/vite.config.js so no production code knows this file exists. */
 
 import { addDays, todayKey } from '../../src/lib/date.js'
+import { WEEKDAYS, occurrenceOn } from '../../src/lib/recurrence.js'
 
 export const DEFAULT_DURATION_MIN = 30
 
@@ -23,6 +24,8 @@ const task = (id, patch) => ({
   tagId: null,
   done: false,
   completedAt: null,
+  recurrence: null,
+  overrides: {},
   createdAt: 1,
   updatedAt: 1,
   ...patch,
@@ -44,12 +47,26 @@ const tasks = [
   task('j', { title: 'Unscheduled idea' }),
   task('k', { title: 'Another loose end', tagId: 'personal' }),
   task('l', { title: 'Done in the inbox', done: true }),
+  // A repeating task: the exercise for the block/chip/row repeat marker, and
+  // for the paths that must NOT treat a rule document as a task on its own
+  // anchor date (overdue, upcoming, the day buckets).
+  task('m', {
+    title: 'Standing sync',
+    date: addDays(TODAY, -7),
+    startMin: 8 * 60,
+    durationMin: 30,
+    tagId: 'work',
+    recurrence: { days: WEEKDAYS, anchor: addDays(TODAY, -7) },
+  }),
 ]
+
+const series = tasks.filter((t) => t.recurrence)
 
 const tagById = new Map(tags.map((t) => [t.id, t]))
 const tasksByDate = new Map()
 const inbox = []
 for (const t of tasks) {
+  if (t.recurrence) continue
   if (t.date === null) inbox.push(t)
   else tasksByDate.set(t.date, [...(tasksByDate.get(t.date) ?? []), t])
 }
@@ -57,18 +74,27 @@ for (const bucket of tasksByDate.values()) {
   bucket.sort((a, b) => (a.startMin ?? -1) - (b.startMin ?? -1))
 }
 
+const occurrencesOn = (key) =>
+  series.map((s) => occurrenceOn(s, key)).filter((occurrence) => occurrence !== null)
+
+const tasksOn = (key) =>
+  [...(tasksByDate.get(key) ?? []), ...occurrencesOn(key)].sort(
+    (a, b) => (a.startMin ?? -1) - (b.startMin ?? -1),
+  )
+
 const noop = async () => {}
 
 export const mockValue = {
   tasks,
   tags,
   tagById,
-  tasksByDate,
   inbox,
   loading: false,
   error: null,
   getTag: (id) => (id ? tagById.get(id) ?? null : null),
-  tasksOn: (key) => tasksByDate.get(key) ?? [],
+  tasksOn,
+  occurrencesOn,
+  getSeries: (id) => series.find((s) => s.id === id) ?? null,
   addTask: noop,
   updateTask: noop,
   toggleDone: noop,

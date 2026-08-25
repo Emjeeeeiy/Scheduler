@@ -10,6 +10,12 @@ import { todayKey } from './date.js'
 
 const isTimed = (task) => Number.isFinite(task.startMin)
 
+/** A repeating task's own document is a rule, not something on the calendar —
+    the days it lands on are expanded from it. Anything walking a flat task list
+    has to skip it or the rule shows up as a task sitting on its anchor date. */
+export const isSeriesTemplate = (task) =>
+  task.recurrence != null && task.occurrenceDate === undefined
+
 /** Totals for one day's tasks. */
 export function dayStats(tasks) {
   let plannedMin = 0
@@ -34,9 +40,11 @@ export function dayStats(tasks) {
   }
 }
 
-/** Per-day totals across a window of day keys — the shape the bar charts take. */
-export function rangeStats(tasksByDate, keys) {
-  return keys.map((key) => ({ key, ...dayStats(tasksByDate.get(key) ?? []) }))
+/** Per-day totals across a window of day keys — the shape the bar charts take.
+    Takes the day lookup rather than a map, because a day's tasks are partly
+    stored and partly expanded from repeat rules. */
+export function rangeStats(tasksOn, keys) {
+  return keys.map((key) => ({ key, ...dayStats(tasksOn(key)) }))
 }
 
 /** Sum of a range, plus the completion rate over it. */
@@ -85,10 +93,18 @@ export function tagBreakdown(tasks, tags) {
     .sort((a, b) => b.plannedMin - a.plannedMin || b.count - a.count)
 }
 
-/** Open tasks whose day has already passed — the pile that quietly grows. */
+/** Open tasks whose day has already passed — the pile that quietly grows.
+ *
+ * A repeating task never joins that pile. Missing Tuesday's run is not work
+ * left behind, it is a day of a habit that comes back tomorrow, and counting
+ * every skipped morning would bury the one-off tasks this list exists for.
+ */
 export function overdueTasks(tasks, reference = todayKey()) {
   return tasks
-    .filter((task) => !task.done && task.date !== null && task.date < reference)
+    .filter(
+      (task) =>
+        !task.done && task.date !== null && task.date < reference && task.recurrence == null,
+    )
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startMin ?? 0) - (b.startMin ?? 0))
 }
 
@@ -96,7 +112,7 @@ export function overdueTasks(tasks, reference = todayKey()) {
 export function upcomingTasks(tasks, reference, fromMin, limit = 3) {
   return tasks
     .filter((task) => {
-      if (task.done || task.date === null) return false
+      if (task.done || task.date === null || isSeriesTemplate(task)) return false
       if (task.date > reference) return true
       if (task.date < reference) return false
       return !isTimed(task) || task.startMin + task.durationMin > fromMin

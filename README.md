@@ -64,6 +64,7 @@ users/{uid}                    profile — username  email  createdAt
 users/{uid}/tasks/{taskId}
   title  notes  date  startMin  durationMin  tagId  done
   completedAt  createdAt  updatedAt
+  recurrence  overrides
 
 users/{uid}/tags/{tagId}
   name  slot  order
@@ -85,6 +86,18 @@ instant, so a 9:00 block silently becomes 8:00 the moment a timezone or DST
 boundary moves under it. "This day, this wall-clock time" is what a planner
 actually means. It also makes day bucketing pure integer math and sorts
 correctly as a string. `tests/date.test.js` pins this down.
+
+**A repeating task is one document, expanded on read.** `recurrence` is
+`{ days: [0..6], anchor }` — a set of weekdays plus the date it started from,
+nothing else: no interval, no end date. `ScheduleContext` computes which days
+a rule lands on for whatever range a view asks about; nothing is generated or
+stored per occurrence. `overrides` is a sparse map from day key to either
+`{ done, completedAt }` (that day ticked off) or `{ detached: true }` (that
+day removed from the rule because it was edited or deleted individually).
+Editing one day writes it out as an ordinary task of its own and marks the
+day taken — "just this occurrence" falls out of that split for free, and the
+rule document never has to change shape because one morning did.
+`tests/recurrence.test.js` covers the expansion.
 
 **`tags` store a colour *slot name*, not a hex.** Light and dark need different
 steps of the same hue, and one stored hex could only ever satisfy one of them.
@@ -154,6 +167,7 @@ src/
   lib/
     date.js              day keys & minutes — every date primitive
     layout.js            overlap packing for the time grid
+    recurrence.js        repeat rules — expansion, labels, occurrence ids
     stats.js             dashboard & review aggregations
     useNow.js            live clock for the now-line
     useTheme.js          system / light / dark
@@ -173,6 +187,4 @@ tests/                   pure-logic tests (date, layout, stats)
 
 ## Not built yet
 
-Recurring tasks, browser reminders, and JSON export were deliberately left out.
-The schema accommodates recurrence later via a `recurrence` field expanded on
-read, with no migration needed.
+Browser reminders and JSON export were deliberately left out.

@@ -238,7 +238,16 @@ function AppShell() {
         </main>
       </div>
 
-      {editor && <TaskEditor editor={editor} onClose={closeEditor} />}
+      {/* Keyed so that stepping from one day of a repeating task to the rule
+          behind it rebuilds the form rather than keeping the old day's state. */}
+      {editor && (
+        <TaskEditor
+          key={editor.mode === 'edit' ? editor.task.id : 'create'}
+          editor={editor}
+          onClose={closeEditor}
+          onEditTask={openEdit}
+        />
+      )}
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
     </div>
   )

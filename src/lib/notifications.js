@@ -1,11 +1,12 @@
-import { overdueTasks } from './stats.js'
+import { isSeriesTemplate, overdueTasks } from './stats.js'
 
 /** How far ahead "starting soon" looks. A whole day of lead time would just
     be a duplicate of the Day view; an hour is the window where a heads-up
     actually changes what you do next. */
 export const SOON_WINDOW_MIN = 60
 
-const isTimedToday = (task, reference) => task.date === reference && Number.isFinite(task.startMin)
+const isTimedToday = (task, reference) =>
+  task.date === reference && Number.isFinite(task.startMin) && !isSeriesTemplate(task)
 
 /**
  * The live "what needs attention" feed behind the notification bell. There is

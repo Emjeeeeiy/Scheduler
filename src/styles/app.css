@@ -1744,6 +1744,84 @@ code {
   min-width: 120px;
 }
 
+/* ================================================================ repeat == */
+
+.repeat {
+  gap: 8px;
+}
+
+.repeat__presets {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.weekday-picker {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.weekday-picker__day {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.weekday-picker__day:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.weekday-picker__day--on {
+  background: var(--series-1);
+  border-color: var(--series-1);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* One day of a series, opened on its own. Kept as a quiet ledge rather than an
+   alert — nothing has gone wrong, the form simply has a narrower reach than it
+   looks like it does. */
+.series-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  margin-bottom: 14px;
+}
+
+.series-note__mark {
+  color: var(--series-1);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.series-note__text {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.repeat-mark {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
 /* ================================================================ review == */
 
 .review {
@@ -1766,8 +1844,13 @@ code {
   cursor: pointer;
 }
 
-.filter-chip:hover {
+.filter-chip:hover:not(:disabled) {
   background: var(--surface-2);
+}
+
+.filter-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .filter-chip--on {
