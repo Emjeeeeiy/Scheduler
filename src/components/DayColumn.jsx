@@ -5,7 +5,7 @@ import { durationLabel, minToLabel, snapMin } from '../lib/date.js'
 
 /** Custom MIME type so a drop handler can tell one of our tasks from a file or
     a stray text selection dragged in from elsewhere. */
-export const DRAG_TYPE = 'application/x-scheduler-task'
+export const DRAG_TYPE = 'application/x-cadence-task'
 
 const SNAP_MIN = 15
 

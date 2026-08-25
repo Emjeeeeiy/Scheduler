@@ -47,8 +47,8 @@ function AppShell() {
   const { loading, error } = useSchedule()
   const { theme, cycleTheme } = useTheme()
 
-  const [view, setView] = usePersistentState('scheduler-app:view', 'dashboard')
-  const [storedKey, setStoredKey] = usePersistentState('scheduler-app:focus', todayKey)
+  const [view, setView] = usePersistentState('cadence-app:view', 'dashboard')
+  const [storedKey, setStoredKey] = usePersistentState('cadence-app:focus', todayKey)
   const [editor, setEditor] = useState(null)
   const [tagsOpen, setTagsOpen] = useState(false)
 
@@ -110,7 +110,7 @@ function AppShell() {
       <aside className="sidebar">
         <div className="sidebar__brand">
           <span className="brand__mark" aria-hidden="true">◷</span>
-          <span className="brand__name">Scheduler</span>
+          <span className="brand__name">Cadence</span>
         </div>
 
         <button

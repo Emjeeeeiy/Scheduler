@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-const THEME_KEY = 'scheduler-app:theme'
+const THEME_KEY = 'cadence-app:theme'
 
 /** 'system' leaves the root unstamped so prefers-color-scheme decides; an
     explicit choice stamps data-theme, which wins in both directions. */

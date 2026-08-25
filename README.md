@@ -1,4 +1,4 @@
-# Scheduler
+# Cadence
 
 A time-blocking planner. Tasks can sit in an inbox with no time at all, and
 "planning" means giving one a real slot on a real day — then seeing, afterwards,

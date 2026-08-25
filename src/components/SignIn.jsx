@@ -16,7 +16,7 @@ export function SignIn() {
     <div className="centered">
       <div className="signin card">
         <span className="signin__mark" aria-hidden="true">◷</span>
-        <h1 className="signin__title">Scheduler</h1>
+        <h1 className="signin__title">Cadence</h1>
         <p className="signin__lead">
           Plan your days in blocks, keep the loose ends in one inbox, and see where the hours
           actually went.
