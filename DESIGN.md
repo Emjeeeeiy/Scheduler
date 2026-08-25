@@ -194,6 +194,7 @@ The system is quiet, precise, and unshowy by deliberate choice. Its confirmed an
 - The OS system font throughout, at every scale including the largest number on screen — no display face is ever borrowed for drama
 - A validated, colorblind-safe 8-color palette for user data (tags), kept strictly separate from the one UI accent
 - A single reusable "selected" idiom (neutral pill → filled Signal Blue pill) used everywhere something toggles
+- One drawn icon grammar, not a scatter of Unicode characters — every icon in the app shares a stroke style and lives in one file
 
 ## Colors
 
@@ -292,10 +293,10 @@ A core three-step radius scale — 6px / 10px / 16px — that covers every contr
 - **Primary:** Signal Blue fill, white text, 7px/14px padding, 550-weight label. `filter: brightness(1.07)` on hover — the one button that brightens rather than swaps surface.
 - **Ghost:** Transparent at rest, Hover Surface on hover, Soft Ink → Ink text. The default for every secondary action.
 - **Danger:** Transparent, Critical-Text colored, a faint Critical-tinted wash on hover. Reserved for destructive actions (delete task, delete series).
-- **Icon:** 30×30px, transparent, Hover Surface on hover — theme toggle, notification bell, close (✕).
+- **Icon:** 30×30px, transparent, Hover Surface on hover, holds a 16px icon (see Icons below) — theme toggle, notification bell, close, date-nav chevrons.
 
 ### Chips
-- **Toggle chip** (`.filter-chip`, `.weekday-picker__day`): The system's one reusable "selected" idiom. At rest: Panel background, hairline border, Soft Ink text. Selected: Signal Blue fill, white text, no border needed. Used for the Review date-range picker, the repeat-frequency picker, and the weekday picker — same visual contract everywhere something is chosen from a small fixed set.
+- **Toggle chip** (`.filter-chip`, `.weekday-picker__day`): The system's one reusable "selected" idiom. At rest: Panel background, hairline border, Soft Ink text. Selected: Signal Blue fill, white text, no border needed. Used for Dashboard's trends date-range picker, the repeat-frequency picker, and the weekday picker — same visual contract everywhere something is chosen from a small fixed set.
 - **Tag chip:** A small colored dot (7px, from the tag's own `--tag` custom property) plus a text label — never the dot alone.
 - **Calendar chip** (`.chip`, month view / week all-day row): Hover Surface background, 4px radius, truncates with ellipsis; a done chip drops to 55% opacity with a strikethrough.
 
@@ -318,8 +319,14 @@ A core three-step radius scale — 6px / 10px / 16px — that covers every contr
 - **Active:** A 12%-opacity Signal Blue tint background with Signal Blue text and 600 weight — the only nav state that uses the accent.
 - **Mobile (≤900px):** Collapses to an icon-only horizontal row; labels move to a visually-hidden span plus a `title` tooltip, so the same markup serves both breakpoints.
 
+### Icons
+A small set of drawn stroke icons (`src/components/icons.jsx`) replaced what used to be bare Unicode characters throughout the app — the brand mark, sidebar nav, tag link, repeat mark, close button, date-nav chevrons, theme toggle, and the warning banner. One grammar for all of them: 24×24 viewBox, `currentColor` stroke at 2px, round caps and joins, no fill except the tag icon's single solid dot. Sizing is left to the call site (18px sidebar nav icons, 16px inside a 30px icon-button, 13px inline marks) rather than baked into the icon itself, so one definition serves every context. `NotificationBell`'s hand-drawn bell — the app's original real icon, and the reason the rest of the set exists — lives in the same file now.
+
+### Load Indicator
+A day's planned time, shown as a thin filled bar rather than only a number: 3px tall, Sunken Surface track, Signal Blue fill scaled against a 10-hour reference (the same "heavy day" threshold TodayView already warned on before this pattern existed), stepping to Critical past it. Two placements share the identical scale and color logic so a day reads the same way everywhere it appears: under each day's date in the Week header (`.week__load-track`), and as a strip across the top edge of each Month cell (`.month__load-strip`) — layered onto the existing cell content rather than replacing it, so Month's chips stay draggable and clickable exactly as before.
+
 ### Time-Grid Block (signature component)
-The calendar's own vocabulary for a scheduled task, and the one place a colored border appears anywhere in the system. A `.block` gets a 3px Signal-Blue-position left border in the task's own tag color, a matching 15%-tint background (`color-mix(in srgb, var(--tag) 15%, var(--surface-1))`), and 4px corners. This is functional color-coding for the task's category, not a decorative accent — it is the one sanctioned exception to "no colored left borders," confirmed for this component alone and not a pattern to extend to generic cards or list items. A repeating occurrence adds a small ↻ mark after its time label; a completed block drops its border and gets a strikethrough title.
+The calendar's own vocabulary for a scheduled task, and the one place a colored border appears anywhere in the system. A `.block` gets a 3px Signal-Blue-position left border in the task's own tag color, a matching 15%-tint background (`color-mix(in srgb, var(--tag) 15%, var(--surface-1))`), and 4px corners. This is functional color-coding for the task's category, not a decorative accent — it is the one sanctioned exception to "no colored left borders," confirmed for this component alone and not a pattern to extend to generic cards or list items. A repeating occurrence adds a small repeat icon after its time label; a completed block drops its border and gets a strikethrough title.
 
 ## Do's and Don'ts
 
@@ -330,9 +337,12 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Do** reuse the toggle-chip idiom (neutral pill at rest → Signal Blue fill when selected) for any new "pick one or more from a small set" control, rather than inventing a new selected-state treatment.
 - **Do** resolve a tag's color through the `--tag` custom property and a themed `var(--tag-*)` token, never an inline hex — the only way a component works correctly in both themes.
 - **Do** declare a dark-mode color in both the `prefers-color-scheme` media query and the `[data-theme="dark"]` scope, so the manual toggle always overrides the OS default.
+- **Do** draw a new icon in `src/components/icons.jsx`'s existing grammar (24×24, 2px `currentColor` stroke, round caps/joins) rather than reaching for a Unicode character.
+- **Do** reuse the load-indicator's 10-hour reference and color logic (Signal Blue → Critical) for any new "how full is this day" treatment, rather than inventing a second capacity number.
 
 ### Don't:
 - **Don't** add a second saturated accent color outside the validated 8-slot tag palette.
+- **Don't** use a Unicode glyph or emoji standing in for an icon. Every icon in the app is drawn, in the one shared grammar — a text character reads as a placeholder the moment it sits next to a real icon.
 - **Don't** add a colored left border, top border, or accent stripe to a generic card, list item, or callout. The Time-Grid Block's left border is functional tag-color coding on the app's signature calendar element — it does not generalize to anything else.
 - **Don't** reach for a shadow as hover feedback or as card decoration. Shadow is reserved for content that floats above the page's own layer (modal, dropdown).
 - **Don't** borrow a display or serif typeface for emphasis. Voice comes from size, weight, and tracking within the one system-font stack — including the Dashboard's hero number.

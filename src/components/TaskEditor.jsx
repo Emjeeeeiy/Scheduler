@@ -9,6 +9,7 @@ import {
   timeValueToMin,
 } from '../lib/date.js'
 import { daysForPreset, presetOf, recurrenceLabel } from '../lib/recurrence.js'
+import { CloseIcon, RepeatIcon } from './icons.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
 
@@ -161,13 +162,13 @@ export function TaskEditor({ editor, onClose, onEditTask }) {
           <div className="modal__head">
             <h2 className="modal__title">{heading}</h2>
             <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-              ✕
+              <CloseIcon />
             </button>
           </div>
 
           {isOccurrence && (
             <div className="series-note">
-              <span className="series-note__mark" aria-hidden="true">↻</span>
+              <RepeatIcon className="series-note__mark" />
               <span className="series-note__text">
                 One day of a repeating task. Saving changes this day only and leaves the rest of{' '}
                 <strong>{recurrenceLabel(source.recurrence).toLowerCase()}</strong> alone.

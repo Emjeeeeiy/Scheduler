@@ -4,9 +4,9 @@ A time-blocking planner. Tasks can sit in an inbox with no time at all, and
 "planning" means giving one a real slot on a real day — then seeing, afterwards,
 where the hours actually went.
 
-Five views: **Dashboard** (the summary), **Day** (agenda + inbox), **Week**
-(7-column time grid), **Month** (calendar grid), and **Review** (planned versus
-completed).
+Four views: **Dashboard** (today's snapshot, plus a Trends section — planned
+versus completed over the last 7 or 30 days), **Day** (agenda + inbox),
+**Week** (7-column time grid), and **Month** (calendar grid).
 
 Built with React 19 + Vite, data in Firebase Firestore. Sign in with Google, or
 with a username and password.
@@ -168,7 +168,7 @@ src/
     date.js              day keys & minutes — every date primitive
     layout.js            overlap packing for the time grid
     recurrence.js        repeat rules — expansion, labels, occurrence ids
-    stats.js             dashboard & review aggregations
+    stats.js             dashboard & trends aggregations
     useNow.js            live clock for the now-line
     useTheme.js          system / light / dark
     usePersistentState.js

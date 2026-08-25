@@ -1,4 +1,4 @@
-/* Aggregations behind the Dashboard and Review views.
+/* Aggregations behind the Dashboard, including its Trends section.
  *
  * One convention throughout: *planned minutes* counts only tasks that occupy a
  * real slot (a startMin). An all-day item is a commitment to a day, not to a

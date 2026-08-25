@@ -3,30 +3,7 @@ import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
 import { buildNotifications } from '../lib/notifications.js'
 import { durationLabel, minToLabel, relativeDayLabel } from '../lib/date.js'
-
-/* No plain-text Unicode glyph reads unambiguously as "bell" without falling
-   into the emoji range, and the emoji bell renders in full colour on most
-   platforms — a clash with the rest of this icon set, which is line-art in
-   a single inherited colour. A small inline stroke icon is the one place
-   this app draws an SVG instead of a character. */
-function BellIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  )
-}
+import { BellIcon } from './icons.jsx'
 
 function describe(item) {
   const { kind, task } = item

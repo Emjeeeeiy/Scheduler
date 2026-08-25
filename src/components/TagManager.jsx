@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { TAG_SLOTS, useSchedule } from '../state/ScheduleContext.jsx'
+import { CloseIcon } from './icons.jsx'
 
 function SlotPicker({ value, onPick, label }) {
   return (
@@ -59,7 +60,7 @@ export function TagManager({ onClose }) {
         <div className="modal__head">
           <h2 className="modal__title">Tags</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -112,7 +113,7 @@ export function TagManager({ onClose }) {
                     onClick={() => setConfirming(tag.id)}
                     aria-label={`Delete ${tag.name}`}
                   >
-                    ✕
+                    <CloseIcon />
                   </button>
                 )}
               </li>

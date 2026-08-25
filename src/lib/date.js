@@ -70,7 +70,8 @@ export function weekKeys(key) {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i))
 }
 
-/** The N day keys ending at `key` inclusive — the window the Review view uses. */
+/** The N day keys ending at `key` inclusive — the window Dashboard's Trends
+    section uses. */
 export function lastNDays(key, n) {
   return Array.from({ length: n }, (_, i) => addDays(key, i - n + 1))
 }

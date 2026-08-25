@@ -18,18 +18,31 @@ import { Dashboard } from './components/Dashboard.jsx'
 import { TodayView } from './components/TodayView.jsx'
 import { WeekGrid } from './components/WeekGrid.jsx'
 import { MonthCalendar } from './components/MonthCalendar.jsx'
-import { ReviewView } from './components/ReviewView.jsx'
 import { TaskEditor } from './components/TaskEditor.jsx'
 import { TagManager } from './components/TagManager.jsx'
 import { NotificationBell } from './components/NotificationBell.jsx'
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  DashboardIcon,
+  DayIcon,
+  MonthIcon,
+  PlusIcon,
+  TagIcon,
+  ThemeDarkIcon,
+  ThemeLightIcon,
+  ThemeSystemIcon,
+  WarningIcon,
+  WeekIcon,
+} from './components/icons.jsx'
 import './styles/app.css'
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '▣' },
-  { id: 'today', label: 'Day', icon: '▤' },
-  { id: 'week', label: 'Week', icon: '▦' },
-  { id: 'month', label: 'Month', icon: '▩' },
-  { id: 'review', label: 'Review', icon: '◔' },
+  { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
+  { id: 'today', label: 'Day', Icon: DayIcon },
+  { id: 'week', label: 'Week', Icon: WeekIcon },
+  { id: 'month', label: 'Month', Icon: MonthIcon },
 ]
 
 /** Which views carry a date cursor, and how far one arrow press moves it. */
@@ -39,15 +52,20 @@ const DATE_NAV = {
   month: (key, n) => shiftMonth(key, n),
 }
 
+const VIEW_IDS = new Set(NAV_ITEMS.map((item) => item.id))
+
 const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
-const THEME_ICON = { system: '◐', light: '☀', dark: '☾' }
+const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
 
 function AppShell() {
   const { user, signOut } = useAuth()
   const { loading, error } = useSchedule()
   const { theme, cycleTheme } = useTheme()
 
-  const [view, setView] = usePersistentState('cadence-app:view', 'dashboard')
+  const [storedView, setView] = usePersistentState('cadence-app:view', 'dashboard')
+  // A view id from a build that no longer exists (the removed Review page)
+  // falls back to Dashboard rather than rendering nothing.
+  const view = VIEW_IDS.has(storedView) ? storedView : 'dashboard'
   const [storedKey, setStoredKey] = usePersistentState('cadence-app:focus', todayKey)
   const [editor, setEditor] = useState(null)
   const [tagsOpen, setTagsOpen] = useState(false)
@@ -105,11 +123,13 @@ function AppShell() {
     return relativeDayLabel(focusKey)
   }, [view, focusKey])
 
+  const ThemeIcon = THEME_ICON[theme]
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar__brand">
-          <span className="brand__mark" aria-hidden="true">◷</span>
+          <ClockIcon className="brand__mark" />
           <span className="brand__name">Cadence</span>
         </div>
 
@@ -118,7 +138,7 @@ function AppShell() {
           className="primary-button sidebar__new-task"
           onClick={() => openCreate({})}
         >
-          <span aria-hidden="true">+</span> New task
+          <PlusIcon className="button-icon" /> New task
         </button>
 
         <nav className="sidebar__nav" aria-label="Views">
@@ -131,7 +151,7 @@ function AppShell() {
               title={item.label}
               onClick={() => setView(item.id)}
             >
-              <span className="sidebar__icon" aria-hidden="true">{item.icon}</span>
+              <item.Icon className="sidebar__icon" />
               <span className="sidebar__label">{item.label}</span>
             </button>
           ))}
@@ -142,7 +162,7 @@ function AppShell() {
           className="sidebar__link sidebar__link--secondary"
           onClick={() => setTagsOpen(true)}
         >
-          <span className="sidebar__icon" aria-hidden="true">◈</span>
+          <TagIcon className="sidebar__icon" />
           Tags
         </button>
 
@@ -157,7 +177,7 @@ function AppShell() {
             aria-label={`Theme: ${THEME_LABEL[theme]}. Click to change.`}
             title={`Theme: ${THEME_LABEL[theme]}`}
           >
-            {THEME_ICON[theme]}
+            <ThemeIcon />
           </button>
           <button
             type="button"
@@ -185,7 +205,7 @@ function AppShell() {
                 aria-label="Previous"
                 onClick={() => setFocusKey(step(focusKey, -1))}
               >
-                ‹
+                <ChevronLeftIcon />
               </button>
               <span className="date-nav__label">{dateLabel}</span>
               <button
@@ -194,7 +214,7 @@ function AppShell() {
                 aria-label="Next"
                 onClick={() => setFocusKey(step(focusKey, 1))}
               >
-                ›
+                <ChevronRightIcon />
               </button>
               {focusKey !== todayKey() && (
                 <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
@@ -211,7 +231,7 @@ function AppShell() {
 
         {error && (
           <p className="banner banner--error" role="alert">
-            <span aria-hidden="true">⚠</span> {error}
+            <WarningIcon className="banner__icon" /> {error}
           </p>
         )}
 
@@ -232,7 +252,6 @@ function AppShell() {
               {view === 'month' && (
                 <MonthCalendar focusKey={focusKey} onFocusDay={focusDay} onCreate={openCreate} />
               )}
-              {view === 'review' && <ReviewView focusKey={focusKey} />}
             </>
           )}
         </main>

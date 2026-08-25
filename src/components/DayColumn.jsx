@@ -3,6 +3,7 @@ import { useSchedule } from '../state/ScheduleContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '../lib/layout.js'
 import { durationLabel, minToLabel, snapMin } from '../lib/date.js'
 import { recurrenceLabel } from '../lib/recurrence.js'
+import { RepeatIcon } from './icons.jsx'
 
 /** Custom MIME type so a drop handler can tell one of our tasks from a file or
     a stray text selection dragged in from elsewhere. */
@@ -168,7 +169,7 @@ export function DayColumn({
               {block.task.recurrence && (
                 <>
                   {' · '}
-                  <span aria-hidden="true">↻</span>
+                  <RepeatIcon className="block__repeat" />
                   <span className="visually-hidden">{recurrenceLabel(block.task.recurrence)}</span>
                 </>
               )}

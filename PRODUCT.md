@@ -12,11 +12,11 @@ A single person managing their own day: the owner-operator, signed in via Google
 
 ## Product Purpose
 
-A personal time-blocking planner. A task can sit in an inbox with no time at all; "planning" means giving it a real slot on a real day. Afterward, the Review view shows planned versus completed, so the user can see where the hours actually went.
+A personal time-blocking planner. A task can sit in an inbox with no time at all; "planning" means giving it a real slot on a real day. Afterward, Dashboard's Trends section shows planned versus completed, so the user can see where the hours actually went.
 
 ## Positioning
 
-Unlike a due-date to-do list, every actionable task in Cadence eventually gets a real block of calendar time (a day plus a start minute), not just a deadline. The loop is closed by a dedicated Review view that compares what was planned against what was actually completed — most planners stop at scheduling and never show the gap.
+Unlike a due-date to-do list, every actionable task in Cadence eventually gets a real block of calendar time (a day plus a start minute), not just a deadline. The loop is closed by Dashboard's Trends section, which compares what was planned against what was actually completed — most planners stop at scheduling and never show the gap.
 
 ## Operating Context
 
@@ -24,7 +24,7 @@ Used solo, in-browser, as part of a personal daily/weekly planning ritual — no
 
 ## Capabilities and Constraints
 
-- Five views: **Dashboard** (summary/stats), **Day** (agenda + inbox), **Week** (7-column time grid), **Month** (calendar grid), **Review** (planned vs. completed).
+- Four views: **Dashboard** (today's summary/stats, plus a Trends section — planned vs. completed over a 7/30-day range), **Day** (agenda + inbox), **Week** (7-column time grid), **Month** (calendar grid).
 - Sign-in: Google, or username/password (username resolves to a real email under the hood; Firebase Auth has no native username concept).
 - Tags are color-coded categories from a validated, colorblind-safe 8-color palette, stored as a color *slot name* (not a hex) so light and dark themes each get a correctly-stepped color. Three light-mode slots fall under 3:1 contrast, so color is never the only signal — a text label always accompanies a tag color.
 - Data lives in Firebase Firestore behind one `onSnapshot` listener sliced in memory — sized for a personal scheduler (hundreds of documents), not built to scale to a shared or high-volume dataset.
@@ -35,7 +35,7 @@ Used solo, in-browser, as part of a personal daily/weekly planning ritual — no
 
 ## Brand Commitments
 
-Name: **Cadence** (renamed from a generic "Scheduler" working title). Mark: the `◷` clock/dial glyph, used in the sidebar brand lockup and on the sign-in screen.
+Name: **Cadence** (renamed from a generic "Scheduler" working title). Mark: a drawn clock icon (`ClockIcon`, part of the app's own small stroke-icon set), used in the sidebar brand lockup and on the sign-in screen.
 
 ## Evidence on Hand
 
@@ -45,7 +45,7 @@ None — personal project, no testimonials, case studies, or third-party proof t
 
 1. **Time-blocking over due-dates.** A task isn't "planned" until it has a real slot on a real day — a deadline alone doesn't count.
 2. **The inbox is a legitimate resting state.** Tasks aren't forced onto the calendar before they're ready to be scheduled.
-3. **Closing the loop matters.** Review exists so planning has a visible consequence: what you actually did versus what you meant to do.
+3. **Closing the loop matters.** Dashboard's Trends section exists so planning has a visible consequence: what you actually did versus what you meant to do.
 4. **Personal-scale simplicity.** One listener, no sharing/team model, optimized for one person's hundreds of documents — not enterprise scale.
 5. **Color-code responsibly.** Tag color is validated for accessibility and never carries meaning alone; a label is always present too.
 

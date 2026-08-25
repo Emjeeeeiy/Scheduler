@@ -23,20 +23,19 @@
 }
 
 .sidebar__brand {
-  padding: 4px 10px 18px;
-}
-
-.brand {
   display: flex;
   align-items: center;
   gap: 9px;
+  padding: 4px 10px 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
 .brand__mark {
-  font-size: 20px;
+  width: 20px;
+  height: 20px;
   color: var(--series-1);
+  flex: none;
 }
 
 .brand__name {
@@ -50,6 +49,12 @@
   justify-content: center;
   gap: 6px;
   margin-bottom: 16px;
+}
+
+.button-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
 }
 
 .sidebar__nav {
@@ -86,10 +91,9 @@
 }
 
 .sidebar__icon {
-  font-size: 15px;
   width: 18px;
+  height: 18px;
   flex: none;
-  text-align: center;
 }
 
 .sidebar__link--secondary {
@@ -325,8 +329,11 @@
   height: 30px;
   display: grid;
   place-items: center;
-  font-size: 15px;
-  line-height: 1;
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .icon-button:hover {
@@ -450,6 +457,12 @@
   color: var(--critical-text);
 }
 
+.banner__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
 .warn-text {
   color: var(--critical-text);
 }
@@ -520,9 +533,11 @@ code {
 }
 
 .signin__mark {
-  font-size: 34px;
+  width: 34px;
+  height: 34px;
   color: var(--series-1);
   display: block;
+  margin: 0 auto;
 }
 
 .signin__note {
@@ -1131,7 +1146,64 @@ code {
   overflow: hidden;
 }
 
+.block__repeat {
+  width: 11px;
+  height: 11px;
+  vertical-align: -2px;
+}
+
 /* day panel ------------------------------------------------------------ */
+
+.now-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--series-1) 8%, var(--surface-1));
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.now-next__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--series-1);
+  flex: none;
+}
+
+.now-next__label {
+  color: var(--text-secondary);
+  font-weight: 550;
+  flex: none;
+}
+
+.now-next__task {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-next__task:hover {
+  text-decoration: underline;
+}
+
+.now-next__time {
+  flex: none;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 
 .day-panel__foot {
   margin-top: 12px;
@@ -1162,6 +1234,17 @@ code {
 }
 
 /* week ----------------------------------------------------------------- */
+
+.week__summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.week__summary-heavy {
+  color: var(--critical-text);
+  font-weight: 550;
+}
 
 .week__head {
   display: flex;
@@ -1201,6 +1284,27 @@ code {
   font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.week__load-track {
+  display: block;
+  width: 28px;
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.week__load-fill {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+  border-radius: inherit;
+}
+
+.week__load-fill--heavy {
+  background: var(--critical);
 }
 
 .week__day--today .week__date {
@@ -1341,6 +1445,25 @@ code {
   background: color-mix(in srgb, var(--series-1) 12%, transparent);
 }
 
+.month__load-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gridline);
+}
+
+.month__load-strip-fill {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+}
+
+.month__load-strip-fill--heavy {
+  background: var(--critical);
+}
+
 .month__cell-head {
   display: flex;
   align-items: center;
@@ -1396,6 +1519,8 @@ code {
   bottom: 4px;
   width: 20px;
   height: 20px;
+  display: grid;
+  place-items: center;
   border-radius: 4px;
   border: none;
   background: transparent;
@@ -1403,6 +1528,11 @@ code {
   cursor: pointer;
   opacity: 0;
   transition: opacity 120ms ease;
+}
+
+.month__add svg {
+  width: 13px;
+  height: 13px;
 }
 
 .month__cell:hover .month__add,
@@ -1804,9 +1934,10 @@ code {
 }
 
 .series-note__mark {
+  width: 16px;
+  height: 16px;
   color: var(--series-1);
-  font-size: 15px;
-  line-height: 1;
+  flex: none;
 }
 
 .series-note__text {
@@ -1817,17 +1948,16 @@ code {
 }
 
 .repeat-mark {
-  font-size: 12px;
+  display: inline-flex;
   color: var(--text-muted);
-  line-height: 1;
 }
 
-/* ================================================================ review == */
-
-.review {
-  display: grid;
-  gap: 16px;
+.repeat-mark svg {
+  width: 13px;
+  height: 13px;
 }
+
+/* ========================================================== filter/toggle == */
 
 .filter-row {
   display: flex;
@@ -1943,8 +2073,8 @@ code {
   }
 
   .sidebar__nav .sidebar__icon {
-    width: auto;
-    font-size: 17px;
+    width: 20px;
+    height: 20px;
   }
 
   .sidebar__nav .sidebar__label {

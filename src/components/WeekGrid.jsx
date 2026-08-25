@@ -14,12 +14,21 @@ import { DayColumn } from './DayColumn.jsx'
 
 const HOUR_HEIGHT = 52
 
+/* The line a day tips from "full" to "heavy" — the same number TodayView
+   already warns on ("that is a heavy day"), reused here rather than a second
+   threshold, so a day reads the same way regardless of which view shows it. */
+const HEAVY_DAY_MIN = 10 * 60
+
 export function WeekGrid({ focusKey, onEdit, onCreate }) {
   const { tasksOn } = useSchedule()
   const now = useNow()
 
   const keys = weekKeys(focusKey)
   const byDay = keys.map((key) => tasksOn(key))
+  const dayTotals = byDay.map(dayStats)
+
+  const weekPlannedMin = dayTotals.reduce((sum, stats) => sum + stats.plannedMin, 0)
+  const heavyDays = dayTotals.filter((stats) => stats.plannedMin > HEAVY_DAY_MIN).length
 
   /* One window across all seven days so the rows line up; widened to fit the
      earliest and latest thing scheduled anywhere in the week. */
@@ -32,13 +41,31 @@ export function WeekGrid({ focusKey, onEdit, onCreate }) {
 
   return (
     <section className="card week" aria-label={`Week of ${formatWeekLabel(focusKey)}`}>
+      <p className="week__summary">
+        {weekPlannedMin > 0 ? (
+          <>
+            <strong>{durationLabel(weekPlannedMin)}</strong> planned this week
+          </>
+        ) : (
+          'Nothing planned this week yet'
+        )}
+        {heavyDays > 0 && (
+          <span className="week__summary-heavy">
+            {' '}
+            · {heavyDays} heavy day{heavyDays === 1 ? '' : 's'}
+          </span>
+        )}
+      </p>
+
       <div className="grid-scroll">
         <div className="week__inner">
           <div className="week__head">
             <div className="gutter-spacer" aria-hidden="true" />
             {keys.map((key, index) => {
-              const stats = dayStats(byDay[index])
+              const stats = dayTotals[index]
               const isToday = key === now.key
+              const isHeavy = stats.plannedMin > HEAVY_DAY_MIN
+              const loadPct = Math.min(100, (stats.plannedMin / HEAVY_DAY_MIN) * 100)
               return (
                 <div key={key} className={`week__day${isToday ? ' week__day--today' : ''}`}>
                   <span className="week__dow">{WEEKDAY_HEADERS[index]}</span>
@@ -46,6 +73,14 @@ export function WeekGrid({ focusKey, onEdit, onCreate }) {
                   <span className="week__load">
                     {stats.plannedMin > 0 ? durationLabel(stats.plannedMin) : '—'}
                   </span>
+                  {stats.plannedMin > 0 && (
+                    <span className="week__load-track" aria-hidden="true">
+                      <span
+                        className={`week__load-fill${isHeavy ? ' week__load-fill--heavy' : ''}`}
+                        style={{ width: `${loadPct}%` }}
+                      />
+                    </span>
+                  )}
                 </div>
               )
             })}

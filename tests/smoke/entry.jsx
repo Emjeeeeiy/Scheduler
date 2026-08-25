@@ -15,7 +15,6 @@ import { Dashboard } from '../../src/components/Dashboard.jsx'
 import { TodayView } from '../../src/components/TodayView.jsx'
 import { WeekGrid } from '../../src/components/WeekGrid.jsx'
 import { MonthCalendar } from '../../src/components/MonthCalendar.jsx'
-import { ReviewView } from '../../src/components/ReviewView.jsx'
 import { TaskEditor } from '../../src/components/TaskEditor.jsx'
 import { TagManager } from '../../src/components/TagManager.jsx'
 import { TaskInbox } from '../../src/components/TaskInbox.jsx'
@@ -38,7 +37,6 @@ const cases = [
   ['TodayView', <TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['WeekGrid', <WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['MonthCalendar', <MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />],
-  ['ReviewView', <ReviewView />],
   ['TaskInbox', <TaskInbox focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['TagManager', <TagManager onClose={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
@@ -68,7 +66,6 @@ const html = {
   week: renderToString(<WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />),
   month: renderToString(<MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />),
   dashboard: renderToString(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
-  review: renderToString(<ReviewView />),
 }
 
 const expect = (name, condition) => checks.push([name, Boolean(condition)])
@@ -85,8 +82,8 @@ expect('Dashboard hero shows planned hours', html.dashboard.includes('hero__valu
 expect('Dashboard surfaces the overdue task', html.dashboard.includes('Overdue thing'))
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
-expect('Review renders its table toggle', html.review.includes('Table view'))
-expect('Review computes a completion rate', html.review.includes('Completion rate'))
+expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))
+expect('Dashboard trends compute a completion rate', html.dashboard.includes('Completion rate'))
 
 const signIn = renderToString(<SignIn />)
 expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))

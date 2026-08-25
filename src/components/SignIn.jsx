@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
+import { ClockIcon, WarningIcon } from './icons.jsx'
 
 export function SignIn() {
   const { signIn, error, clearError } = useAuth()
@@ -15,7 +16,7 @@ export function SignIn() {
   return (
     <div className="centered">
       <div className="signin card">
-        <span className="signin__mark" aria-hidden="true">◷</span>
+        <ClockIcon className="signin__mark" />
         <h1 className="signin__title">Cadence</h1>
         <p className="signin__lead">
           Plan your days in blocks, keep the loose ends in one inbox, and see where the hours
@@ -59,7 +60,7 @@ export function SignIn() {
 
         {error && (
           <p className="banner banner--error" role="alert">
-            <span aria-hidden="true">⚠</span> {error}
+            <WarningIcon className="banner__icon" /> {error}
           </p>
         )}
 

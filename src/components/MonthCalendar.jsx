@@ -13,8 +13,13 @@ import {
 } from '../lib/date.js'
 import { dayStats } from '../lib/stats.js'
 import { recurrenceLabel } from '../lib/recurrence.js'
+import { PlusIcon } from './icons.jsx'
 
 const MAX_CHIPS = 3
+
+/* Same threshold WeekGrid uses, so a day reads as "heavy" identically in both
+   views rather than the month having its own opinion about what counts. */
+const HEAVY_DAY_MIN = 10 * 60
 
 export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
   const { tasksOn, getTag, updateTask } = useSchedule()
@@ -56,6 +61,8 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
           const isToday = key === now.key
           const shown = tasks.slice(0, MAX_CHIPS)
           const overflow = tasks.length - shown.length
+          const isHeavy = stats.plannedMin > HEAVY_DAY_MIN
+          const loadPct = Math.min(100, (stats.plannedMin / HEAVY_DAY_MIN) * 100)
 
           return (
             <div
@@ -76,6 +83,15 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
               onDragLeave={() => setDropKey((current) => (current === key ? null : current))}
               onDrop={(event) => onDrop(event, key)}
             >
+              {stats.plannedMin > 0 && (
+                <span className="month__load-strip" aria-hidden="true">
+                  <span
+                    className={`month__load-strip-fill${isHeavy ? ' month__load-strip-fill--heavy' : ''}`}
+                    style={{ width: `${loadPct}%` }}
+                  />
+                </span>
+              )}
+
               <div className="month__cell-head">
                 <button
                   type="button"
@@ -143,7 +159,7 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate }) {
                 onClick={() => onCreate?.({ date: key })}
                 aria-label={`Add a task on ${key}`}
               >
-                +
+                <PlusIcon />
               </button>
             </div>
           )
