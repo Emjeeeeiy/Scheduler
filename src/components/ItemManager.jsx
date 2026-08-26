@@ -41,8 +41,12 @@ function taskRow(task) {
 }
 
 function eventRow(event) {
-  const span =
-    event.startDate === event.endDate
+  /* A repeating event is a rule, not a day, so it reads as its rule and sorts
+     into the same undated tail a repeating task does — showing the anchor date
+     would name one occurrence out of an open-ended run. */
+  const when = event.recurrence
+    ? recurrenceLabel(event.recurrence)
+    : event.startDate === event.endDate
       ? formatDayLabel(event.startDate)
       : `${formatDayLabel(event.startDate)} – ${formatDayLabel(event.endDate)}`
   return {
@@ -51,10 +55,10 @@ function eventRow(event) {
     title: event.title,
     tagId: event.tagId,
     done: false,
-    sortKey: event.startDate,
+    sortKey: event.recurrence ? UNDATED : event.startDate,
     sortMin: event.startMin ?? -1,
-    meta: event.startMin === null ? span : `${span} · ${minToShortLabel(event.startMin)}`,
-    repeating: false,
+    meta: event.startMin === null ? when : `${when} · ${minToShortLabel(event.startMin)}`,
+    repeating: Boolean(event.recurrence),
     source: event,
   }
 }
@@ -178,10 +182,12 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                       the calendar uses, so a row here reads as the thing it
                       will open. */}
                   <span className="item-list__kind" title={row.kind === 'event' ? 'Event' : 'Task'}>
-                    {row.kind === 'event' ? (
+                    {row.repeating ? (
+                      <RepeatIcon
+                        aria-label={row.kind === 'event' ? 'Repeating event' : 'Repeating task'}
+                      />
+                    ) : row.kind === 'event' ? (
                       <SpanIcon aria-label="Event" />
-                    ) : row.repeating ? (
-                      <RepeatIcon aria-label="Repeating task" />
                     ) : (
                       <DayIcon aria-label="Task" />
                     )}
@@ -253,14 +259,14 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
 
         {confirmingRow?.repeating && (
           <p className="field__hint">
-            This is the rule behind a repeating task — deleting it removes every one of its
-            occurrences.
+            This is the rule behind a repeating {confirmingRow.kind} — deleting it removes every
+            one of its occurrences.
           </p>
         )}
 
         <p className="field__hint">
-          A repeating task appears once here, as the rule itself. Skipping a single day of one is
-          done on that day, in the Day, Week, or Month view.
+          A repeating task or event appears once here, as the rule itself. Skipping a single day
+          of one is done on that day, in the Day, Week, or Month view.
         </p>
       </div>
     </div>

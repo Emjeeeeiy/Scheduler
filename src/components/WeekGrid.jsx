@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
 import { hourMarks, visibleWindow } from '../lib/layout.js'
-import { dayStats } from '../lib/stats.js'
+import { HEAVY_DAY_MIN, dayStats } from '../lib/stats.js'
 import { packSpans } from '../lib/spans.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../lib/dnd.js'
 import {
@@ -22,7 +22,6 @@ const HOUR_HEIGHT = 52
 /* The line a day tips from "full" to "heavy" — the same number TodayView
    already warns on ("that is a heavy day"), reused here rather than a second
    threshold, so a day reads the same way regardless of which view shows it. */
-const HEAVY_DAY_MIN = 10 * 60
 
 /* The all-day strip is wider than a month cell, so it can afford more lanes
    before folding anything away. */

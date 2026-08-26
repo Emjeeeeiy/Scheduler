@@ -10,7 +10,7 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { todayKey } from '../../src/lib/date.js'
+import { addDays, todayKey } from '../../src/lib/date.js'
 import { Dashboard } from '../../src/components/Dashboard.jsx'
 import { TodayView } from '../../src/components/TodayView.jsx'
 import { WeekGrid } from '../../src/components/WeekGrid.jsx'
@@ -137,7 +137,48 @@ const eventCreate = renderToString(
   <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />,
 )
 expect('Event editor asks for an end date', eventCreate.includes('Ends'))
-expect('Event editor offers no repeat control', !eventCreate.includes('Repeat'))
+/* Events repeat now. This assertion used to be its exact inverse — "offers no
+   repeat control" — because a repeating event was deliberately not built; the
+   restriction that survived is narrower and lives below. */
+expect('Event editor offers a repeat control', eventCreate.includes('Repeat'))
+expect(
+  'Event repeat covers the monthly and weekend rules',
+  eventCreate.includes('Monthly') && eventCreate.includes('Weekends'),
+)
+/* The one thing still not built: a span cannot repeat. An occurrence would
+   have to carry its own length, and "which day of which occurrence did you
+   grab" becomes a real question for the lane packer and every drag path. */
+const eventSpan = renderToString(
+  <EventEditor
+    editor={{ mode: 'create', draft: { startDate: KEY, endDate: addDays(KEY, 3) } }}
+    onClose={noop}
+  />,
+)
+expect(
+  'A multi-day event cannot repeat',
+  eventSpan.includes('A run of days cannot repeat'),
+)
+
+/* A repeating event has to actually reach the grids, not just save. The
+   fixtures carry a weekly "Sunday service" anchored a fortnight back and a
+   monthly "Book club" anchored four weeks back — both before any window these
+   views draw, so anything on screen came from expansion, never from the
+   stored document sitting on its own anchor date. */
+expect(
+  'A repeating event expands into the month grid',
+  html.month.includes('Sunday service'),
+)
+expect(
+  'A monthly nth-weekday event expands too',
+  html.month.includes('Book club'),
+)
+/* And the rule document itself never shows up as an event on its anchor day —
+   the same contract repeating tasks have. A month view drawing both the rule
+   and its occurrences would double every repeat. */
+expect(
+  'The month shows one Book club, not the rule as well',
+  (html.month.match(/>Book club</g) ?? []).length <= 1,
+)
 
 /* The item index lists documents, not calendar days — so a repeating task must
    appear exactly once, as its rule, however many days the grids expand it

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
-import { dayStats } from '../lib/stats.js'
+import { HEAVY_DAY_MIN, dayStats } from '../lib/stats.js'
 import {
   dayOfMonth,
   durationLabel,
@@ -18,7 +18,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from './icons.jsx'
    rather than inventing a third scale is the point: "busy" has to mean one
    thing across the app, or the dashboard would be quietly disagreeing with the
    view it links to. */
-const HEAVY_DAY_MIN = 10 * 60
 
 /** How many load dots a day earns — a coarse band, not a precise readout. */
 function loadDots(plannedMin) {

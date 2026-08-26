@@ -15,6 +15,7 @@ import { db } from '../firebase.js'
 import { useAuth } from './AuthContext.jsx'
 import { addDays, clampMin, daysBetween, isValidKey } from '../lib/date.js'
 import {
+  eventOccurrenceOn,
   normalizeOverrides,
   normalizeRecurrence,
   occurrenceOn,
@@ -110,6 +111,12 @@ function normalizeEvent(id, raw) {
   if (endDate !== null && daysBetween(startDate, endDate) >= MAX_EVENT_DAYS) {
     endDate = addDays(startDate, MAX_EVENT_DAYS - 1)
   }
+  /* Only a single-day event may repeat. A repeating span is the thing this
+     app deliberately did not build: an occurrence would have to carry its own
+     length, and "which day of which occurrence did you grab" becomes a real
+     question for the lane packer and every drag path. Enforced on read as well
+     as in the editor, so a hand-edited document cannot smuggle one in. */
+  const recurrence = startDate === endDate ? normalizeRecurrence(raw?.recurrence, startDate) : null
   const startMin = startDate && Number.isFinite(raw?.startMin) ? clampMin(raw.startMin) : null
   /* An end *time* only means something inside a single day. Across a range the
      bar covers whole days, and a clock time would be ambiguous about which. */
@@ -134,6 +141,10 @@ function normalizeEvent(id, raw) {
           ? endMin - startMin
           : DEFAULT_EVENT_DURATION_MIN,
     tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
+    recurrence,
+    // Events have no done state, so the only exception a day can carry is
+    // `detached` — normalizeOverrides drops everything else anyway.
+    overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
     updatedAt: Number.isFinite(raw?.updatedAt) ? raw.updatedAt : 0,
   }
@@ -340,20 +351,34 @@ export function ScheduleProvider({ children }) {
       (a, b) => a.order - b.order || a.name.localeCompare(b.name),
     )
 
+    /* Repeating events are held aside exactly as repeating tasks are: the
+       document is a rule, not a thing on the calendar, so it is never placed
+       on its anchor date — it is expanded per day below. */
+    const eventSeries = []
+    const fixedEvents = []
+    for (const event of visibleEvents) {
+      if (event.recurrence) eventSeries.push(event)
+      else fixedEvents.push(event)
+    }
+    const eventSeriesById = new Map(eventSeries.map((s) => [s.id, s]))
+
     /* Sorted once, here, in the order the lane packer wants to consume them:
        earliest first, then longest first so a week-long bar claims its lane
        before a one-day bar can push it down, then id to keep it stable. */
-    const sortedEvents = [...visibleEvents].sort(
-      (a, b) =>
-        a.startDate.localeCompare(b.startDate) ||
-        b.endDate.localeCompare(a.endDate) ||
-        a.id.localeCompare(b.id),
-    )
+    const bySpan = (a, b) =>
+      a.startDate.localeCompare(b.startDate) ||
+      b.endDate.localeCompare(a.endDate) ||
+      a.id.localeCompare(b.id)
+    const sortedEvents = [...fixedEvents].sort(bySpan)
 
-    /* Day keys are strings precisely so a range test is a string comparison —
-       no Date objects, no timezone, no DST. */
-    const eventsInRange = (startKey, endKey) =>
-      sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+    const eventOccurrencesOn = (key) => {
+      const out = []
+      for (const parent of eventSeries) {
+        const occurrence = eventOccurrenceOn(parent, key)
+        if (occurrence) out.push(occurrence)
+      }
+      return out
+    }
 
     /* Mirrors dayCache: a month render asks 42 times, and each call would
        otherwise rescan every event. The cache also keeps the returned array
@@ -362,9 +387,28 @@ export function ScheduleProvider({ children }) {
     const eventsOn = (key) => {
       const cached = eventDayCache.get(key)
       if (cached) return cached
-      const found = sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate)
-      eventDayCache.set(key, found)
-      return found
+      const fixed = sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate)
+      const merged =
+        eventSeries.length === 0 ? fixed : [...fixed, ...eventOccurrencesOn(key)].sort(bySpan)
+      eventDayCache.set(key, merged)
+      return merged
+    }
+
+    /* Day keys are strings precisely so a range test is a string comparison —
+       no Date objects, no timezone, no DST.
+
+       Occurrences have to be walked day by day rather than range-tested: a rule
+       has no start and end to compare against. That is bounded work — callers
+       ask for a week or a month grid, never an open range — and it goes through
+       eventsOn so the day cache absorbs the repeat visits a month render makes. */
+    const eventsInRange = (startKey, endKey) => {
+      const fixed = sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+      if (eventSeries.length === 0) return fixed
+      const expanded = []
+      for (let key = startKey; key <= endKey; key = addDays(key, 1)) {
+        expanded.push(...eventOccurrencesOn(key))
+      }
+      return [...fixed, ...expanded].sort(bySpan)
     }
 
     /* An id from the UI can name a real document or one day of a series. Every
@@ -411,6 +455,42 @@ export function ScheduleProvider({ children }) {
       return batch.commit()
     }
 
+    /* The event twins of the two above. Same contract, one document collection
+       over: an event id from the UI can name a real document or one day of a
+       repeating event, and the two need different writes. */
+    const resolveEventOccurrence = (id) => {
+      const parsed = parseOccurrenceId(id)
+      if (!parsed) return null
+      const parent = eventSeriesById.get(parsed.seriesId)
+      if (!parent) return null
+      return { parent, dateKey: parsed.dateKey, event: eventOccurrenceOn(parent, parsed.dateKey) }
+    }
+
+    const detachEventOccurrence = async ({ parent, dateKey, event }, patch) => {
+      const stamp = now()
+      const {
+        id: _id,
+        seriesId: _seriesId,
+        occurrenceDate: _occurrenceDate,
+        recurrence: _recurrence,
+        durationMin: _durationMin,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        ...fields
+      } = event
+      const batch = writeBatch(db)
+      batch.set(doc(eventsCol()), {
+        ...fields,
+        ...patch,
+        recurrence: null,
+        overrides: {},
+        createdAt: stamp,
+        updatedAt: stamp,
+      })
+      batch.update(eventDoc(parent.id), overrideAt(dateKey), { detached: true }, 'updatedAt', stamp)
+      return batch.commit()
+    }
+
     return {
       tasks: visibleTasks,
       tags: sortedTags,
@@ -429,10 +509,14 @@ export function ScheduleProvider({ children }) {
       occurrencesOn,
       getSeries: (id) => seriesById.get(id) ?? null,
 
-      events: sortedEvents,
+      /* Like `tasks`, this is the DOCUMENTS — a repeating event appears once,
+         as its rule. Views that draw days use eventsOn/eventsInRange, which
+         expand; the item index wants the rule itself. */
+      events: [...fixedEvents, ...eventSeries].sort(bySpan),
       eventsOn,
       eventsInRange,
-      getEvent: (id) => sortedEvents.find((e) => e.id === id) ?? null,
+      getEvent: (id) => visibleEvents.find((e) => e.id === id) ?? null,
+      getEventSeries: (id) => eventSeriesById.get(id) ?? null,
 
       async addTask(draft) {
         const stamp = now()
@@ -542,16 +626,34 @@ export function ScheduleProvider({ children }) {
               ? clampMin(draft.endMin)
               : null,
           tagId: draft.tagId ?? null,
+          // Only a single-day event may repeat — see normalizeEvent.
+          recurrence:
+            startDate === endDate ? normalizeRecurrence(draft.recurrence, startDate) : null,
+          overrides: {},
           createdAt: stamp,
           updatedAt: stamp,
         })
       },
 
       async updateEvent(id, patch) {
+        const occurrence = resolveEventOccurrence(id)
+        if (occurrence) return detachEventOccurrence(occurrence, patch)
         return updateDoc(eventDoc(id), { ...patch, updatedAt: now() })
       },
 
+      /** Deleting one day of a series skips that day; deleting the series
+          document takes every occurrence with it. */
       async removeEvent(id) {
+        const occurrence = resolveEventOccurrence(id)
+        if (occurrence) {
+          return updateDoc(
+            eventDoc(occurrence.parent.id),
+            overrideAt(occurrence.dateKey),
+            { detached: true },
+            'updatedAt',
+            now(),
+          )
+        }
         return deleteDoc(eventDoc(id))
       },
 
@@ -559,8 +661,16 @@ export function ScheduleProvider({ children }) {
           is the day-scale twin of the grid's grabOffsetMin: dropping the third
           day of a five-day bar onto Wednesday puts *that day* on Wednesday. */
       async moveEvent(id, toKey, grabOffsetDays = 0) {
+        if (!isValidKey(toKey)) return undefined
+        /* Dragging one day of a repeating event takes it out of the series
+           rather than moving the rule — the same contract a task's occurrence
+           has. An occurrence is a single day, so its span is the day it lands on. */
+        const occurrence = resolveEventOccurrence(id)
+        if (occurrence) {
+          return detachEventOccurrence(occurrence, { startDate: toKey, endDate: toKey })
+        }
         const event = sortedEvents.find((e) => e.id === id)
-        if (!event || !isValidKey(toKey)) return undefined
+        if (!event) return undefined
         const startDate = addDays(toKey, -grabOffsetDays)
         // Shift both ends by the same delta so the span is preserved by
         // construction rather than recomputed and rounded.

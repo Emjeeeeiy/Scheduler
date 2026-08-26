@@ -2,8 +2,12 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   EVERY_DAY,
+  LAST,
+  MONTHLY,
   WEEKDAYS,
-  daysForPreset,
+  WEEKENDS,
+  eventOccurrenceOn,
+  isLastWeekdayOfMonth,
   normalizeOverrides,
   normalizeRecurrence,
   occurrenceId,
@@ -11,7 +15,9 @@ import {
   occursOn,
   orderedDays,
   parseOccurrenceId,
+  nthWeekdayOfMonth,
   presetOf,
+  recurrenceForPreset,
   recurrenceLabel,
 } from '../src/lib/recurrence.js'
 
@@ -47,7 +53,11 @@ describe('normalizeRecurrence', () => {
   })
 
   it('falls back to the task date as the anchor', () => {
-    assert.deepEqual(normalizeRecurrence({ days: [1] }, MON), { days: [1], anchor: MON })
+    assert.deepEqual(normalizeRecurrence({ days: [1] }, MON), {
+      freq: 'weekly',
+      days: [1],
+      anchor: MON,
+    })
   })
 
   it('drops junk days and de-duplicates', () => {
@@ -153,9 +163,11 @@ describe('occurrence ids', () => {
 
 describe('labels', () => {
   it('names the two presets', () => {
-    assert.equal(presetOf(EVERY_DAY), 'daily')
-    assert.equal(presetOf(WEEKDAYS), 'weekdays')
-    assert.equal(presetOf([1, 3]), 'custom')
+    assert.equal(presetOf({ days: EVERY_DAY }), 'daily')
+    assert.equal(presetOf({ days: WEEKDAYS }), 'weekdays')
+    assert.equal(presetOf({ days: WEEKENDS }), 'weekends')
+    assert.equal(presetOf({ days: [1, 3] }), 'custom')
+    assert.equal(presetOf(null), 'none')
     assert.equal(recurrenceLabel({ days: EVERY_DAY }), 'Every day')
     assert.equal(recurrenceLabel({ days: WEEKDAYS }), 'Every weekday')
   })
@@ -171,11 +183,142 @@ describe('labels', () => {
   })
 })
 
-describe('daysForPreset', () => {
+describe('recurrenceForPreset', () => {
   it('starts a custom rule on the task own weekday', () => {
-    assert.deepEqual(daysForPreset('custom', FRI), [5])
-    assert.deepEqual(daysForPreset('daily'), EVERY_DAY)
-    assert.deepEqual(daysForPreset('weekdays'), WEEKDAYS)
-    assert.equal(daysForPreset('none'), null)
+    assert.deepEqual(recurrenceForPreset('custom', FRI).days, [5])
+    assert.deepEqual(recurrenceForPreset('daily', MON).days, EVERY_DAY)
+    assert.deepEqual(recurrenceForPreset('weekdays', MON).days, WEEKDAYS)
+    assert.deepEqual(recurrenceForPreset('weekends', MON).days, WEEKENDS)
+    assert.equal(recurrenceForPreset('none', MON), null)
+    // No day to anchor to means no rule, whatever the preset says.
+    assert.equal(recurrenceForPreset('daily', null), null)
+  })
+})
+
+/* 2026-08: Saturdays fall on the 1st, 8th, 15th, 22nd and 29th — five of them,
+   so it is exactly the month that tells "the fourth" and "the last" apart.
+   2026-09 has only four Saturdays (5, 12, 19, 26), which is the other half of
+   that same test. */
+const AUG_SAT = ['2026-08-01', '2026-08-08', '2026-08-15', '2026-08-22', '2026-08-29']
+const SEP_SAT = ['2026-09-05', '2026-09-12', '2026-09-19', '2026-09-26']
+
+describe('nth weekday of the month', () => {
+  it('counts a weekday position from the day of the month alone', () => {
+    AUG_SAT.forEach((key, index) => assert.equal(nthWeekdayOfMonth(key), index + 1))
+    SEP_SAT.forEach((key, index) => assert.equal(nthWeekdayOfMonth(key), index + 1))
+  })
+
+  it('knows the last one, whether the month holds four or five', () => {
+    assert.equal(isLastWeekdayOfMonth('2026-08-29'), true)
+    assert.equal(isLastWeekdayOfMonth('2026-08-22'), false)
+    assert.equal(isLastWeekdayOfMonth('2026-09-26'), true)
+    assert.equal(isLastWeekdayOfMonth('2026-09-19'), false)
+  })
+})
+
+describe('a monthly rule', () => {
+  const secondSaturday = { freq: MONTHLY, weekday: 6, nth: 2, anchor: '2026-08-01' }
+
+  it('lands on the second Saturday and nowhere else', () => {
+    assert.equal(occursOn(secondSaturday, '2026-08-08'), true)
+    assert.equal(occursOn(secondSaturday, '2026-09-12'), true)
+    for (const key of ['2026-08-01', '2026-08-15', '2026-08-22', '2026-08-29', '2026-08-09']) {
+      assert.equal(occursOn(secondSaturday, key), false)
+    }
+  })
+
+  it('never reaches back before the anchor', () => {
+    const rule = { ...secondSaturday, anchor: '2026-09-01' }
+    assert.equal(occursOn(rule, '2026-08-08'), false)
+    assert.equal(occursOn(rule, '2026-09-12'), true)
+  })
+
+  it('treats LAST as the final one, not the fourth', () => {
+    const rule = { freq: MONTHLY, weekday: 6, nth: LAST, anchor: '2026-08-01' }
+    // August has five Saturdays: the fourth is not the last.
+    assert.equal(occursOn(rule, '2026-08-22'), false)
+    assert.equal(occursOn(rule, '2026-08-29'), true)
+    // September has four, so there the fourth IS the last.
+    assert.equal(occursOn(rule, '2026-09-26'), true)
+  })
+
+  it('collapses a stored fifth to LAST rather than skipping short months', () => {
+    const rule = normalizeRecurrence({ freq: 'monthly', weekday: 6, nth: 5 }, '2026-08-01')
+    assert.equal(rule.nth, LAST)
+    assert.equal(occursOn(rule, '2026-09-26'), true)
+  })
+
+  it('seeds itself from the day the form is showing', () => {
+    const rule = recurrenceForPreset('monthly', '2026-08-08')
+    assert.equal(rule.freq, MONTHLY)
+    assert.equal(rule.weekday, 6)
+    assert.equal(rule.nth, 2)
+  })
+
+  it('seeds a fifth-weekday date as LAST', () => {
+    assert.equal(recurrenceForPreset('monthly', '2026-08-29').nth, LAST)
+  })
+
+  it('reads back as words', () => {
+    assert.equal(recurrenceLabel(secondSaturday), 'Every second Saturday of the month')
+    assert.equal(
+      recurrenceLabel({ freq: MONTHLY, weekday: 0, nth: LAST }),
+      'Every last Sunday of the month',
+    )
+    assert.equal(presetOf(secondSaturday), 'monthly')
+  })
+})
+
+describe('a rule written before monthly existed', () => {
+  it('still reads as weekly with no freq on it', () => {
+    // Every repeating task already in Firestore looks exactly like this.
+    const legacy = { days: WEEKDAYS, anchor: MON }
+    assert.equal(occursOn(legacy, WED), true)
+    assert.equal(occursOn(legacy, SAT), false)
+    assert.equal(presetOf(legacy), 'weekdays')
+    assert.equal(recurrenceLabel(legacy), 'Every weekday')
+  })
+})
+
+describe('eventOccurrenceOn', () => {
+  const sundayService = {
+    id: 'evt',
+    title: 'Sunday service',
+    notes: '',
+    startDate: SUN,
+    endDate: SUN,
+    startMin: 9 * 60,
+    endMin: 10 * 60,
+    tagId: null,
+    recurrence: { freq: 'weekly', days: [0], anchor: SUN },
+    overrides: {},
+  }
+
+  it('collapses an occurrence onto the single day it lands on', () => {
+    const occurrence = eventOccurrenceOn(sundayService, '2026-09-06')
+    assert.equal(occurrence.startDate, '2026-09-06')
+    assert.equal(occurrence.endDate, '2026-09-06')
+    assert.equal(occurrence.seriesId, 'evt')
+    assert.equal(occurrence.occurrenceDate, '2026-09-06')
+    // The rest of the event rides along unchanged.
+    assert.equal(occurrence.title, 'Sunday service')
+    assert.equal(occurrence.startMin, 9 * 60)
+    assert.equal(occurrence.overrides, undefined)
+  })
+
+  it('is null on a day the rule does not name', () => {
+    assert.equal(eventOccurrenceOn(sundayService, SAT), null)
+  })
+
+  it('skips a day detached into its own document', () => {
+    const parent = { ...sundayService, overrides: { '2026-09-06': { detached: true } } }
+    assert.equal(eventOccurrenceOn(parent, '2026-09-06'), null)
+    assert.notEqual(eventOccurrenceOn(parent, '2026-09-13'), null)
+  })
+
+  it('carries no done state — an event is not something you tick off', () => {
+    const occurrence = eventOccurrenceOn(sundayService, '2026-09-06')
+    assert.equal(occurrence.done, undefined)
+    assert.equal(occurrence.completedAt, undefined)
   })
 })

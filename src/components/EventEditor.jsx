@@ -1,20 +1,32 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../lib/date.js'
-import { CloseIcon } from './icons.jsx'
+import { recurrenceLabel } from '../lib/recurrence.js'
+import { CloseIcon, RepeatIcon } from './icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
+import { RepeatPicker } from './RepeatPicker.jsx'
 
 /* Its own component rather than a branch inside TaskEditor. TaskEditor already
    resolves three cases — an ordinary task, the rule behind a repeating one, and
    a single day of that rule — with interlocking conditions about recurrence and
    overrides. Adding a task-vs-event axis would make that a six-way matrix for
-   the sake of a form that shares no field logic: an event has no duration
-   preset, no repeat, and no done state, and it has an end date that a task
-   does not. Keeping them apart also means none of this can regress detaching. */
+   the sake of a form that shares little field logic: an event has no duration
+   preset and no done state, and it has an end date that a task does not.
+   Keeping them apart also means none of this can regress detaching.
+
+   The two do now share a Repeat control, which is a component (RepeatPicker)
+   rather than a reason to merge the forms — the rule vocabulary is identical,
+   everything around it is not. */
 export function EventEditor({ editor, onClose, onChangeKind }) {
   const { addEvent, updateEvent, removeEvent, tags } = useSchedule()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.event : editor.draft
+
+  /* Same three-way split TaskEditor makes: an ordinary event, the rule behind
+     a repeating one, or a single day of that rule. Only the first two own a
+     repeat setting — a day cannot decide how often its series comes round. */
+  const isOccurrence = Boolean(source.seriesId)
+  const isSeries = Boolean(source.recurrence) && !isOccurrence
 
   const [title, setTitle] = useState(source.title ?? '')
   const [notes, setNotes] = useState(source.notes ?? '')
@@ -27,6 +39,7 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
     Number.isFinite(source.endMin) ? minToTimeValue(source.endMin) : '',
   )
   const [tagId, setTagId] = useState(source.tagId ?? '')
+  const [repeat, setRepeat] = useState(isSeries ? source.recurrence : null)
   const [saving, setSaving] = useState(false)
 
   const titleRef = useRef(null)
@@ -70,6 +83,16 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
       tagId: tagId || null,
     }
 
+    if (!isOccurrence) {
+      // A span cannot repeat, so stretching an event across days drops the
+      // rule rather than storing one that normalizeEvent would discard on read.
+      payload.recurrence = multiDay || !repeat ? null : { ...repeat, anchor: startDate }
+      /* Exceptions belong to a rule. Turning repeating off, or on for the first
+         time, starts from none; an existing rule keeps the days already taken
+         out of it. */
+      if (!payload.recurrence || !isSeries) payload.overrides = {}
+    }
+
     setSaving(true)
     try {
       if (isEdit) await updateEvent(editor.event.id, payload)
@@ -90,7 +113,13 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
     }
   }
 
-  const heading = isEdit ? 'Edit event' : 'New event'
+  const heading = isEdit
+    ? isOccurrence
+      ? 'Edit this day'
+      : isSeries
+        ? 'Edit repeating event'
+        : 'Edit event'
+    : 'New event'
 
   return (
     <div
@@ -108,6 +137,16 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
           </div>
 
           {!isEdit && <EditorKindToggle kind="event" onChangeKind={onChangeKind} />}
+
+          {isOccurrence && (
+            <p className="series-note">
+              <RepeatIcon className="series-note__mark" />
+              <span className="series-note__text">
+                One day of a repeating event. Saving changes this day only and leaves the rest of{' '}
+                <strong>{recurrenceLabel(source.recurrence).toLowerCase()}</strong> alone.
+              </span>
+            </p>
+          )}
 
           <label className="field">
             <span className="field__label">Title</span>
@@ -184,6 +223,24 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
               </span>
             </label>
           </div>
+
+          {!isOccurrence && (
+            <RepeatPicker
+              date={startDate}
+              recurrence={multiDay ? null : repeat}
+              onChange={setRepeat}
+              disabled={multiDay}
+              hint={
+                multiDay
+                  ? 'A run of days cannot repeat — it would have to say which day of which occurrence you meant. Set the end back to the start date to repeat it.'
+                  : !startDate
+                    ? 'Pick a start date first — a repeat needs a day to run from.'
+                    : repeat
+                      ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(startDate).toLowerCase()} on. Move or delete any single one without touching the rest.`
+                      : 'Happens once, on the day above.'
+              }
+            />
+          )}
 
           <label className="field">
             <span className="field__label">Tag</span>

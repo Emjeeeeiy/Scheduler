@@ -2,7 +2,7 @@
    tests/smoke/vite.config.js so no production code knows this file exists. */
 
 import { addDays, todayKey } from '../../src/lib/date.js'
-import { WEEKDAYS, occurrenceOn } from '../../src/lib/recurrence.js'
+import { WEEKDAYS, eventOccurrenceOn, occurrenceOn } from '../../src/lib/recurrence.js'
 
 export const DEFAULT_DURATION_MIN = 30
 
@@ -70,6 +70,8 @@ const event = (id, patch) => ({
   endMin: null,
   durationMin: null,
   tagId: null,
+  recurrence: null,
+  overrides: {},
   createdAt: 1,
   updatedAt: 1,
   ...patch,
@@ -97,6 +99,27 @@ const events = [
     tagId: 'personal',
   }),
   event('e3', { title: 'Product launch', startDate: TODAY }),
+  /* Two repeating events, one of each rule shape, so the views actually walk
+     the expansion path rather than only the stored-document one. */
+  event('e5', {
+    title: 'Sunday service',
+    startDate: addDays(TODAY, -14),
+    startMin: 9 * 60,
+    endMin: 10 * 60,
+    durationMin: 60,
+    endDate: addDays(TODAY, -14),
+    recurrence: { freq: 'weekly', days: [0], anchor: addDays(TODAY, -14) },
+  }),
+  event('e6', {
+    title: 'Book club',
+    startDate: addDays(TODAY, -28),
+    startMin: 19 * 60,
+    endMin: 20 * 60 + 30,
+    durationMin: 90,
+    tagId: 'personal',
+    endDate: addDays(TODAY, -28),
+    recurrence: { freq: 'monthly', weekday: 6, nth: 2, anchor: addDays(TODAY, -28) },
+  }),
   event('e4', {
     title: 'Dentist',
     startDate: TODAY,
@@ -131,17 +154,29 @@ const tasksOn = (key) =>
 
 const noop = async () => {}
 
-const sortedEvents = [...events].sort(
-  (a, b) =>
-    a.startDate.localeCompare(b.startDate) ||
-    b.endDate.localeCompare(a.endDate) ||
-    a.id.localeCompare(b.id),
-)
+const eventSeries = events.filter((e) => e.recurrence)
+const bySpan = (a, b) =>
+  a.startDate.localeCompare(b.startDate) ||
+  b.endDate.localeCompare(a.endDate) ||
+  a.id.localeCompare(b.id)
 
-const eventsOn = (key) => sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate)
+const sortedEvents = events.filter((e) => !e.recurrence).sort(bySpan)
 
-const eventsInRange = (startKey, endKey) =>
-  sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+const eventOccurrencesOn = (key) =>
+  eventSeries.map((s) => eventOccurrenceOn(s, key)).filter((o) => o !== null)
+
+const eventsOn = (key) =>
+  [...sortedEvents.filter((e) => e.startDate <= key && key <= e.endDate),
+   ...eventOccurrencesOn(key)].sort(bySpan)
+
+const eventsInRange = (startKey, endKey) => {
+  const fixed = sortedEvents.filter((e) => e.startDate <= endKey && e.endDate >= startKey)
+  const expanded = []
+  for (let key = startKey; key <= endKey; key = addDays(key, 1)) {
+    expanded.push(...eventOccurrencesOn(key))
+  }
+  return [...fixed, ...expanded].sort(bySpan)
+}
 
 export const mockValue = {
   tasks,
@@ -154,10 +189,11 @@ export const mockValue = {
   tasksOn,
   occurrencesOn,
   getSeries: (id) => series.find((s) => s.id === id) ?? null,
-  events: sortedEvents,
+  events: [...sortedEvents, ...eventSeries].sort(bySpan),
   eventsOn,
   eventsInRange,
-  getEvent: (id) => sortedEvents.find((e) => e.id === id) ?? null,
+  getEvent: (id) => events.find((e) => e.id === id) ?? null,
+  getEventSeries: (id) => eventSeries.find((e) => e.id === id) ?? null,
   addTask: noop,
   updateTask: noop,
   toggleDone: noop,

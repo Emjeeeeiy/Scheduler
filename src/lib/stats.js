@@ -8,6 +8,13 @@
 
 import { todayKey } from './date.js'
 
+/** What counts as a full day, and the reference every load indicator scales
+    against — the week header's bar, the month cell's strip, the mini
+    calendar's dots, and the Dashboard hero's bar. It lives here rather than
+    as a copy per component so the four can never disagree about how full a
+    day is. */
+export const HEAVY_DAY_MIN = 10 * 60
+
 const isTimed = (task) => Number.isFinite(task.startMin)
 
 /** A repeating task's own document is a rule, not something on the calendar —

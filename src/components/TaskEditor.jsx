@@ -1,60 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../state/ScheduleContext.jsx'
-import {
-  DAY_LONG,
-  DAY_SHORT,
-  WEEKDAY_ORDER,
-  minToTimeValue,
-  relativeDayLabel,
-  timeValueToMin,
-} from '../lib/date.js'
-import { daysForPreset, presetOf, recurrenceLabel } from '../lib/recurrence.js'
+import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../lib/date.js'
+import { recurrenceLabel } from '../lib/recurrence.js'
 import { CloseIcon, RepeatIcon } from './icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
+import { RepeatPicker } from './RepeatPicker.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
-
-const REPEAT_PRESETS = [
-  { id: 'none', label: 'Never' },
-  { id: 'daily', label: 'Every day' },
-  { id: 'weekdays', label: 'Weekdays' },
-  { id: 'custom', label: 'Pick days' },
-]
 
 function durationOption(min) {
   if (min < 60) return `${min} min`
   const h = min / 60
   return `${Number.isInteger(h) ? h : h.toFixed(1)} hour${h === 1 ? '' : 's'}`
-}
-
-/** The weekday toggles behind "Pick days". Initials repeat (T/T, S/S), so the
-    accessible name is always the full day and never the letter on the key. */
-function WeekdayPicker({ days, onChange }) {
-  return (
-    <div className="weekday-picker" role="group" aria-label="Days to repeat on">
-      {WEEKDAY_ORDER.map((day) => {
-        const on = days.includes(day)
-        return (
-          <button
-            key={day}
-            type="button"
-            className={`weekday-picker__day${on ? ' weekday-picker__day--on' : ''}`}
-            aria-pressed={on}
-            aria-label={DAY_LONG[day]}
-            title={DAY_LONG[day]}
-            onClick={() => {
-              const next = on ? days.filter((d) => d !== day) : [...days, day].sort()
-              // Clearing the last day would leave a repeat that repeats on
-              // nothing; "Never" is the control for that.
-              if (next.length > 0) onChange(next)
-            }}
-          >
-            <span aria-hidden="true">{DAY_SHORT[day].slice(0, 1)}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 /** Create and edit share one form: the fields are identical, and keeping them
@@ -78,11 +35,10 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   )
   const [durationMin, setDurationMin] = useState(source.durationMin ?? DEFAULT_DURATION_MIN)
   const [tagId, setTagId] = useState(source.tagId ?? '')
-  const [repeatDays, setRepeatDays] = useState(isSeries ? source.recurrence.days : null)
+  const [repeat, setRepeat] = useState(isSeries ? source.recurrence : null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const repeatPreset = repeatDays === null ? 'none' : presetOf(repeatDays)
 
   const titleRef = useRef(null)
   useEffect(() => {
@@ -119,7 +75,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
     }
 
     if (!isOccurrence) {
-      payload.recurrence = nextDate && repeatDays ? { days: repeatDays, anchor: nextDate } : null
+      payload.recurrence = nextDate && repeat ? { ...repeat, anchor: nextDate } : null
       /* Exceptions belong to a rule. Turning repeating off, or on for the first
          time, starts from none; an existing rule keeps the days already ticked
          off, so a change of schedule does not un-tick this morning. */
@@ -262,37 +218,18 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
           </div>
 
           {!isOccurrence && (
-            <div className="field repeat">
-              <span className="field__label" id="repeat-label">
-                Repeat
-              </span>
-              <div className="repeat__presets" role="group" aria-labelledby="repeat-label">
-                {REPEAT_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={`filter-chip${repeatPreset === preset.id ? ' filter-chip--on' : ''}`}
-                    aria-pressed={repeatPreset === preset.id}
-                    disabled={!date}
-                    onClick={() => setRepeatDays(daysForPreset(preset.id, date))}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              {repeatPreset === 'custom' && (
-                <WeekdayPicker days={repeatDays} onChange={setRepeatDays} />
-              )}
-
-              <span className="field__hint">
-                {!date
+            <RepeatPicker
+              date={date}
+              recurrence={repeat}
+              onChange={setRepeat}
+              hint={
+                !date
                   ? 'A task in the inbox has no day to repeat from — give it a date first.'
-                  : repeatDays
-                    ? `${recurrenceLabel({ days: repeatDays })}, from ${relativeDayLabel(date).toLowerCase()} on. Tick off, move, or delete any single day without touching the rest.`
-                    : 'Happens once, on the day above.'}
-              </span>
-            </div>
+                  : repeat
+                    ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(date).toLowerCase()} on. Tick off, move, or delete any single day without touching the rest.`
+                    : 'Happens once, on the day above.'
+              }
+            />
           )}
 
           <label className="field">

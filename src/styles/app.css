@@ -839,13 +839,22 @@ code {
   gap: 16px;
 }
 
+/* A column, not a stack: the head sits at the top, the footer is pushed to the
+   bottom by `margin-top: auto`, and the space between them is what the card
+   used to leave dangling under its button. Nothing was added to fill it —
+   the same content is anchored to both ends instead of piling at one. */
 .hero {
-  display: grid;
-  justify-items: start;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
   /* The one place the Auth Shell's glow motif reappears in the main app —
      a low-key echo, not a repeat of its full intensity. */
   background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--glow-violet), transparent 70%);
+}
+
+.hero__head {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
 }
 
 .hero__label {
@@ -870,10 +879,76 @@ code {
   margin-left: 3px;
 }
 
+/* The fourth placement of the load indicator, on the same 10-hour reference
+   and the same violet → critical logic as the week bar, month strip, and mini
+   calendar dots. Taller than their 3px because it carries a hero, not a cell —
+   the pixel height varies with the surface, the scale and colour logic never
+   do. */
+/* margin-top: auto here, not on the footer, so the bar, its note, and the
+   footer travel to the bottom as one block. That leaves a single deliberate
+   gap under the figure instead of a void in the middle with furniture
+   stranded on both sides of it. */
+.hero__load {
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.hero__load-track {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+/* No transition, matching the week bar, month strip, and calendar dots. This
+   had one, and it was wrong twice over: animating width is a layout property,
+   and the other three placements of this indicator do not move at all — a
+   fourth that animates is a different component wearing the same colours. The
+   compositor-safe alternative, scaleX, is not available either: it would
+   squash the 999px caps this bar is drawn with. */
+.hero__load-fill {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+  border-radius: inherit;
+}
+
+.hero__load-fill--heavy {
+  background: var(--critical);
+}
+
+.hero__load-note {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--text-muted);
+}
+
+.hero__foot {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .hero__hint {
-  font-size: var(--text-item);
+  font-size: var(--text-label);
   color: var(--text-secondary);
-  margin-bottom: 12px;
+  min-width: 0;
+}
+
+/* Next up and Overdue share a row; auto-fit gives Next up the whole width on
+   its own when nothing is overdue. */
+.queue-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .tile-row {

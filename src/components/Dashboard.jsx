@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSchedule } from '../state/ScheduleContext.jsx'
 import { useNow } from '../lib/useNow.js'
 import {
+  HEAVY_DAY_MIN,
   dayStats,
   overdueTasks,
   rangeStats,
@@ -56,6 +57,12 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const next = upcomingTasks([...tasks, ...horizon.flat()], now.key, now.min, 3)
   const openInbox = inbox.filter((t) => !t.done).length
 
+  /* Today's load against the same 10-hour reference the week bar, month strip,
+     and mini calendar all scale to — the hero states the number, this says how
+     full the day that number describes actually is. */
+  const heavyToday = todayTotals.plannedMin > HEAVY_DAY_MIN
+  const loadPct = Math.min(100, Math.round((todayTotals.plannedMin / HEAVY_DAY_MIN) * 100))
+
   // Trends: the range picked here drives the chart, the tag breakdown, and
   // the insights below it together, so they always describe the same window.
   const rangeKeys = lastNDays(now.key, days)
@@ -78,26 +85,50 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   return (
     <div className="dashboard">
       <div className="dashboard__top">
+        {/* Three zones anchored top and bottom rather than one stack piled at
+            the top: the figure and what it means, then air, then the footer
+            pairing the day's breakdown with its action. The space in the
+            middle is the point — it is what the card had going spare before,
+            except now it reads as deliberate rather than as a card that ran
+            out of things to say. */}
         <section className="card hero" aria-label="Today at a glance">
-          <p className="hero__label">Planned today</p>
-          <p className="hero__value">
-            {toHours(todayTotals.plannedMin)}
-            <span className="hero__unit">h</span>
-          </p>
-          <p className="hero__hint">
-            {todayTotals.count === 0
-              ? 'Nothing on the books yet.'
-              : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
-                  todayTotals.remainingMin,
-                )} left to work through`}
-          </p>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => onCreate?.({ date: now.key })}
-          >
-            Plan something for today
-          </button>
+          <div className="hero__head">
+            <p className="hero__label">Planned today</p>
+            <p className="hero__value">
+              {toHours(todayTotals.plannedMin)}
+              <span className="hero__unit">h</span>
+            </p>
+          </div>
+
+          <div className="hero__load">
+            <span className="hero__load-track" aria-hidden="true">
+              <span
+                className={`hero__load-fill${heavyToday ? ' hero__load-fill--heavy' : ''}`}
+                style={{ width: `${loadPct}%` }}
+              />
+            </span>
+            {/* The track is decorative; this line is the accessible readout. */}
+            <p className="hero__load-note">
+              {heavyToday ? 'Over a 10-hour day' : `${loadPct}% of a 10-hour day`}
+            </p>
+          </div>
+
+          <div className="hero__foot">
+            <p className="hero__hint">
+              {todayTotals.count === 0
+                ? 'Nothing on the books yet.'
+                : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
+                    todayTotals.remainingMin,
+                  )} left`}
+            </p>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => onCreate?.({ date: now.key })}
+            >
+              Plan something for today
+            </button>
+          </div>
         </section>
 
         <MiniCalendar onFocusDay={onFocusDay} onFocusMonth={onFocusMonth} />
@@ -132,42 +163,49 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         />
       </div>
 
-      <section className="card" aria-label="Next up">
-        <div className="section-head">
-          <h2 className="section-head__title">Next up</h2>
-        </div>
-        {next.length === 0 ? (
-          <p className="empty empty--sm">Nothing scheduled ahead. Enjoy the clear run.</p>
-        ) : (
-          <ul>
-            {next.map((task) => (
-              <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {overdue.length > 0 && (
-        <section className="card" aria-label="Overdue">
+      {/* The two task queues side by side. Next up leads because it is always
+          there — a column that keeps its place is easier to read than one that
+          slides left whenever nothing is overdue. Overdue joins it on the
+          right when it exists, and Next up takes the full width when it does
+          not, which auto-fit handles without a second rule. */}
+      <div className="queue-row">
+        <section className="card" aria-label="Next up">
           <div className="section-head">
-            <h2 className="section-head__title">
-              Overdue <span className="count-pill count-pill--critical">{overdue.length}</span>
-            </h2>
-            <button
-              type="button"
-              className="ghost-button ghost-button--sm"
-              onClick={() => onFocusDay(overdue[0].date)}
-            >
-              Go to {relativeDayLabel(overdue[0].date)}
-            </button>
+            <h2 className="section-head__title">Next up</h2>
           </div>
-          <ul>
-            {overdue.slice(0, 5).map((task) => (
-              <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
-            ))}
-          </ul>
+          {next.length === 0 ? (
+            <p className="empty empty--sm">Nothing scheduled ahead. Enjoy the clear run.</p>
+          ) : (
+            <ul>
+              {next.map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+              ))}
+            </ul>
+          )}
         </section>
-      )}
+
+        {overdue.length > 0 && (
+          <section className="card" aria-label="Overdue">
+            <div className="section-head">
+              <h2 className="section-head__title">
+                Overdue <span className="count-pill count-pill--critical">{overdue.length}</span>
+              </h2>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => onFocusDay(overdue[0].date)}
+              >
+                Go to {relativeDayLabel(overdue[0].date)}
+              </button>
+            </div>
+            <ul>
+              {overdue.slice(0, 5).map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
 
       <div className="section-head">
         <h2 className="section-head__title">Trends</h2>
