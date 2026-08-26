@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
 import {
   HEAVY_DAY_MIN,
   dayStats,
@@ -10,7 +10,7 @@ import {
   tagBreakdown,
   upcomingTasks,
   weakestTag,
-} from '../lib/stats.js'
+} from '../../lib/stats.js'
 import {
   addDays,
   dayOfMonth,
@@ -20,13 +20,13 @@ import {
   relativeDayLabel,
   toHours,
   weekKeys,
-} from '../lib/date.js'
-import { StatTile } from './StatTile.jsx'
-import { BarChart } from './BarChart.jsx'
-import { TagBars } from './TagBars.jsx'
-import { TaskRow } from './TaskRow.jsx'
-import { MiniCalendar } from './MiniCalendar.jsx'
-import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from './icons.jsx'
+} from '../../lib/date.js'
+import { StatTile } from '../stats/StatTile.jsx'
+import { BarChart } from '../stats/BarChart.jsx'
+import { TagBars } from '../stats/TagBars.jsx'
+import { TaskRow } from '../calendar/TaskRow.jsx'
+import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
+import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
    next one — enough for "Next up" without walking the calendar forever. */

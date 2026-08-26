@@ -13,17 +13,17 @@ import {
   shiftMonth,
   todayKey,
 } from './lib/date.js'
-import { SetupNotice } from './components/SetupNotice.jsx'
-import { SignIn } from './components/SignIn.jsx'
-import { Dashboard } from './components/Dashboard.jsx'
-import { TodayView } from './components/TodayView.jsx'
-import { WeekGrid } from './components/WeekGrid.jsx'
-import { MonthCalendar } from './components/MonthCalendar.jsx'
-import { TaskEditor } from './components/TaskEditor.jsx'
-import { EventEditor } from './components/EventEditor.jsx'
-import { TagManager } from './components/TagManager.jsx'
-import { ItemManager } from './components/ItemManager.jsx'
-import { NotificationBell } from './components/NotificationBell.jsx'
+import { SetupNotice } from './components/shell/SetupNotice.jsx'
+import { SignIn } from './components/auth/SignIn.jsx'
+import { Dashboard } from './components/views/Dashboard.jsx'
+import { TodayView } from './components/views/TodayView.jsx'
+import { WeekGrid } from './components/views/WeekGrid.jsx'
+import { MonthCalendar } from './components/views/MonthCalendar.jsx'
+import { TaskEditor } from './components/editors/TaskEditor.jsx'
+import { EventEditor } from './components/editors/EventEditor.jsx'
+import { TagManager } from './components/editors/TagManager.jsx'
+import { ItemManager } from './components/editors/ItemManager.jsx'
+import { NotificationBell } from './components/shell/NotificationBell.jsx'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

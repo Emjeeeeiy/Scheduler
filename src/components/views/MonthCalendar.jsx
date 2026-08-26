@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
-import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../lib/dnd.js'
-import { packSpans } from '../lib/spans.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
+import { packSpans } from '../../lib/spans.js'
 import {
   dayOfMonth,
   daysBetween,
@@ -12,11 +12,11 @@ import {
   monthOf,
   monthGrid,
   WEEKDAY_HEADERS,
-} from '../lib/date.js'
-import { dayStats } from '../lib/stats.js'
-import { recurrenceLabel } from '../lib/recurrence.js'
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from './icons.jsx'
-import { DayPeek } from './DayPeek.jsx'
+} from '../../lib/date.js'
+import { dayStats } from '../../lib/stats.js'
+import { recurrenceLabel } from '../../lib/recurrence.js'
+import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
+import { DayPeek } from '../calendar/DayPeek.jsx'
 
 /* How many rows of content a cell can hold at all — event lanes and task chips
    share this budget, so a day with two spanning bars shows fewer chips rather

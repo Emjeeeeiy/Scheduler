@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { EyeIcon, EyeOffIcon } from './icons.jsx'
+import { EyeIcon, EyeOffIcon } from '../icons.jsx'
 
 /**
  * A password input with its own reveal toggle, shared by both auth forms so

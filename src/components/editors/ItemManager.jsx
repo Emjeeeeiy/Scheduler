@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { formatDayLabel, minToShortLabel } from '../lib/date.js'
-import { recurrenceLabel } from '../lib/recurrence.js'
-import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from './icons.jsx'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { formatDayLabel, minToShortLabel } from '../../lib/date.js'
+import { recurrenceLabel } from '../../lib/recurrence.js'
+import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
 
 const FILTERS = [
   { id: 'all', label: 'All' },

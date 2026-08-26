@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useAuth } from '../state/AuthContext.jsx'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
-import { ClockIcon, GoogleIcon, WarningIcon } from './icons.jsx'
+import { ClockIcon, GoogleIcon, WarningIcon } from '../icons.jsx'
 
 /** A fixed, always-dark two-column entry screen — brand and pitch on the
     left, the actual form on the right. Deliberately not theme-reactive: this

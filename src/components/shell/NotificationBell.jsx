@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
-import { usePopoverPlacement } from '../lib/usePopoverPlacement.js'
-import { buildNotifications } from '../lib/notifications.js'
-import { durationLabel, minToLabel, relativeDayLabel } from '../lib/date.js'
-import { BellIcon } from './icons.jsx'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
+import { buildNotifications } from '../../lib/notifications.js'
+import { durationLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
+import { BellIcon } from '../icons.jsx'
 
 function describe(item) {
   const { kind, task } = item

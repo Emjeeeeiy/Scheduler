@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { durationLabel, toHours } from '../lib/date.js'
+import { durationLabel, toHours } from '../../lib/date.js'
 
 /* Round the axis top to a clean number so ticks read 0 / 2 / 4 rather than
    0 / 1.7 / 3.4. */

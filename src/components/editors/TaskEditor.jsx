@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSchedule, DEFAULT_DURATION_MIN } from '../state/ScheduleContext.jsx'
-import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../lib/date.js'
-import { recurrenceLabel } from '../lib/recurrence.js'
-import { CloseIcon, RepeatIcon } from './icons.jsx'
+import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
+import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../../lib/date.js'
+import { recurrenceLabel } from '../../lib/recurrence.js'
+import { CloseIcon, RepeatIcon } from '../icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
 

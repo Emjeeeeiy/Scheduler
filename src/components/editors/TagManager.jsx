@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { TAG_SLOTS, useSchedule } from '../state/ScheduleContext.jsx'
-import { CloseIcon } from './icons.jsx'
+import { TAG_SLOTS, useSchedule } from '../../state/ScheduleContext.jsx'
+import { CloseIcon } from '../icons.jsx'
 
 function SlotPicker({ value, onPick, label }) {
   return (

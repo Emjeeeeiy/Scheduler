@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../state/AuthContext.jsx'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { PasswordField } from './PasswordField.jsx'
 
 export function LoginForm({ onSwitchToRegister }) {

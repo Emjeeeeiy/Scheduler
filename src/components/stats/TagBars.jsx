@@ -1,4 +1,4 @@
-import { durationLabel } from '../lib/date.js'
+import { durationLabel } from '../../lib/date.js'
 
 const MAX_ROWS = 7
 

@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
-import { hourMarks, visibleWindow } from '../lib/layout.js'
-import { HEAVY_DAY_MIN, dayStats } from '../lib/stats.js'
-import { packSpans } from '../lib/spans.js'
-import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../lib/dnd.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import { hourMarks, visibleWindow } from '../../lib/layout.js'
+import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
+import { packSpans } from '../../lib/spans.js'
+import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import {
   dayOfMonth,
   daysBetween,
@@ -13,9 +13,9 @@ import {
   minToShortLabel,
   weekKeys,
   WEEKDAY_HEADERS,
-} from '../lib/date.js'
-import { DayColumn } from './DayColumn.jsx'
-import { ChevronLeftIcon, ChevronRightIcon } from './icons.jsx'
+} from '../../lib/date.js'
+import { DayColumn } from '../calendar/DayColumn.jsx'
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 
 const HOUR_HEIGHT = 52
 

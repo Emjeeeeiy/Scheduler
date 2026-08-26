@@ -176,14 +176,42 @@ src/
     AuthContext.jsx      session, Google + username/password
     ScheduleContext.jsx  the single data seam
   components/
-    SignIn.jsx           Google button + login/register tab switch
-    LoginForm.jsx  RegisterForm.jsx
-    ...                  views + shared pieces
+    icons.jsx            the one drawn icon set — shared by every group below
+    auth/                SignIn, LoginForm, RegisterForm, PasswordField
+    views/               the four screens: Dashboard, TodayView, WeekGrid, MonthCalendar
+    calendar/            the pieces those views compose — DayColumn, MiniCalendar,
+                         DayPeek, TaskRow, TaskInbox
+    editors/             every dialog that creates, edits, or deletes, plus the
+                         controls only they use (RepeatPicker, EditorKindToggle)
+    stats/               Dashboard's data display — StatTile, BarChart, TagBars
+    shell/               chrome that belongs to no one view — NotificationBell,
+                         SetupNotice
   styles/
     tokens.css           design tokens, both themes
     app.css
 tests/                   pure-logic tests (date, layout, stats)
 ```
+
+## Deploying to Vercel
+
+[`vercel.json`](vercel.json) sets the build (`npm run build` → `dist`), a
+catch-all rewrite to `index.html`, and cache headers: hashed `/assets/*` are
+immutable for a year, `index.html` is `no-cache` so a deploy is picked up on the
+next load. The rewrite is safe alongside those headers because Vercel matches
+static files before rewrites — an existing asset is served, not rewritten.
+
+Two steps are **not** in the config, and sign-in fails without either:
+
+1. **Set the env vars in the Vercel project** (Settings → Environment Variables)
+   — all six `VITE_FIREBASE_*` keys from `.env.example`. `.env.local` is
+   gitignored, so nothing carries them across on its own. They are baked into
+   the bundle at build time, so a change needs a redeploy, not just a reload.
+2. **Add the deployment domain to Firebase** → Authentication → Settings →
+   Authorized domains. Google sign-in refuses to run on a domain that is not
+   listed, and that includes every `*.vercel.app` preview URL you intend to sign
+   in on.
+
+Firestore rules are not deployed from here either — see step 6 of Setup.
 
 ## Not built yet
 

@@ -1,21 +1,21 @@
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
-import { usePersistentState } from '../lib/usePersistentState.js'
-import { hourMarks, visibleWindow } from '../lib/layout.js'
-import { freeSlots } from '../lib/slots.js'
-import { dayOfSpan, eventSpanDays, isMultiDay } from '../lib/spans.js'
-import { dayStats, upcomingTasks } from '../lib/stats.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import { usePersistentState } from '../../lib/usePersistentState.js'
+import { hourMarks, visibleWindow } from '../../lib/layout.js'
+import { freeSlots } from '../../lib/slots.js'
+import { dayOfSpan, eventSpanDays, isMultiDay } from '../../lib/spans.js'
+import { dayStats, upcomingTasks } from '../../lib/stats.js'
 import {
   durationLabel,
   formatFullDayLabel,
   minToLabel,
   minToShortLabel,
   toHours,
-} from '../lib/date.js'
-import { DayColumn } from './DayColumn.jsx'
-import { TaskInbox } from './TaskInbox.jsx'
-import { TaskRow } from './TaskRow.jsx'
-import { SpanIcon } from './icons.jsx'
+} from '../../lib/date.js'
+import { DayColumn } from '../calendar/DayColumn.jsx'
+import { TaskInbox } from '../calendar/TaskInbox.jsx'
+import { TaskRow } from '../calendar/TaskRow.jsx'
+import { SpanIcon } from '../icons.jsx'
 
 const HOUR_HEIGHT = 52
 const HEAVY_DAY_MIN = 10 * 60

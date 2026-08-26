@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
 /* Only DRAG_TASK is ever named here, and that is the whole guard: an event
    dragged over the inbox matches nothing, shows no drop affordance, and can
    never reach unscheduleTask — which would write to a task document that does
    not exist. Events have no inbox, because an undated thing that runs for
    three days is a task, not an event. */
-import { DRAG_TASK, readDrag } from '../lib/dnd.js'
-import { todayKey } from '../lib/date.js'
+import { DRAG_TASK, readDrag } from '../../lib/dnd.js'
+import { todayKey } from '../../lib/date.js'
 
 /**
  * The inbox holds everything not yet given a slot. It is both a drag source

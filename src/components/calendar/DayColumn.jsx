@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { layoutDay, minToPercent, ratioToMin } from '../lib/layout.js'
-import { DRAG_TASK, hasDrag, readDrag } from '../lib/dnd.js'
-import { durationLabel, minToLabel, snapMin } from '../lib/date.js'
-import { recurrenceLabel } from '../lib/recurrence.js'
-import { RepeatIcon } from './icons.jsx'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { layoutDay, minToPercent, ratioToMin } from '../../lib/layout.js'
+import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
+import { durationLabel, minToLabel, snapMin } from '../../lib/date.js'
+import { recurrenceLabel } from '../../lib/recurrence.js'
+import { RepeatIcon } from '../icons.jsx'
 
 const SNAP_MIN = 15
 const MIN_DURATION_MIN = 15

@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { usePopoverPlacement } from '../lib/usePopoverPlacement.js'
-import { formatDayLabel, durationLabel, minToLabel } from '../lib/date.js'
-import { eventSpanDays, isMultiDay } from '../lib/spans.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
+import { formatDayLabel, durationLabel, minToLabel } from '../../lib/date.js'
+import { eventSpanDays, isMultiDay } from '../../lib/spans.js'
 
 const PANEL_WIDTH = 260
 const PANEL_MAX_HEIGHT = 320

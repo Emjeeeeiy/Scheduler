@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useSchedule } from '../state/ScheduleContext.jsx'
-import { useNow } from '../lib/useNow.js'
-import { HEAVY_DAY_MIN, dayStats } from '../lib/stats.js'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
 import {
   dayOfMonth,
   durationLabel,
@@ -11,8 +11,8 @@ import {
   shiftMonth,
   todayKey,
   WEEKDAY_HEADERS,
-} from '../lib/date.js'
-import { ChevronLeftIcon, ChevronRightIcon } from './icons.jsx'
+} from '../../lib/date.js'
+import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 
 /* The same "heavy day" reference the week and month load bars use. Reusing it
    rather than inventing a third scale is the point: "busy" has to mean one

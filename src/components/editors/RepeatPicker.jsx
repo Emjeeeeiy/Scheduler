@@ -1,5 +1,5 @@
-import { DAY_LONG, DAY_SHORT, WEEKDAY_ORDER, weekdayOf } from '../lib/date.js'
-import { LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../lib/recurrence.js'
+import { DAY_LONG, DAY_SHORT, WEEKDAY_ORDER, weekdayOf } from '../../lib/date.js'
+import { LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../../lib/recurrence.js'
 
 const PRESETS = [
   { id: 'none', label: 'Never' },
