@@ -12,6 +12,18 @@
   --surface-2:       #f2f1ed;
   --surface-sunken:  #edece7;
 
+  /* The surface a CONTAINER sits on — the sidebar, a card, a stat tile. Split
+     out from --surface-1 because the two themes want different answers: light
+     keeps its Panel step above Paper, dark sits containers flat ON the page and
+     lets the hairline border do the separating.
+
+     Written as a reference rather than a repeated literal so it can never drift
+     from the value it is meant to equal. Things that FLOAT above the page — the
+     modal panel, the notification dropdown, a popover, a tooltip — keep
+     --surface-1 in both themes; a floating surface the same colour as the page
+     behind it is not floating. */
+  --surface-card:    var(--surface-1);
+
   /* ink */
   --text-primary:    #0b0b0b;
   --text-secondary:  #52514e;
@@ -128,6 +140,9 @@
     --surface-1:       #131313;
     --surface-2:       #1e1e1e;
     --surface-sunken:  #0a0a0a;
+    /* Containers sit flat on the page in dark; only floating things stay
+       raised on --surface-1. See the note beside the light declaration. */
+    --surface-card:    var(--page);
     --text-primary:    #ffffff;
     --text-secondary:  #c3c2b7;
     --text-muted:      #898781;
@@ -163,6 +178,7 @@
   --surface-1:       #131313;
   --surface-2:       #1e1e1e;
   --surface-sunken:  #0a0a0a;
+  --surface-card:    var(--page);
   --text-primary:    #ffffff;
   --text-secondary:  #c3c2b7;
   --text-muted:      #898781;

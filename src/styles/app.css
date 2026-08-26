@@ -39,7 +39,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 20px 14px;
-  background: var(--surface-1);
+  background: var(--surface-card);
   border-right: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -430,7 +430,7 @@
 /* ================================================== cards & common bits == */
 
 .card {
-  background: var(--surface-1);
+  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
@@ -958,7 +958,7 @@ code {
 }
 
 .stat-tile {
-  background: var(--surface-1);
+  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -1920,8 +1920,24 @@ code {
   gap: 3px;
 }
 
+/* Days from the neighbouring months: recessed, and hatched so they read as
+   "not this month" at a glance rather than only on a surface step. The step
+   alone was carrying it, and in dark that step is now Sunken (#0a0a0a) against
+   a page-flat card (#050505) — a difference too small to see. The hatch is
+   drawn in --gridline, the same ink the grid lines use, so it reads as more of
+   the calendar's own structure rather than a new decorative texture.
+
+   background-color and background-image are set separately on purpose: the
+   --drop rule below uses the `background` shorthand, which resets the image,
+   so dragging onto one of these days shows a clean violet tint with no hatch
+   under it. That is the state reading clearly, not an accident. */
 .month__cell--outside {
-  background: var(--surface-sunken);
+  background-color: var(--surface-sunken);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--gridline) 0 1px,
+    transparent 1px 8px
+  );
 }
 
 .month__cell--outside .month__daynum {
@@ -2223,11 +2239,16 @@ code {
   overflow-y: auto;
 }
 
+/* Carries `.card` for its shape and padding, but takes back the raised
+   surface: a modal floats above a dimmed page, and in dark mode a container-
+   coloured panel would be the same near-black as the scrim behind it. Later in
+   the file than `.card` and at equal specificity, which is what lets this win. */
 .modal__panel {
   width: 100%;
   max-width: 520px;
   max-height: 90dvh;
   overflow-y: auto;
+  background: var(--surface-1);
   box-shadow: var(--shadow-md);
 }
 
@@ -2725,7 +2746,7 @@ code {
     flex-direction: row;
     gap: 0;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    background: var(--surface-1);
+    background: var(--surface-card);
     border-top: 1px solid var(--border);
   }
 
