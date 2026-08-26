@@ -54,7 +54,7 @@
   align-items: center;
   gap: 9px;
   padding: 4px 10px 18px;
-  font-weight: 600;
+  font-weight: var(--weight-title);
   letter-spacing: -0.01em;
 }
 
@@ -66,7 +66,7 @@
 }
 
 .brand__name {
-  font-size: 17px;
+  font-size: var(--text-title);
 }
 
 .sidebar__new-task {
@@ -101,8 +101,8 @@
   border: none;
   border-radius: var(--radius-sm);
   padding: 8px 10px;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-item);
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
   cursor: pointer;
   text-align: left;
@@ -116,7 +116,7 @@
 .sidebar__link--active {
   background: color-mix(in srgb, var(--series-1) 12%, transparent);
   color: var(--series-1);
-  font-weight: 600;
+  font-weight: var(--weight-title);
 }
 
 .sidebar__icon {
@@ -174,8 +174,8 @@
   border-radius: 999px;
   background: var(--critical);
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--text-nano);
+  font-weight: var(--weight-nano);
   line-height: 15px;
   text-align: center;
   box-shadow: 0 0 0 2px var(--surface-1);
@@ -198,8 +198,8 @@
 }
 
 .notif__head {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-title);
   padding: 4px 6px 8px;
 }
 
@@ -252,15 +252,15 @@
 }
 
 .notif__title {
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--text-label);
+  font-weight: var(--weight-item);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .notif__meta {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
 }
 
@@ -308,7 +308,7 @@
   color: #fff;
   border-color: var(--series-1);
   padding: 7px 14px;
-  font-weight: 550;
+  font-weight: var(--weight-item);
 }
 
 .primary-button:hover:not(:disabled) {
@@ -322,7 +322,7 @@
 
 .primary-button--lg {
   padding: 11px 22px;
-  font-size: 16px;
+  font-size: var(--text-icon);
 }
 
 .ghost-button {
@@ -339,7 +339,7 @@
 
 .ghost-button--sm {
   padding: 3px 9px;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .ghost-button--block {
@@ -360,7 +360,7 @@
 
 .danger-button--sm {
   padding: 3px 9px;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .icon-button {
@@ -395,8 +395,8 @@
   overflow: hidden;
   display: grid;
   place-items: center;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-title);
   flex: none;
 }
 
@@ -418,13 +418,13 @@
 .date-nav__label {
   min-width: 148px;
   text-align: center;
-  font-weight: 550;
-  font-size: 15px;
+  font-weight: var(--weight-item);
+  font-size: var(--text-body);
 }
 
 .date-nav--static .date-nav__label {
   color: var(--text-secondary);
-  font-weight: 450;
+  font-weight: var(--weight-meta);
 }
 
 /* ================================================== cards & common bits == */
@@ -446,15 +446,15 @@
 }
 
 .section-head__title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-title);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .section-head__sub {
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -464,8 +464,8 @@
   color: var(--text-secondary);
   border-radius: 999px;
   padding: 1px 8px;
-  font-size: 12px;
-  font-weight: 550;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-item);
 }
 
 .count-pill--critical {
@@ -477,18 +477,18 @@
   color: var(--text-muted);
   text-align: center;
   padding: 32px 12px;
-  font-size: 14px;
+  font-size: var(--text-item);
 }
 
 .empty--sm {
   padding: 16px 8px;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .banner {
   border-radius: var(--radius-md);
   padding: 9px 14px;
-  font-size: 14px;
+  font-size: var(--text-item);
   margin: 12px 0;
   display: flex;
   gap: 8px;
@@ -518,8 +518,8 @@
 }
 
 .setup__title {
-  font-size: 22px;
-  font-weight: 650;
+  font-size: var(--text-headline);
+  font-weight: var(--weight-figure);
   letter-spacing: -0.02em;
   margin-bottom: 8px;
 }
@@ -535,7 +535,7 @@
   display: grid;
   gap: 8px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--text-item);
 }
 
 .setup__steps li {
@@ -544,7 +544,7 @@
 
 .setup__missing {
   margin-top: 16px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
   display: flex;
   flex-wrap: wrap;
@@ -556,7 +556,7 @@
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-muted);
 }
 
@@ -606,8 +606,8 @@ code {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-weight: 600;
-  font-size: 17px;
+  font-weight: var(--weight-title);
+  font-size: var(--text-title);
 }
 
 .auth-hero__mark {
@@ -640,7 +640,7 @@ code {
 }
 
 .auth-hero__lead {
-  font-size: 16px;
+  font-size: var(--text-icon);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
 }
@@ -667,21 +667,21 @@ code {
 }
 
 .auth-panel__title {
-  font-size: 22px;
-  font-weight: 650;
+  font-size: var(--text-headline);
+  font-weight: var(--weight-figure);
   letter-spacing: -0.02em;
   color: #fff;
   margin-bottom: 6px;
 }
 
 .auth-panel__lead {
-  font-size: 13px;
+  font-size: var(--text-label);
   color: rgba(255, 255, 255, 0.55);
 }
 
 .auth-panel__note {
   margin-top: 16px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: rgba(255, 255, 255, 0.4);
   text-align: center;
 }
@@ -697,8 +697,8 @@ code {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 550;
+  font-size: var(--text-item);
+  font-weight: var(--weight-item);
   cursor: pointer;
   transition: background 120ms ease;
 }
@@ -789,7 +789,7 @@ code {
   gap: 10px;
   margin: 16px 0;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-meta);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -813,7 +813,7 @@ code {
 
 .auth-form__switch {
   margin-top: 14px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
   text-align: center;
 }
@@ -824,7 +824,7 @@ code {
   padding: 0;
   color: var(--series-1);
   font: inherit;
-  font-weight: 550;
+  font-weight: var(--weight-item);
   cursor: pointer;
 }
 
@@ -849,28 +849,29 @@ code {
 }
 
 .hero__label {
-  font-size: 13px;
+  font-size: var(--text-label);
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
 }
 
 .hero__value {
   /* Proportional figures: tabular-nums makes a large standalone number
      look loose. Tabular is for columns, not for a hero. */
-  font-size: 52px;
-  font-weight: 650;
+  font-size: var(--text-display);
+  font-weight: var(--weight-figure);
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
 
 .hero__unit {
-  font-size: 24px;
-  font-weight: 500;
+  font-size: var(--text-unit);
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
   margin-left: 3px;
 }
 
 .hero__hint {
-  font-size: 14px;
+  font-size: var(--text-item);
   color: var(--text-secondary);
   margin-bottom: 12px;
 }
@@ -917,26 +918,27 @@ code {
 }
 
 .stat-tile__label {
-  font-size: 13px;
+  font-size: var(--text-label);
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
 }
 
 .stat-tile__value {
-  font-size: 28px;
-  font-weight: 650;
+  font-size: var(--text-stat);
+  font-weight: var(--weight-figure);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
 
 .stat-tile__unit {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: var(--text-icon);
+  font-weight: var(--weight-label);
   color: var(--text-secondary);
   margin-left: 2px;
 }
 
 .stat-tile__hint {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -958,8 +960,8 @@ code {
 /* ================================================================ charts == */
 
 .chart__title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--text-item);
+  font-weight: var(--weight-title);
   margin-bottom: 14px;
   display: flex;
   align-items: center;
@@ -971,8 +973,8 @@ code {
 .chart__key {
   display: flex;
   gap: 12px;
-  font-size: 12px;
-  font-weight: 450;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-meta);
   color: var(--text-secondary);
 }
 
@@ -1006,7 +1008,7 @@ code {
   flex-direction: column;
   justify-content: space-between;
   height: 168px;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -1092,7 +1094,7 @@ code {
 }
 
 .chart__label {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   margin-top: 6px;
   position: absolute;
@@ -1102,8 +1104,8 @@ code {
 
 .chart__value {
   position: absolute;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-title);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -1120,7 +1122,7 @@ code {
   padding: 8px 10px;
   display: grid;
   gap: 1px;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-secondary);
   white-space: nowrap;
   z-index: 5;
@@ -1129,7 +1131,7 @@ code {
 
 .chart__tooltip strong {
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--text-meta);
 }
 
 .chart__table-toggle {
@@ -1140,7 +1142,7 @@ code {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
-  font-size: 13px;
+  font-size: var(--text-label);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1153,13 +1155,13 @@ code {
 
 .data-table thead th {
   color: var(--text-muted);
-  font-weight: 500;
-  font-size: 12px;
+  font-weight: var(--weight-label);
+  font-size: var(--text-meta);
 }
 
 .data-table tbody th {
   text-align: left;
-  font-weight: 450;
+  font-weight: var(--weight-meta);
   color: var(--text-secondary);
 }
 
@@ -1175,7 +1177,7 @@ code {
   grid-template-columns: minmax(80px, 128px) 1fr auto;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .tag-bars__name {
@@ -1212,7 +1214,7 @@ code {
 .tag-bars__value {
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--text-meta);
 }
 
 /* ============================================================ time grids == */
@@ -1232,6 +1234,35 @@ code {
   min-width: 720px;
 }
 
+/* The calendar surfaces are where the type scale re-pins to px, and the
+   reason is geometry rather than taste: every one of them is dimensioned in
+   real units that text has to fit inside.
+
+   - The time grid: an hour is 52px (a JS constant in WeekGrid/TodayView) and
+     blocks are positioned as a percentage of it, so a 30-minute block is 26px
+     tall — a box that cannot grow.
+   - The month: bars sit in 15px lane rows on a 17px stride, and the chip
+     budget below them is counted against a fixed row height.
+
+   Letting a label scale with the reader's font-size preference inside a box
+   that cannot scale with it only clips the label — strictly worse than not
+   scaling at all. Redefining the tokens on the container re-pins every role
+   inside at once, rather than un-tokenising two dozen declarations one by one.
+
+   Everything outside the calendar — cards, lists, dialogs, stats, the sidebar,
+   the whole rest of the app — still scales. Making the calendar itself scale
+   means moving that JS constant and the percentage and lane math to rem, which
+   is a layout change, not a typographic one. */
+.grid-body,
+.week__allday,
+.month__week {
+  --text-item: 14px;
+  --text-label: 13px;
+  --text-meta: 12px;
+  --text-micro: 11px;
+  --text-nano: 10px;
+}
+
 .grid-body {
   display: flex;
   align-items: stretch;
@@ -1248,7 +1279,7 @@ code {
   position: absolute;
   right: 8px;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1305,8 +1336,8 @@ code {
   position: absolute;
   top: -9px;
   left: 3px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--text-nano);
+  font-weight: var(--weight-title);
   background: var(--series-1);
   color: #fff;
   border-radius: 2px;
@@ -1368,8 +1399,8 @@ code {
 }
 
 .block__title {
-  font-size: 12px;
-  font-weight: 550;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-item);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1377,7 +1408,7 @@ code {
 }
 
 .block__time {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -1399,7 +1430,7 @@ code {
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--series-1) 8%, var(--surface-1));
   margin-bottom: 14px;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .now-next__dot {
@@ -1412,7 +1443,7 @@ code {
 
 .now-next__label {
   color: var(--text-secondary);
-  font-weight: 550;
+  font-weight: var(--weight-item);
   flex: none;
 }
 
@@ -1423,7 +1454,7 @@ code {
   border: none;
   padding: 0;
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--weight-title);
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
@@ -1444,7 +1475,7 @@ code {
 
 .day-panel__foot {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
 }
 
@@ -1458,7 +1489,7 @@ code {
 }
 
 .all-day__label {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1473,14 +1504,14 @@ code {
 /* week ----------------------------------------------------------------- */
 
 .week__summary {
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
 .week__summary-heavy {
   color: var(--critical-text);
-  font-weight: 550;
+  font-weight: var(--weight-item);
 }
 
 .week__head {
@@ -1517,20 +1548,20 @@ code {
 }
 
 .week__dow {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .week__date {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: var(--text-subtitle);
+  font-weight: var(--weight-title);
   line-height: 1.1;
 }
 
 .week__load {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1564,7 +1595,7 @@ code {
   height: 26px;
   display: grid;
   place-items: center;
-  font-size: 14px;
+  font-size: var(--text-item);
 }
 
 .week__allday {
@@ -1600,8 +1631,8 @@ code {
   border-radius: var(--radius-tight);
   background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
   color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
   text-align: left;
   cursor: grab;
 }
@@ -1648,7 +1679,7 @@ code {
 
 .week__hint {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   text-align: center;
 }
@@ -1661,10 +1692,11 @@ code {
   border: none;
   border-radius: 3px;
   padding: 2px 6px;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-primary);
   cursor: pointer;
   width: 100%;
+  min-width: 0;
   text-align: left;
   overflow: hidden;
 }
@@ -1702,6 +1734,8 @@ code {
 }
 
 .chip__title {
+  font-weight: var(--weight-item);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1717,7 +1751,7 @@ code {
 
 .month__dow {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1772,8 +1806,8 @@ code {
      would in any case imply "starts here" on a bar that may be clipped. */
   background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
   color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
   text-align: left;
   cursor: grab;
 }
@@ -1857,8 +1891,8 @@ code {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 550;
+  font-size: var(--text-label);
+  font-weight: var(--weight-item);
   color: var(--text-primary);
   padding: 1px 4px;
   border-radius: 3px;
@@ -1870,7 +1904,7 @@ code {
 }
 
 .month__load {
-  font-size: 10px;
+  font-size: var(--text-nano);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1881,11 +1915,18 @@ code {
   min-width: 0;
 }
 
+/* The bare <li> each chip sits in is a grid item too, so it needs the same
+   min-width: 0 the list and the chip already carry — one link left at auto
+   anywhere in the chain is enough to widen the cell. */
+.month__chips > li {
+  min-width: 0;
+}
+
 .month__more {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-micro);
   cursor: pointer;
   padding: 1px 3px;
   text-align: left;
@@ -1925,11 +1966,15 @@ code {
 
 /* ======================================================= inbox & task rows */
 
+/* min-width: 0 keeps the column inside its 320px track. A grid item defaults
+   to min-width: auto, so a single long task title would otherwise widen the
+   whole inbox past the track and push the page into horizontal scroll. */
 .inbox {
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 16px;
+  min-width: 0;
 }
 
 .inbox--drop {
@@ -1951,15 +1996,19 @@ code {
 .inbox__list {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 .inbox__hint {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   margin-top: 12px;
   text-align: center;
 }
 
+/* Every level from the inbox column down to the title needs min-width: 0 —
+   a flex or grid item defaults to min-width: auto, and one link left at auto
+   anywhere in the chain lets a long title widen the whole column. */
 .inbox-item {
   display: flex;
   align-items: center;
@@ -1967,6 +2016,7 @@ code {
   padding: 5px 6px;
   border-radius: var(--radius-sm);
   cursor: grab;
+  min-width: 0;
 }
 
 .inbox-item:hover {
@@ -1995,11 +2045,16 @@ code {
   padding: 0;
 }
 
+/* min-width: 0 is what makes the ellipsis actually fire. A flex item defaults
+   to min-width: auto — its content width — so without this the title refuses
+   to shrink, pushes the row wider than the inbox, and clips at the page edge
+   instead of truncating. `overflow: hidden` alone cannot do it. */
 .inbox-item__title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--text-item);
 }
 
 .task-row {
@@ -2041,7 +2096,8 @@ code {
 }
 
 .task-row__title {
-  font-size: 14px;
+  font-size: var(--text-item);
+  font-weight: var(--weight-item);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -2059,7 +2115,7 @@ code {
 }
 
 .task-row__when {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -2068,7 +2124,7 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-secondary);
 }
 
@@ -2108,8 +2164,8 @@ code {
 }
 
 .modal__title {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: var(--text-title);
+  font-weight: var(--weight-title);
 }
 
 .modal__foot {
@@ -2139,13 +2195,13 @@ code {
 }
 
 .field__label {
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--weight-label);
 }
 
 .field__hint {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
 }
 
@@ -2253,7 +2309,7 @@ code {
 }
 
 .tag-list__count {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   min-width: 20px;
   text-align: right;
@@ -2355,7 +2411,9 @@ code {
 }
 
 .item-list__title {
-  font-size: 14px;
+  font-size: var(--text-item);
+  font-weight: var(--weight-item);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2370,7 +2428,7 @@ code {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   overflow: hidden;
   white-space: nowrap;
@@ -2417,7 +2475,7 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-label);
   cursor: pointer;
   padding: 0;
   transition: background 120ms ease, border-color 120ms ease;
@@ -2432,7 +2490,7 @@ code {
   background: var(--series-1);
   border-color: var(--series-1);
   color: #fff;
-  font-weight: 600;
+  font-weight: var(--weight-title);
 }
 
 /* One day of a series, opened on its own. Kept as a quiet ledge rather than an
@@ -2459,7 +2517,7 @@ code {
 .series-note__text {
   flex: 1;
   min-width: 180px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
 }
 
@@ -2485,7 +2543,7 @@ code {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 5px 14px;
-  font-size: 13px;
+  font-size: var(--text-label);
   color: var(--text-secondary);
   cursor: pointer;
 }
@@ -2503,20 +2561,20 @@ code {
   background: var(--series-1);
   border-color: var(--series-1);
   color: #fff;
-  font-weight: 550;
+  font-weight: var(--weight-item);
 }
 
 .notes-list {
   display: grid;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--text-item);
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .notes-list strong {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--weight-title);
 }
 
 /* ============================================================ responsive == */
@@ -2616,8 +2674,8 @@ code {
   }
 
   .sidebar__nav .sidebar__label {
-    font-size: 10px;
-    font-weight: 550;
+    font-size: var(--text-nano);
+    font-weight: var(--weight-item);
   }
 
   /* --- occasional controls, icon-only in the top bar --- */
@@ -2679,7 +2737,7 @@ code {
   }
 
   .hero__value {
-    font-size: 42px;
+    font-size: var(--text-display-sm);
   }
 
   .field-row {
@@ -2718,8 +2776,8 @@ code {
 }
 
 .day-column__draft span {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--text-nano);
+  font-weight: var(--weight-nano);
   color: var(--series-1);
 }
 
@@ -2788,9 +2846,11 @@ code {
   padding: 2px 4px 8px;
 }
 
+/* The name of a thing, so it takes the item weight the block, chip, row, and
+   notification all use — not its own heavier one. */
 .day-peek__title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-item);
 }
 
 .day-peek__list {
@@ -2810,7 +2870,7 @@ code {
   color: inherit;
   text-align: left;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-label);
 }
 
 .day-peek__item:hover {
@@ -2828,7 +2888,7 @@ code {
 
 .day-peek__when {
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   min-width: 52px;
@@ -2844,7 +2904,7 @@ code {
 
 .day-peek__note {
   flex: none;
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
 }
 
@@ -2866,8 +2926,8 @@ code {
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-item);
+  font-weight: var(--weight-label);
 }
 
 .event-rail__item:hover {
@@ -2889,8 +2949,8 @@ code {
 
 .event-rail__meta {
   flex: none;
-  font-size: 12px;
-  font-weight: 450;
+  font-size: var(--text-meta);
+  font-weight: var(--weight-meta);
   color: var(--text-secondary);
 }
 
@@ -2907,8 +2967,8 @@ code {
 
 .free-slots__label {
   flex: none;
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-label);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -2930,7 +2990,7 @@ code {
   background: var(--surface-1);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-meta);
 }
 
 .free-slots__slot:hover {
@@ -2943,7 +3003,7 @@ code {
 }
 
 .free-slots__len {
-  font-size: 11px;
+  font-size: var(--text-micro);
   color: var(--text-muted);
 }
 
@@ -2983,7 +3043,7 @@ code {
 .agenda__when {
   flex: none;
   min-width: 68px;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -2991,8 +3051,8 @@ code {
 .agenda__title {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--text-item);
+  font-weight: var(--weight-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3000,7 +3060,7 @@ code {
 
 .agenda__meta {
   flex: none;
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
 }
 
@@ -3040,8 +3100,8 @@ code {
   border: 0;
   padding: 2px 4px;
   border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-title);
   color: inherit;
   cursor: pointer;
 }
@@ -3069,8 +3129,8 @@ code {
 
 .mini-cal__dow span {
   text-align: center;
-  font-size: 10px;
-  font-weight: 500;
+  font-size: var(--text-nano);
+  font-weight: var(--weight-label);
   color: var(--text-muted);
   text-transform: uppercase;
 }
@@ -3085,7 +3145,7 @@ code {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: var(--text-meta);
   cursor: pointer;
   font-variant-numeric: tabular-nums;
 }
@@ -3111,7 +3171,7 @@ code {
   height: 20px;
   display: grid;
   place-items: center;
-  font-weight: 600;
+  font-weight: var(--weight-title);
 }
 
 .mini-cal__day--event .mini-cal__num {
@@ -3160,11 +3220,11 @@ code {
   justify-content: center;
   gap: 6px;
   margin-bottom: 16px;
-  font-weight: 500;
+  font-weight: var(--weight-label);
 }
 
 .modal__note {
-  font-size: 12px;
+  font-size: var(--text-meta);
   color: var(--text-muted);
   margin-right: 4px;
 }

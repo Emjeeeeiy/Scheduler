@@ -53,6 +53,43 @@
 
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
+  /* Type scale. The sixteen steps DESIGN.md names, as tokens rather than as
+     prose — until now the documented scale existed only in the doc, and the
+     stylesheet held ~100 bare px literals that had drifted away from it.
+
+     rem, not px, so a reader who has raised their browser's default font size
+     gets a larger interface; a px scale ignores that setting completely (zoom
+     still worked, the font-size preference did nothing). The ramp is anchored
+     to a 16px root, so at the default every one of these resolves to exactly
+     the px value it replaced — this buys the accessibility behaviour without
+     moving a single pixel for everyone else. */
+  --text-display:    3.25rem;   /* 52px — the Dashboard's hero figure */
+  --text-display-sm: 2.625rem;  /* 42px — the same figure at 640px */
+  --text-stat:       1.75rem;   /* 28px — a stat tile's figure */
+  --text-unit:       1.5rem;    /* 24px — the "h" beside the hero figure */
+  --text-headline:   1.375rem;  /* 22px — screen-level titles */
+  --text-subtitle:   1.125rem;  /* 18px — the week grid's day-of-month */
+  --text-title:      1.0625rem; /* 17px — dialog headings, the brand name */
+  --text-icon:       1rem;      /* 16px — icon glyphs, large button labels */
+  --text-body:       0.9375rem; /* 15px — prose and the document base */
+  --text-item:       0.875rem;  /* 14px — the NAME of a task, event, or row */
+  --text-label:      0.8125rem; /* 13px — what a field or figure is called */
+  --text-meta:       0.75rem;   /* 12px — when/where/how long: the detail */
+  --text-micro:      0.6875rem; /* 11px — structural labels, usually tracked */
+  --text-nano:       0.625rem;  /* 10px — a numeral in a fixed-size badge */
+
+  /* Weight is the axis that separates a thing's NAME from its DETAIL. Below
+     15px the size steps are 1px apart and carry no hierarchy on their own —
+     an item title and its timestamp read as one undifferentiated block unless
+     weight and colour do the work. These four are the whole vocabulary. */
+  --weight-figure: 650; /* the big numerals and screen titles */
+  --weight-title:  600;
+  --weight-item:   550; /* the name of a task, event, or notification */
+  --weight-label:  500;
+  --weight-meta:   450; /* one step below label, to de-emphasise deliberately */
+  --weight-body:   400;
+  --weight-nano:   700; /* a 10px numeral needs it to survive at that size */
+
   /* --- scheduler additions ------------------------------------------------ */
 
   /* The time grid. Row height is the single knob that scales the week/day

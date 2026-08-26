@@ -272,6 +272,10 @@ The categorical and status colors — data the user assigns or the app reports, 
 
 The scale is dense rather than a handful of marketing-style jumps — sixteen steps, each earned by one specific, named use, from a 10px numeral to a 52px hero. Nothing here is decorative; every step is a real component doing real work at that size.
 
+Every step below is a token (`--text-*` for size, `--weight-*` for weight, both in `tokens.css`), not a px literal in a component rule. That matters because it was not always true: the scale lived only in this document while the stylesheet held ~100 bare literals, and they had drifted — row titles were documented at 500 and shipped at 400, three 13px labels ran at two different weights, and six components each set "the title of a thing" at their own size and weight. Tokens are what make the documented system the enforced one.
+
+Sizes are **rem**, anchored so a default 16px root resolves each token to exactly the px value it replaced. Nothing moved for anyone; what it buys is that a reader who has raised their browser's default font size finally gets a larger interface. A px scale ignores that setting completely — zoom worked, the font-size preference did nothing.
+
 - **Display** (650, 52px, 1.05 line-height, −0.03em tracking): The Dashboard's hero number (hours planned today) — the one place the type gets loud.
 - **Display Sm** (650, 42px): The same hero number, stepped down at the 640px breakpoint.
 - **Auth Headline** (Instrument Serif, 400, `clamp(36px, 4vw, 52px)`, −0.01em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — the one type in the product that is not Inter, and the only step whose size is fluid rather than fixed. It lives in Persuade mode, not Operate: a high-contrast editorial serif against the sign-in form's Inter is what makes the pairing read as considered. Weight 400 is not a choice to revisit — Instrument Serif ships a single weight, and anything heavier would be a synthesised bold. Scale carries the emphasis instead. Declared directly on `.auth-hero__title`, with no `--font-display` token, so the exception cannot spread into the app's own scale.
@@ -282,10 +286,10 @@ The scale is dense rather than a handful of marketing-style jumps — sixteen st
 - **Subtitle** (600, 18px): The week grid's day-of-month number.
 - **Title** (600, 17px): Dialog/modal headings, the sidebar brand name, and the mobile nav's icon size.
 - **Icon** (400, 16px): Icon-button glyphs and the large primary-button variant.
-- **Body** (400, 15px, 1.5 line-height): Base paragraph and UI text — the document root size.
-- **UI** (500, 14px): Compact interactive text — nav links, task-row and chip titles.
-- **Meta** (450, 13px): The most common secondary size — field labels, hints, small ghost/danger buttons.
-- **Caption** (450, 12px): Smaller supporting text — chart legends, notification meta, empty-state hints.
+- **Body** (`--text-body`, 400, 15px, 1.5 line-height): Base paragraph and UI text — the document base size.
+- **Item** (`--text-item` / `--weight-item`, 550, 14px): The **name of a thing** — a task, event, notification, or index row — plus nav links. One weight for this role wherever it appears: the block, the chip, the row, the notification, the day-peek entry, and the item index all set it identically, rather than each picking its own.
+- **Label** (`--text-label` / `--weight-label`, 500, 13px): What a field or a figure is *called* — field labels, stat-tile and hero labels, small ghost/danger buttons, filter chips.
+- **Meta** (`--text-meta`, 400, 12px): The **detail about** a thing — when, where, how long. Chart legends, notification meta, empty-state hints. Deliberately the body weight, never the label weight: this is the role an item's name has to win against.
 - **Label** (500, 11px, 0.04em tracking, uppercase): Day-of-week headers, the "All day" marker, chart ticks, block/chip time — small structural labels, always uppercase and tracked when they are.
 - **Micro** (700, 10px): The smallest text in the system, reserved for a single numeral in a fixed-size badge or a tight inline readout (the notification count, a drag-hover time tooltip, a month cell's planned-time figure).
 
@@ -293,6 +297,12 @@ Numerals are set proportional everywhere except a genuine column of numbers (the
 
 ### Named Rules
 **The Column-Only Tabular Rule.** Tabular numerals are for columns, not for a hero. A single large standalone number (the Dashboard's planned-hours figure) is set proportional — tabular spacing makes an isolated number look loose rather than precise.
+
+**The Name-Versus-Detail Rule.** Below 15px the steps are 1px apart and carry no hierarchy on their own — 14/13/12/11px all read as "small". **Weight and colour do the separating, size only follows.** A thing's name takes `--weight-item` (550) in primary ink; the detail about it takes `--weight-body` (400) in muted ink. A new component showing "a title and its timestamp" reuses that pair rather than inventing a third size. This is the rule the system had in prose and not in code: row titles shipped at 400, indistinguishable from their own metadata except by colour.
+
+**The Fixed-Geometry Re-pin.** The calendar surfaces — `.grid-body`, `.week__allday`, `.month__week` — redefine the `--text-*` tokens back to px on the container. They are dimensioned in real units that text must fit inside: an hour is 52px (a JS constant in `WeekGrid`/`TodayView`, with blocks positioned as a percentage of it, so a 30-minute block is 26px tall), and month bars sit in 15px lane rows on a 17px stride. A label that scales inside a box that cannot scale with it only clips — strictly worse than not scaling. Everything outside the calendar still responds to the reader's font-size preference. Making the calendar scale too means moving that constant and the percentage and lane maths to rem: a layout change, not a typographic one, and not yet done.
+
+**The min-width: 0 Chain.** Every ellipsis in this app depends on it. A flex or grid item defaults to `min-width: auto` — its content width — so one link left at auto anywhere between a container and a title stops the title shrinking, and a long name widens the whole column instead of truncating. `overflow: hidden` cannot do it alone. The inbox needed it at four levels (column, list, row, title) and the month chip at three (list, `<li>`, chip) before a long task title stopped pushing the page into horizontal scroll.
 
 ## Layout
 
