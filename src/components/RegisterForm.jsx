@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
+import { PasswordField } from './PasswordField.jsx'
 
 export function RegisterForm({ onSwitchToLogin }) {
   const { register, reportError, clearError } = useAuth()
@@ -63,31 +64,21 @@ export function RegisterForm({ onSwitchToLogin }) {
       </label>
 
       <div className="field-row">
-        <label className="field">
-          <span className="field__label">Password</span>
-          <input
-            type="password"
-            className="input"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            minLength={6}
-            required
-          />
-        </label>
+        <PasswordField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          minLength={6}
+        />
 
-        <label className="field">
-          <span className="field__label">Confirm password</span>
-          <input
-            type="password"
-            className="input"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-            minLength={6}
-            required
-          />
-        </label>
+        <PasswordField
+          label="Confirm password"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          autoComplete="new-password"
+          minLength={6}
+        />
       </div>
 
       <button type="submit" className="primary-button primary-button--lg" disabled={submitting}>

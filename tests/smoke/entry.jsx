@@ -19,6 +19,7 @@ import { TaskEditor } from '../../src/components/TaskEditor.jsx'
 import { EventEditor } from '../../src/components/EventEditor.jsx'
 import { MiniCalendar } from '../../src/components/MiniCalendar.jsx'
 import { TagManager } from '../../src/components/TagManager.jsx'
+import { ItemManager } from '../../src/components/ItemManager.jsx'
 import { TaskInbox } from '../../src/components/TaskInbox.jsx'
 import { SignIn } from '../../src/components/SignIn.jsx'
 import { LoginForm } from '../../src/components/LoginForm.jsx'
@@ -41,6 +42,7 @@ const cases = [
   ['MonthCalendar', <MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />],
   ['TaskInbox', <TaskInbox focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['TagManager', <TagManager onClose={noop} />],
+  ['ItemManager', <ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
   ['TaskEditor (edit)', <TaskEditor editor={{ mode: 'edit', task: mockValue.tasks[0] }} onClose={noop} />],
   ['EventEditor (create)', <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />],
@@ -136,6 +138,34 @@ const eventCreate = renderToString(
 )
 expect('Event editor asks for an end date', eventCreate.includes('Ends'))
 expect('Event editor offers no repeat control', !eventCreate.includes('Repeat'))
+
+/* The item index lists documents, not calendar days — so a repeating task must
+   appear exactly once, as its rule, however many days the grids expand it
+   into. The fixture's "Standing sync" repeats every weekday from a week ago,
+   which is dozens of occurrences by any horizon the views draw. */
+const items = renderToString(<ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />)
+expect('Item index lists tasks and events together', items.includes('item-list__row'))
+expect('Item index carries an unscheduled task', items.includes('Unscheduled'))
+// Matched as a title text node, not a bare substring: the delete button's
+// aria-label repeats the title, and would double every count here.
+expect(
+  'A repeating task appears once, as its rule',
+  (items.match(/>Standing sync</g) ?? []).length === 1,
+)
+expect('A repeating task shows its rule, not a date', items.includes('Every weekday'))
+/* Dated items sort ahead of the undated tail. The sentinel that puts them
+   there is a day key, not punctuation: `localeCompare` collates a `~` BEFORE
+   digits, which silently inverted this whole list. */
+expect(
+  'Undated and repeating items sort last',
+  items.indexOf('>Overdue thing<') < items.indexOf('>Unscheduled idea<') &&
+    items.indexOf('>Overdue thing<') < items.indexOf('>Standing sync<'),
+)
+expect(
+  'Item index counts tasks and events separately',
+  items.includes(`Tasks ${mockValue.tasks.length}`) &&
+    items.includes(`Events ${mockValue.events.length}`),
+)
 
 console.log('')
 for (const [name, ok] of checks) {

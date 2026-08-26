@@ -72,6 +72,29 @@ function appError(code, message) {
   return error
 }
 
+/* Both auth paths touch Firestore before there is anything useful to show the
+   person typing, so both can fail for a reason that has nothing to do with
+   their credentials. `permission-denied` here means one thing in practice: the
+   rules in firestore.rules were never published, so a production-mode database
+   is still denying everything (README step 6). The SDK's own wording —
+   "Missing or insufficient permissions" — surfaces on the login form as an
+   accusation the visitor can do nothing about, so name the real cause instead. */
+function describeInfraFailure(caught, action) {
+  if (caught.code === 'permission-denied') {
+    return appError(
+      'app/rules-not-published',
+      `${action} needs this project’s Firestore rules — publish firestore.rules in the Firebase console, then try again.`,
+    )
+  }
+  if (caught.code === 'unavailable') {
+    return appError(
+      'auth/network-request-failed',
+      'Network error — check your connection and try again.',
+    )
+  }
+  return caught
+}
+
 const normalizeUsername = (raw) => raw.trim().toLowerCase()
 
 /* No length or character-set restriction on a username — the only rejects
@@ -123,7 +146,7 @@ export async function registerWithUsername({ username, email, password }) {
     })
   } catch (caught) {
     await deleteUser(credential.user).catch(() => {})
-    throw caught
+    throw describeInfraFailure(caught, 'Creating an account')
   }
 
   return credential.user
@@ -146,7 +169,14 @@ export async function signInWithUsernameOrEmail({ identifier, password }) {
   let email = trimmed
 
   if (!trimmed.includes('@')) {
-    const snap = await getDoc(doc(db, 'usernames', normalizeUsername(trimmed)))
+    let snap
+    try {
+      snap = await getDoc(doc(db, 'usernames', normalizeUsername(trimmed)))
+    } catch (caught) {
+      // Signing in by email skips this lookup entirely, so it's worth saying
+      // that out loud — it's a working way through while the rules are fixed.
+      throw describeInfraFailure(caught, 'Signing in with a username, rather than an email address,')
+    }
     if (!snap.exists()) {
       throw appError('app/invalid-credential', 'Incorrect username/email or password.')
     }

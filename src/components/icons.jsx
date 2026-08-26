@@ -162,6 +162,50 @@ export function PlusIcon(props) {
   )
 }
 
+/** Reveal a masked password field. */
+export function EyeIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 12C5.5 7 8.5 5.5 12 5.5S18.5 7 21.5 12C18.5 17 15.5 18.5 12 18.5S5.5 17 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  )
+}
+
+/* The same lens struck through, rather than a second drawing with its own
+   silhouette — the pair has to read as one control changing state, and at
+   16px a slashed shape says "hidden" faster than a redrawn outline does. The
+   iris is dropped here so the slash is the only thing inside the lens. */
+export function EyeOffIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 12C5.5 7 8.5 5.5 12 5.5S18.5 7 21.5 12C18.5 17 15.5 18.5 12 18.5S5.5 17 2.5 12Z" />
+      <path d="M4.5 4.5l15 15" />
+    </Icon>
+  )
+}
+
+/** A bulleted list — the full task/event index. */
+export function ListIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9 6h11M9 12h11M9 18h11" />
+      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth="2.6" />
+    </Icon>
+  )
+}
+
+/** A panel with an arrow leaving it — sign out. */
+export function LogOutIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9.5 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5" />
+      <path d="M15 8l4 4-4 4" />
+      <path d="M19 12H9" />
+    </Icon>
+  )
+}
+
 /** A tray catching something dropped in — the inbox stat tile. */
 export function InboxIcon(props) {
   return (

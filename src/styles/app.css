@@ -125,7 +125,12 @@
   flex: none;
 }
 
-.sidebar__link--secondary {
+/* Tags and All items: the same row idiom as the nav, below one rule that
+   separates "open a manager" from "change the view". */
+.sidebar__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
@@ -133,6 +138,12 @@
 
 .sidebar__spacer {
   flex: 1;
+}
+
+/* Sits directly above the footer's rule — outside the row of icon controls,
+   not another glyph in it. */
+.sidebar__signout {
+  margin-bottom: 2px;
 }
 
 .sidebar__footer {
@@ -372,7 +383,9 @@
   color: var(--text-primary);
 }
 
-.avatar-button {
+/* Identity, not a control: signing out is its own labelled row above. No
+   cursor and no hover, so nothing here reads as clickable. */
+.avatar {
   width: 30px;
   height: 30px;
   border-radius: 50%;
@@ -380,15 +393,14 @@
   background: var(--surface-2);
   color: var(--text-secondary);
   overflow: hidden;
-  cursor: pointer;
   display: grid;
   place-items: center;
   font-size: 13px;
   font-weight: 600;
-  padding: 0;
+  flex: none;
 }
 
-.avatar-button img {
+.avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -571,8 +583,11 @@ code {
   outline-color: #a78bfa;
 }
 
+/* The hero takes whatever the panel doesn't: the form is a fixed-ish column
+   sized to its own 360px content plus a gutter, not a percentage that keeps
+   growing past anything the form has to put in it. */
 .auth-hero {
-  flex: 0 0 44%;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -602,25 +617,36 @@ code {
 }
 
 .auth-hero__copy {
-  max-width: 380px;
+  max-width: 460px;
 }
 
+/* The one place in the product that isn't Inter. This is the sign-in hero —
+   Persuade mode, a marketing surface, not the app — and a high-contrast
+   editorial serif against the form's Inter is what makes the pairing read as
+   considered rather than as a default. Scoped to this single selector on
+   purpose, with no --font-display token, so the exception can't quietly
+   spread into the app's own type scale (see the Don'ts in DESIGN.md).
+
+   Weight 400 is not a choice to revisit: Instrument Serif ships one weight,
+   and anything heavier here would be a synthesised bold — the smeared
+   letterforms that make a serif look cheap. Scale carries the emphasis. */
 .auth-hero__title {
-  font-size: 32px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  margin-bottom: 12px;
+  font-family: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
+  margin-bottom: 18px;
 }
 
 .auth-hero__lead {
-  font-size: 15px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .auth-panel {
-  flex: 1;
+  flex: 0 0 clamp(480px, 50%, 700px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -628,9 +654,11 @@ code {
   background: #050505;
 }
 
+/* 380px rather than 360: register's password and confirm sit side by side,
+   and each now gives up 36px of its width to the reveal toggle. */
 .auth-panel__inner {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
 }
 
 .auth-panel__head {
@@ -706,6 +734,15 @@ code {
   color: rgba(255, 255, 255, 0.35);
 }
 
+.auth-panel .password-field__toggle {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.auth-panel .password-field__toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
 .auth-panel .input:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.28);
 }
@@ -723,12 +760,25 @@ code {
   color: #ff9d9d;
 }
 
+/* The panel holds half the viewport now, so just above the 860px breakpoint
+   the hero is the narrower of the two columns — give its 380px pitch back the
+   room 48px of side padding was taking, rather than let it wrap to four-word
+   lines in the one band where space is tightest. */
+@media (max-width: 1080px) {
+  .auth-hero {
+    padding: 48px 28px;
+  }
+}
+
 @media (max-width: 860px) {
   .auth-hero {
     display: none;
   }
 
+  /* Sole occupant now, so it drops the fixed column width — a 400px floor
+     would overflow a phone. */
   .auth-panel {
+    flex: 1 1 auto;
     min-height: 100dvh;
   }
 }
@@ -2122,6 +2172,55 @@ code {
   font-family: inherit;
 }
 
+/* A password input with a reveal toggle parked inside its right edge. The
+   toggle is a real inset button rather than a bare glyph so it carries the
+   same Panel → Hover Surface feedback every other control in the app uses. */
+.password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Room for the toggle, so a long password scrolls behind the text edge and
+   never runs underneath the icon. */
+.password-field__input {
+  padding-right: 36px;
+}
+
+.password-field__toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.password-field__toggle:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+/* The global ring sits 2px out; pulled in so it stays inside the input's own
+   border instead of straddling it. */
+.password-field__toggle:focus-visible {
+  outline-offset: 1px;
+}
+
+.password-field__toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
 .input--flush {
   border-color: transparent;
   background: transparent;
@@ -2204,6 +2303,91 @@ code {
 .tag-add .input {
   flex: 1;
   min-width: 120px;
+}
+
+/* ========================================================== item index == */
+
+.item-manager__search {
+  margin: 10px 0 4px;
+}
+
+/* Scrolls inside the panel rather than growing it: an account with two
+   hundred tasks must not push the filters off the top of the dialog. */
+.item-list {
+  display: grid;
+  gap: 2px;
+  max-height: 56dvh;
+  overflow-y: auto;
+  margin: 8px -4px 12px;
+  padding: 0 4px;
+}
+
+.item-list__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 4px;
+  border-radius: var(--radius-sm);
+  min-height: 38px;
+}
+
+.item-list__row:hover {
+  background: var(--surface-2);
+}
+
+.item-list__kind {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  flex: none;
+}
+
+.item-list__kind svg {
+  width: 16px;
+  height: 16px;
+}
+
+.item-list__main {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.item-list__title {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-list__title--done {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.item-list__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tag-swatch--sm {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.item-list__actions,
+.item-list__confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
 }
 
 /* ================================================================ repeat == */
@@ -2346,19 +2530,21 @@ code {
     position: static;
   }
 
-  /* The sidebar becomes a wrapping top bar rather than a left column: brand +
-     new-task on one row, the nav on its own full-width row (flex-basis: 100%
-     forces the wrap), tags + theme + avatar trailing on a third. Same markup,
-     no JS branch — it's the sidebar's own flex-direction that flips, so
-     nothing needs to duplicate across a breakpoint.
+  /* The sidebar splits into the two bars a phone actually navigates with: the
+     column becomes a sticky TOP bar carrying identity and the things you reach
+     for occasionally (brand, create, managers, sign-out, bell, theme), and the
+     view nav leaves the flow entirely for a fixed BOTTOM tab bar, in thumb
+     reach where switching between Dashboard/Day/Week/Month belongs.
 
-     The nav row goes icon-only here rather than relying on horizontal scroll:
-     five labelled pills don't fit a phone width, and a scrollable row with no
-     affordance just hides "Review" off-screen with nothing to suggest it's
-     there — the opposite of what a navigation redesign is for. The label
-     stays in the DOM (screen readers still get it) via the same visually-
-     hidden technique as .visually-hidden, plus a title= tooltip for mouse
-     users on a narrow window. */
+     Still one DOM tree and no JS branch — the nav is `position: fixed` out of
+     its parent's flow rather than a duplicated mobile component, so the two
+     bars can never drift out of sync with the desktop rail.
+
+     The labels invert across the breakpoint on purpose. The nav's were hidden
+     when it was a cramped scrolling row up top; a bottom tab bar has four
+     equal columns and room for them, and an unlabelled tab bar is the harder
+     thing to learn. The occasional controls take the opposite trade: icon-only
+     in the top bar, label kept for screen readers, title= for a mouse. */
   .app-shell {
     flex-direction: column;
   }
@@ -2366,12 +2552,14 @@ code {
   .sidebar {
     width: 100%;
     height: auto;
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 20;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     row-gap: 8px;
-    column-gap: 10px;
+    column-gap: 8px;
     padding: 10px 14px;
     border-right: none;
     border-bottom: 1px solid var(--border);
@@ -2379,19 +2567,13 @@ code {
 
   .sidebar__brand {
     padding: 0;
+    margin-right: auto;
   }
 
-  .sidebar__new-task {
+  .sidebar__new-task,
+  .sidebar__new-event {
     width: auto;
     margin-bottom: 0;
-    margin-left: auto;
-  }
-
-  .sidebar__nav {
-    flex: 1 1 100%;
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 4px;
   }
 
   .sidebar__link {
@@ -2399,9 +2581,33 @@ code {
     white-space: nowrap;
   }
 
+  /* --- the bottom tab bar --- */
+
+  .sidebar__nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    gap: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: var(--surface-1);
+    border-top: 1px solid var(--border);
+  }
+
+  /* Equal columns from `1 1 0` rather than content width, so the four tabs
+     stay on a fixed grid a thumb can learn instead of shifting with label
+     length. */
   .sidebar__nav .sidebar__link {
-    padding: 9px 11px;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    gap: 3px;
+    padding: 5px 2px;
+    text-align: center;
   }
 
   .sidebar__nav .sidebar__icon {
@@ -2410,6 +2616,28 @@ code {
   }
 
   .sidebar__nav .sidebar__label {
+    font-size: 10px;
+    font-weight: 550;
+  }
+
+  /* --- occasional controls, icon-only in the top bar --- */
+
+  .sidebar__tools {
+    flex-direction: row;
+    gap: 4px;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+
+  .sidebar__tools .sidebar__link,
+  .sidebar__signout {
+    padding: 7px;
+    margin-bottom: 0;
+  }
+
+  .sidebar__tools .sidebar__label,
+  .sidebar__signout .sidebar__label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -2419,13 +2647,6 @@ code {
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  .sidebar__link--secondary {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
-    width: auto;
   }
 
   .sidebar__spacer {
@@ -2440,12 +2661,16 @@ code {
   .app-content {
     max-width: none;
     margin: 0;
+    /* Clear of the fixed tab bar, plus the home indicator under it. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
   }
 }
 
 @media (max-width: 640px) {
+  /* Keeps the tab-bar clearance the 900px block set — a padding shorthand
+     here would quietly drop it and let the last card hide behind the bar. */
   .app-content {
-    padding: 14px 12px 48px;
+    padding: 14px 12px calc(76px + env(safe-area-inset-bottom));
   }
 
   .app__header {

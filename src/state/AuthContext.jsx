@@ -17,6 +17,11 @@ const FRIENDLY_MESSAGES = {
   'auth/weak-password': 'Password must be at least 6 characters.',
   'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
   'auth/network-request-failed': 'Network error — check your connection and try again.',
+  // Backstop for any Firestore call that reaches this banner without going
+  // through firebase.js's own describeInfraFailure — "Missing or insufficient
+  // permissions" always means firestore.rules was never published.
+  'permission-denied':
+    'This project’s Firestore rules haven’t been published — publish firestore.rules in the Firebase console, then try again.',
 }
 
 function friendlyMessage(error) {

@@ -22,6 +22,7 @@ import { MonthCalendar } from './components/MonthCalendar.jsx'
 import { TaskEditor } from './components/TaskEditor.jsx'
 import { EventEditor } from './components/EventEditor.jsx'
 import { TagManager } from './components/TagManager.jsx'
+import { ItemManager } from './components/ItemManager.jsx'
 import { NotificationBell } from './components/NotificationBell.jsx'
 import {
   ChevronLeftIcon,
@@ -29,6 +30,8 @@ import {
   ClockIcon,
   DashboardIcon,
   DayIcon,
+  ListIcon,
+  LogOutIcon,
   MonthIcon,
   PlusIcon,
   SpanIcon,
@@ -86,6 +89,7 @@ function AppShell() {
   )
   const [editor, setEditor] = useState(null)
   const [tagsOpen, setTagsOpen] = useState(false)
+  const [itemsOpen, setItemsOpen] = useState(false)
 
   /* The editor is one slot holding either kind. `kind` decides which component
      renders; `draft`/`task`/`event` carries what it starts from. */
@@ -103,6 +107,24 @@ function AppShell() {
     [],
   )
   const closeEditor = useCallback(() => setEditor(null), [])
+
+  /* The index hands off to the same editors every other surface opens, and
+     stands down while one is up: two stacked modals would put two Escape
+     handlers on the window and close both on one press. */
+  const editFromIndex = useCallback(
+    (task) => {
+      setItemsOpen(false)
+      openEdit(task)
+    },
+    [openEdit],
+  )
+  const editEventFromIndex = useCallback(
+    (event) => {
+      setItemsOpen(false)
+      openEditEvent(event)
+    },
+    [openEditEvent],
+  )
 
   /* Switching kind mid-create keeps the day you had already chosen — that is
      usually the reason you opened the editor from a particular cell, and
@@ -164,7 +186,7 @@ function AppShell() {
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (editor || tagsOpen) return
+      if (editor || tagsOpen || itemsOpen) return
 
       // Holding a key repeats it; without this, leaning on `n` stacks modals.
       if (event.repeat) return
@@ -194,7 +216,7 @@ function AppShell() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editor, tagsOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
+  }, [editor, tagsOpen, itemsOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
 
   const dateLabel = useMemo(() => {
     if (view === 'week') return formatWeekLabel(focusKey)
@@ -247,16 +269,48 @@ function AppShell() {
           ))}
         </nav>
 
-        <button
-          type="button"
-          className="sidebar__link sidebar__link--secondary"
-          onClick={() => setTagsOpen(true)}
-        >
-          <TagIcon className="sidebar__icon" />
-          Tags
-        </button>
+        {/* The two things that open a manager rather than change the view —
+            grouped so the rule dividing them from the nav is drawn once, and
+            so the pair moves together when the nav leaves for the bottom bar
+            on a narrow screen. */}
+        <div className="sidebar__tools">
+          {/* title= carries the label for a mouse on a narrow window, where
+              these go icon-only and the text is left to screen readers. */}
+          <button
+            type="button"
+            className="sidebar__link"
+            title="Tags"
+            onClick={() => setTagsOpen(true)}
+          >
+            <TagIcon className="sidebar__icon" />
+            <span className="sidebar__label">Tags</span>
+          </button>
+          <button
+            type="button"
+            className="sidebar__link"
+            title="All items"
+            onClick={() => setItemsOpen(true)}
+          >
+            <ListIcon className="sidebar__icon" />
+            <span className="sidebar__label">All items</span>
+          </button>
+        </div>
 
         <div className="sidebar__spacer" />
+
+        {/* Signing out used to be a hidden second meaning of clicking your own
+            avatar — undiscoverable, and one stray click from ending the
+            session. It gets its own labelled row above the footer rule; the
+            avatar keeps its place below as identity only. */}
+        <button
+          type="button"
+          className="sidebar__link sidebar__signout"
+          title="Log out"
+          onClick={signOut}
+        >
+          <LogOutIcon className="sidebar__icon" />
+          <span className="sidebar__label">Log out</span>
+        </button>
 
         <div className="sidebar__footer">
           <NotificationBell onEdit={openEdit} />
@@ -269,19 +323,16 @@ function AppShell() {
           >
             <ThemeIcon />
           </button>
-          <button
-            type="button"
-            className="avatar-button"
-            onClick={signOut}
-            title={`${user?.displayName ?? user?.email ?? 'Signed in'} — click to sign out`}
-          >
+          <span className="avatar" title={user?.displayName ?? user?.email ?? 'Signed in'}>
             {user?.photoURL ? (
               <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
             ) : (
               <span aria-hidden="true">{(user?.displayName ?? '?').slice(0, 1).toUpperCase()}</span>
             )}
-            <span className="visually-hidden">Sign out</span>
-          </button>
+            <span className="visually-hidden">
+              Signed in as {user?.displayName ?? user?.email ?? 'this account'}
+            </span>
+          </span>
         </div>
       </aside>
 
@@ -393,6 +444,13 @@ function AppShell() {
         />
       )}
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
+      {itemsOpen && (
+        <ItemManager
+          onClose={() => setItemsOpen(false)}
+          onEdit={editFromIndex}
+          onEditEvent={editEventFromIndex}
+        />
+      )}
     </div>
   )
 }

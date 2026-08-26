@@ -42,11 +42,11 @@ colors:
   dot-color: "rgba(124, 58, 237, 0.14)"
 typography:
   auth-headline:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
-    fontSize: "32px"
-    fontWeight: 650
-    lineHeight: 1.2
-    letterSpacing: "-0.02em"
+    fontFamily: "'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif"
+    fontSize: "clamp(36px, 4vw, 52px)"
+    fontWeight: 400
+    lineHeight: 1.08
+    letterSpacing: "-0.01em"
   display:
     fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
     fontSize: "52px"
@@ -220,7 +220,7 @@ The system is quiet, precise, and unshowy by deliberate choice. Its confirmed an
 - Dark is the identity now, not an alternate: a first-time visitor lands on dark, deepened toward the Auth Shell's true black; light stays one toggle away, unremoved
 - One accent (Signal Violet), everything else neutral — a Restrained color strategy, not a themed one
 - Flat by default: depth comes from stacked neutral surfaces and hairline borders first, a tuned shadow second — see Elevation & Depth
-- Inter throughout, at every scale including the largest number on screen — chosen for its tabular figures in a stat- and chart-heavy product, not as a display statement
+- Inter throughout the app, at every scale including the largest number on screen — chosen for its tabular figures in a stat- and chart-heavy product, not as a display statement; the sign-in hero's headline is the one serif, and stays outside the app's own scale
 - A validated, colorblind-safe 8-color palette for user data (tags), kept strictly separate from the one UI accent
 - A single reusable "selected" idiom (neutral pill → filled Signal Violet pill) used everywhere something toggles
 - One drawn icon grammar, not a scatter of Unicode characters — every icon in the app shares a stroke style and lives in one file
@@ -274,7 +274,7 @@ The scale is dense rather than a handful of marketing-style jumps — sixteen st
 
 - **Display** (650, 52px, 1.05 line-height, −0.03em tracking): The Dashboard's hero number (hours planned today) — the one place the type gets loud.
 - **Display Sm** (650, 42px): The same hero number, stepped down at the 640px breakpoint.
-- **Auth Headline** (650, 32px, −0.02em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — larger than the themed system's Headline step because it lives in Persuade mode, not Operate.
+- **Auth Headline** (Instrument Serif, 400, `clamp(36px, 4vw, 52px)`, −0.01em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — the one type in the product that is not Inter, and the only step whose size is fluid rather than fixed. It lives in Persuade mode, not Operate: a high-contrast editorial serif against the sign-in form's Inter is what makes the pairing read as considered. Weight 400 is not a choice to revisit — Instrument Serif ships a single weight, and anything heavier would be a synthesised bold. Scale carries the emphasis instead. Declared directly on `.auth-hero__title`, with no `--font-display` token, so the exception cannot spread into the app's own scale.
 - **Stat** (650, 28px, −0.02em tracking): A stat tile's headline figure (Open today, Overdue, Done this week).
 - **Headline** (650, 22px, −0.02em tracking): Screen-level titles on the setup screen and the Auth Shell's form panel.
 - **Unit** (500, 24px): The "h" unit beside the hero number.
@@ -299,7 +299,7 @@ Numerals are set proportional everywhere except a genuine column of numbers (the
 A fixed 232px sidebar (sticky, its own scroll) plus a centered content column capped at 1320px, padded 20px/24px/64px (top/sides/bottom). The base unit is the `.card`: a Panel-colored, 10px-radius, 18px-padded container — nearly every screen is a stack or grid of cards.
 
 Two responsive breakpoints, both collapsing structure rather than just shrinking it:
-- **900px** — the sidebar becomes a wrapping top bar (brand + new-task on one row, icon-only nav on the next, in the same markup — no duplicated JSX, just a flex-direction flip); the Day view's two-column layout (grid + inbox) collapses to one column.
+- **900px** — the sidebar splits into two bars: a sticky **top bar** (brand, the two create buttons, then icon-only Tags / All items / Log out / bell / theme / avatar) and a fixed **bottom tab bar** carrying the four view links in thumb reach. Still one DOM tree and no JS branch — the sidebar's flex-direction flips and `.sidebar__nav` goes `position: fixed` out of its parent's flow, so the two bars cannot drift out of sync with the desktop rail. `.app-content` reserves `76px + env(safe-area-inset-bottom)` of bottom padding so nothing hides behind the bar. The Day view's two-column layout (grid + inbox) collapses to one column.
 - **640px** — tighter page padding, the hero number steps down to 42px, paired form fields stack to one column, cards lose 4px of padding.
 
 Grids follow content, not a fixed column count: the stat-tile row and chart row both use `repeat(auto-fit, minmax(…, 1fr))` so they reflow rather than break. The time grid is the one true fixed grid — a 60px gutter plus 7 equal day columns (1 on the Day view), scaled by a single `--hour-height` variable.
@@ -348,12 +348,14 @@ Tightened from the system's original 6/10/16px scale to read sharper and more co
 - **Hover:** Border steps to the slightly firmer Baseline tone (`#c3c2b7`) — a hint before focus, not a color change.
 - **Focus:** A 2px Signal Violet outline with 2px offset, applied globally via `:focus-visible` — every focusable element in the app gets the identical ring, never a per-component reinvention. (The Auth Shell overrides this to a fixed `#a78bfa` regardless of theme — see Auth Shell.)
 - **Disabled:** 55% opacity, `cursor: not-allowed`.
+- **Password field:** `PasswordField` — the standard input with a 26px reveal toggle inset 4px from its right edge (Eye / Eye Off, the icon grammar's own drawing), and 36px of matching right padding so text never runs under it. The toggle takes the same Panel → Hover Surface background step as any icon button, is per-field rather than one switch for a form (register's confirm field toggles on its own), and carries a named `aria-label` — "Show confirm password," not a bare "Show password." The label is wired with `htmlFor` instead of wrapping the input, since a button inside a `<label>` would join the field's accessible name.
 
 ### Navigation
 - **Style:** A vertical list of full-width, left-aligned rows (14px text, 500 weight, Soft Ink), 4px radius, no visible rest-state chrome.
 - **Hover:** Hover Surface background, text steps to Ink.
 - **Active:** A 12%-opacity Signal Violet tint background with Signal Violet text and 600 weight — the only nav state that uses the accent.
-- **Mobile (≤900px):** Collapses to an icon-only horizontal row; labels move to a visually-hidden span plus a `title` tooltip, so the same markup serves both breakpoints.
+- **Mobile (≤900px):** The four view links become a fixed bottom tab bar — equal `flex: 1 1 0` columns (a fixed grid a thumb can learn, not one that shifts with label length), icon over a 10px label, same active tint. Labels are *shown* here: a bottom tab bar has the room, and an unlabelled one is the harder thing to learn. The occasional controls (Tags, All items, Log out) take the opposite trade in the top bar — icon-only, label kept in a visually-hidden span, `title` tooltip for a mouse.
+- **Sign-out:** Its own labelled `.sidebar__link` row directly above the footer rule, not a glyph inside it. It was previously a hidden second meaning of clicking your own avatar — undiscoverable, and one stray click from ending the session. The avatar stays below as identity only: no cursor, no hover, nothing that reads as a control.
 
 ### Icons
 A small set of drawn stroke icons (`src/components/icons.jsx`) replaced what used to be bare Unicode characters throughout the app — the brand mark, sidebar nav, tag link, repeat mark, close button, date-nav chevrons, theme toggle, and the warning banner. One grammar for all of them: 24×24 viewBox, `currentColor` stroke at 2px, round caps and joins, no fill except the tag icon's single solid dot. Sizing is left to the call site (18px sidebar nav icons, 16px inside a 30px icon-button, 13px inline marks) rather than baked into the icon itself, so one definition serves every context. `NotificationBell`'s hand-drawn bell — the app's original real icon, and the reason the rest of the set exists — lives in the same file now.
@@ -364,11 +366,18 @@ A day's planned time, shown as a thin filled bar rather than only a number: 3px 
 ### Background Pattern
 A quiet dot-grid (22px pitch, Dot Color, 1px dots) fixed behind the authenticated app shell, masked by two corner-anchored radial gradients — top-right and bottom-left — that fade to nothing by 70% of the way to center, unioned via `mask-composite: add`. It renders only in the negative space between cards; it never gets its own visible field. Fixed to the viewport, `z-index: 0`, `pointer-events: none` — this app lives on drag-and-drop (task blocks, month chips), and a decorative layer must never be reachable by a pointer event. Scoped to `.app-shell` only: the Auth Shell already owns its own glow and doesn't get a second, competing background effect.
 
+### Item Index
+`ItemManager` — one modal listing every task and event in the account, reached from **All items** beside Tags in the sidebar. The calendar views answer "what is happening on this day"; this answers "what did I put in here", which is the question you ask when clearing something out. Same modal chrome as Tags: filter chips (All / Tasks / Events, each carrying its count), a title search, then rows of `kind icon · title · meta · Edit · delete`, scrolling inside the panel at `max-height: 46dvh` so a long list never pushes the filters off the top.
+
+Kind is carried by **shape, not colour** — the Day, Span, and Repeat icons the calendar already uses — so a row reads as the thing it will open. Delete uses the same inline confirm as the tag list (Delete / Cancel in place, no second dialog).
+
+It lists **documents, not calendar days**: a repeating task appears once, as its rule, rather than as the occurrences the grids expand it into, and deleting it removes the series. Skipping a single day stays where it belongs — on that occurrence, in the view that draws it. Editing hands off to the existing Task/Event editors and closes the index first: two stacked modals would put two Escape handlers on the window and close both on one press.
+
 ### Auth Shell (deliberate exception)
 Sign-in and sign-up are a fixed, always-dark two-column screen (`.auth-shell`) — brand and pitch on the left, the actual form on the right — and the one surface in the app that does not follow the light/dark toggle. Every color here is a literal, declared once under `.auth-shell`/`.auth-hero`/`.auth-panel`, never a themed `--token`.
 
-- **Auth Hero** (left, 44% width, hidden below 860px): a radial glow (`rgba(233,213,255,0.9)`, positioned top-center) over a top-to-bottom linear gradient — Auth Violet `#7c3aed` → Auth Violet Deep `#4c1d95` → Auth Void `#1a0b2e` → black — carrying the brand mark, "Cadence," and a 32px headline pitch, all centered, white text at 72%/100% opacity for lead/heading.
-- **Auth Panel** (right, flexes to fill): Auth Panel Background `#050505`, holding a centered 360px-max form column — a white Google button (real multi-color "G," the one exception to the icon grammar), a divider, the existing `.field`/`.input`/`.auth-form__switch`/`.link-button` markup restyled dark via scoped descendant selectors (Auth Input Background `#17171a`, white text, `rgba(255,255,255,*)` steps for label/hint/border), and the shared `.primary-button` (still Signal Violet — the one place the themed accent and the fixed palette intentionally meet).
+- **Auth Hero** (left, fills whatever the panel leaves — roughly 60–75% on a desktop viewport, hidden below 860px): a radial glow (`rgba(233,213,255,0.9)`, positioned top-center) over a top-to-bottom linear gradient — Auth Violet `#7c3aed` → Auth Violet Deep `#4c1d95` → Auth Void `#1a0b2e` → black — carrying the brand mark, "Cadence," and a 32px headline pitch, all centered, white text at 72%/100% opacity for lead/heading.
+- **Auth Panel** (right, a fixed column: `clamp(480px, 50%, 700px)`, sized to its 380px content plus a gutter rather than growing with the viewport; falls back to filling the screen below 860px, where the hero is gone): Auth Panel Background `#050505`, holding a centered 380px-max form column — a white Google button (real multi-color "G," the one exception to the icon grammar), a divider, the existing `.field`/`.input`/`.auth-form__switch`/`.link-button` markup restyled dark via scoped descendant selectors (Auth Input Background `#17171a`, white text, `rgba(255,255,255,*)` steps for label/hint/border), and the shared `.primary-button` (still Signal Violet — the one place the themed accent and the fixed palette intentionally meet).
 - **Focus & links:** `.auth-shell :focus-visible` and `.auth-panel .link-button` both use Auth Link `#a78bfa` rather than the themed `--focus`/`--series-1`, chosen for its own contrast against black (7.14:1) regardless of which theme the visitor's browser or OS prefers.
 - **Why fixed, not themed:** this is the one branded moment before the app's own theme toggle is even reachable to a visitor — matching a supplied reference image's specific violet-to-black gradient exactly, in every theme, is the point.
 
@@ -429,7 +438,7 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Don't** let the Auth Shell's fixed dark palette leak into the rest of the app, or the themed `--series-1` token leak into the Auth Shell — they are two deliberately separate systems.
 - **Don't** add a colored left border, top border, or accent stripe to a generic card, list item, or callout. The Time-Grid Block's left border is functional tag-color coding on the app's signature calendar element — it does not generalize to anything else.
 - **Don't** reach for a shadow as hover feedback or as card decoration. Shadow is reserved for content that floats above the page's own layer (modal, dropdown).
-- **Don't** borrow a display or serif typeface for emphasis. Voice comes from size, weight, and tracking within Inter — including the Dashboard's hero number.
+- **Don't** borrow a display or serif typeface for emphasis. Voice comes from size, weight, and tracking within Inter — including the Dashboard's hero number. The Auth Shell's headline (Instrument Serif) is the single named exception, on the same grounds as its fixed palette: it is a marketing surface, not the app. It is scoped to one selector with no token, and it does not generalise — a second serif anywhere in the product would turn a deliberate exception into an inconsistency.
 - **Don't** add a second decorative background effect. Glow Violet and the dot-grid are the one motif; a new surface doesn't get its own new pattern.
 - **Don't** set tabular numerals on a standalone figure. Tabular spacing is for aligned columns only.
 - **Don't** let an event into `dayStats`, `overdueTasks`, `upcomingTasks`, `tagBreakdown`, or any completion rate. Events are commitments, not work: counting a three-day conference as seventy-two planned hours would make the completion rate a ratio against things that cannot be completed. `tasksOn(key)` stays task-only permanently — views compose it with `eventsOn(key)` themselves.

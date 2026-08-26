@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
+import { PasswordField } from './PasswordField.jsx'
 
 export function LoginForm({ onSwitchToRegister }) {
   const { signInWithPassword } = useAuth()
@@ -32,17 +33,12 @@ export function LoginForm({ onSwitchToRegister }) {
         />
       </label>
 
-      <label className="field">
-        <span className="field__label">Password</span>
-        <input
-          type="password"
-          className="input"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
-      </label>
+      <PasswordField
+        label="Password"
+        value={password}
+        onChange={setPassword}
+        autoComplete="current-password"
+      />
 
       <button type="submit" className="primary-button primary-button--lg" disabled={submitting}>
         {submitting ? 'Signing in…' : 'Log in'}
