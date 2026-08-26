@@ -60,8 +60,27 @@ export function AuthProvider({ children }) {
         try {
           await signInWithGoogle()
         } catch (caught) {
-          // Closing the popup is a normal thing to do, not an error worth
-          // shouting about; anything else is worth surfacing.
+          /* Closing the popup is a normal thing to do, not an error worth
+             shouting about; anything else is worth surfacing.
+
+             Unrelated to this catch, but the question keeps coming back: the
+             "Cross-Origin-Opener-Policy policy would block the window.closed
+             call" line Chrome logs from inside firebase_auth during Google
+             sign-in is noise, not a fault here. Google's OAuth page sends
+             `Cross-Origin-Opener-Policy: same-origin`, and the SDK's
+             pollUserCancellation() reads `popup.closed` to notice a dismissed
+             window; Chrome warns that the read *would* be blocked under
+             enforcement while still returning the real value, so the poll goes
+             on working — which is why the line repeats rather than appearing
+             once. Nothing is degraded.
+
+             It cannot be fixed from this app: the header is Google's, and
+             setting COOP on our own document does not undo it —
+             same-origin-allow-popups governs what a popup may see of its
+             opener, not what an opener may see of a COOP-isolated popup
+             (measured, not assumed). Only signInWithRedirect removes it, at
+             the cost of third-party-storage problems that need authDomain to
+             share an origin with the app. */
           if (
             caught.code === 'auth/popup-closed-by-user' ||
             caught.code === 'auth/cancelled-popup-request'
