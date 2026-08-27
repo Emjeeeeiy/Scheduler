@@ -2,16 +2,9 @@ import { useCallback, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
-import { buildNotifications } from '../../lib/notifications.js'
-import { durationLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
+import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
+import { buildNotifications, describeNotification } from '../../lib/notifications.js'
 import { BellIcon } from '../icons.jsx'
-
-function describe(item) {
-  const { kind, task } = item
-  if (kind === 'overdue') return `Overdue since ${relativeDayLabel(task.date)}`
-  if (kind === 'now') return `Happening now · ${durationLabel(task.durationMin)}`
-  return `Starts in ${item.minutesUntil}m · ${minToLabel(task.startMin)}`
-}
 
 const PANEL_WIDTH = 300
 const PANEL_MAX_HEIGHT = 360
@@ -46,6 +39,10 @@ export function NotificationBell({ onEdit }) {
     now.min,
   )
 
+  /* Called unconditionally, independent of `open` — a desktop alert is only
+     useful for the moment nobody has the panel open to see the same thing. */
+  const desktop = useDesktopNotifications(notifications)
+
   return (
     <div className="notif">
       <button
@@ -72,6 +69,21 @@ export function NotificationBell({ onEdit }) {
       {open && placement && (
         <div ref={panelRef} className="notif__panel" style={placement} role="menu" aria-label="Notifications">
           <div className="notif__head">Notifications</div>
+          {desktop.permission === 'denied' ? (
+            <p className="notif__desktop-note">
+              Desktop alerts are blocked — allow notifications for this site in your browser
+              settings to turn them on.
+            </p>
+          ) : desktop.permission !== 'unsupported' ? (
+            <label className="notif__desktop-toggle">
+              <input
+                type="checkbox"
+                checked={desktop.enabled && desktop.permission === 'granted'}
+                onChange={(e) => (e.target.checked ? desktop.request() : desktop.setEnabled(false))}
+              />
+              <span>Desktop alerts for overdue &amp; upcoming</span>
+            </label>
+          ) : null}
           {notifications.length === 0 ? (
             <p className="empty empty--sm">Nothing needs your attention right now.</p>
           ) : (
@@ -89,7 +101,7 @@ export function NotificationBell({ onEdit }) {
                     <span className={`notif__dot notif__dot--${item.kind}`} aria-hidden="true" />
                     <span className="notif__body">
                       <span className="notif__title">{item.task.title}</span>
-                      <span className="notif__meta">{describe(item)}</span>
+                      <span className="notif__meta">{describeNotification(item)}</span>
                     </span>
                   </button>
                 </li>

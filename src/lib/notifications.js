@@ -1,4 +1,5 @@
 import { isSeriesTemplate, overdueTasks } from './stats.js'
+import { durationLabel, minToLabel, relativeDayLabel } from './date.js'
 
 /** How far ahead "starting soon" looks. A whole day of lead time would just
     be a duplicate of the Day view; an hour is the window where a heads-up
@@ -44,4 +45,14 @@ export function buildNotifications(tasks, reference, nowMin) {
   soon.sort((a, b) => a.minutesUntil - b.minutesUntil)
 
   return [...overdue, ...now, ...soon]
+}
+
+/** The one line of "why this is here" text, shared by the bell panel and the
+    desktop notification it can raise for the same item — so the two never
+    drift into describing the same thing two different ways. */
+export function describeNotification(item) {
+  const { kind, task } = item
+  if (kind === 'overdue') return `Overdue since ${relativeDayLabel(task.date)}`
+  if (kind === 'now') return `Happening now · ${durationLabel(task.durationMin)}`
+  return `Starts in ${item.minutesUntil}m · ${minToLabel(task.startMin)}`
 }

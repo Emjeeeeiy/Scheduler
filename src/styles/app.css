@@ -46,7 +46,12 @@
   align-self: flex-start;
   height: 100dvh;
   overflow-y: auto;
-  z-index: 1;
+  /* One higher than .app-content's own z-index: 1 (there only to clear the
+     dot-grid background below both). Tied at the same value, DOM order would
+     let main content paint over a fixed-position popover anchored in the
+     sidebar — the notification bell's panel, or the month's day peek — any
+     time it geometrically reaches into the content column. */
+  z-index: 2;
 }
 
 .sidebar__brand {
@@ -201,6 +206,35 @@
   font-size: var(--text-label);
   font-weight: var(--weight-title);
   padding: 4px 6px 8px;
+}
+
+.notif__desktop-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 6px 8px;
+  font-size: var(--text-meta);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notif__desktop-toggle input {
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+  accent-color: var(--series-1);
+  cursor: pointer;
+  flex: none;
+}
+
+.notif__desktop-toggle span {
+  min-width: 0;
+}
+
+.notif__desktop-note {
+  padding: 0 6px 8px;
+  font-size: var(--text-meta);
+  color: var(--text-muted);
 }
 
 .notif__list {
@@ -2485,6 +2519,23 @@ code {
 
 .item-list__row:hover {
   background: var(--surface-2);
+}
+
+.item-list__check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--series-1);
+  cursor: pointer;
+  flex: none;
+}
+
+.item-list__check:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.item-list__check--spacer {
+  visibility: hidden;
 }
 
 .item-list__kind {

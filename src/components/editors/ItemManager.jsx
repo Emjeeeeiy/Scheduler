@@ -77,7 +77,7 @@ function eventRow(event) {
  * belong on the occurrence, in the views that draw one.
  */
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
-  const { tasks, events, getTag, removeTask, removeEvent } = useSchedule()
+  const { tasks, events, getTag, removeTask, removeEvent, toggleDone } = useSchedule()
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
@@ -178,6 +178,24 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
               const tag = getTag(row.tagId)
               return (
                 <li key={`${row.kind}-${row.id}`} className="item-list__row">
+                  {row.kind === 'task' ? (
+                    <input
+                      type="checkbox"
+                      className="item-list__check"
+                      checked={row.done}
+                      disabled={row.repeating}
+                      onChange={() => toggleDone(row.id)}
+                      aria-label={`Mark "${row.title}" ${row.done ? 'not done' : 'done'}`}
+                      title={
+                        row.repeating
+                          ? 'A repeating task is checked off day by day, in the Day, Week, or Month view.'
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <span className="item-list__check item-list__check--spacer" aria-hidden="true" />
+                  )}
+
                   {/* Kind is shape, not colour — the same task/event grammar
                       the calendar uses, so a row here reads as the thing it
                       will open. */}
