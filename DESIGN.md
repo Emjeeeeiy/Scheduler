@@ -42,97 +42,97 @@ colors:
   dot-color: "rgba(124, 58, 237, 0.14)"
 typography:
   auth-headline:
-    fontFamily: "'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "clamp(36px, 4vw, 52px)"
-    fontWeight: 400
-    lineHeight: 1.08
-    letterSpacing: "-0.01em"
+    fontWeight: 650
+    lineHeight: 1.05
+    letterSpacing: "-0.03em"
   display:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "52px"
     fontWeight: 650
     lineHeight: 1.05
     letterSpacing: "-0.03em"
   display-sm:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "42px"
     fontWeight: 650
     lineHeight: 1.05
     letterSpacing: "-0.03em"
   stat:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "28px"
     fontWeight: 650
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "22px"
     fontWeight: 650
     lineHeight: 1.3
     letterSpacing: "-0.02em"
   unit:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "24px"
     fontWeight: 500
     lineHeight: 1.2
     letterSpacing: "normal"
   mark:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "20px"
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "normal"
   subtitle:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "18px"
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "normal"
   title:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "normal"
   icon:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "16px"
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "normal"
   body:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   ui:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "14px"
     fontWeight: 500
     lineHeight: 1.3
     letterSpacing: "normal"
   meta:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "13px"
     fontWeight: 450
     lineHeight: 1.3
     letterSpacing: "normal"
   caption:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "12px"
     fontWeight: 450
     lineHeight: 1.3
     letterSpacing: "normal"
   label:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "11px"
     fontWeight: 500
     lineHeight: 1.2
     letterSpacing: "0.04em"
   micro:
-    fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif"
+    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
     fontSize: "10px"
     fontWeight: 700
     lineHeight: 1
@@ -150,6 +150,7 @@ rounded:
   md: "7px"
   lg: "10px"
   pill: "999px"
+  auth-hero: "32px"
 spacing:
   xs: "4px"
   sm: "8px"
@@ -220,7 +221,7 @@ The system is quiet, precise, and unshowy by deliberate choice. Its confirmed an
 - Dark is the identity now, not an alternate: a first-time visitor lands on dark, deepened toward the Auth Shell's true black; light stays one toggle away, unremoved
 - One accent (Signal Violet), everything else neutral — a Restrained color strategy, not a themed one
 - Flat by default: depth comes from stacked neutral surfaces and hairline borders first, a tuned shadow second — see Elevation & Depth
-- Inter throughout the app, at every scale including the largest number on screen — chosen for its tabular figures in a stat- and chart-heavy product, not as a display statement; the sign-in hero's headline is the one serif, and stays outside the app's own scale
+- Space Mono throughout the app, at every scale including the largest number on screen and the sign-in hero's headline — one fixed-width, technical voice everywhere rather than a neutral system default; emphasis comes from weight and tracking, never a second typeface
 - A validated, colorblind-safe 8-color palette for user data (tags), kept strictly separate from the one UI accent
 - A single reusable "selected" idiom (neutral pill → filled Signal Violet pill) used everywhere something toggles
 - One drawn icon grammar, not a scatter of Unicode characters — every icon in the app shares a stroke style and lives in one file
@@ -267,11 +268,13 @@ The categorical and status colors — data the user assigns or the app reports, 
 
 ## Typography
 
-**Body Font:** Inter, with the system stack (`system-ui, -apple-system, "Segoe UI", sans-serif`) as fallback
+**Body Font:** Space Mono, with a monospace system stack (`ui-monospace, "SFMono-Regular", monospace`) as fallback
 **Display Font:** the same face, distinguished only by size, weight, and tracking
-**Monospace:** `ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace` — inline `code` only (the setup screen's env-var and rule-file references). Not a general voice; nothing else in the app uses it.
+**Code Monospace:** `ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace` — inline `code` only (the setup screen's env-var and rule-file references). Its own stack, kept separate from the app's own Space Mono so a code reference still reads as "the OS's code font" rather than the product's own voice.
 
-**Character:** One typeface for the whole product, including the largest number on screen. Voice comes from scale and weight, never from switching families — the system deliberately refuses a "display font moment." Inter replaced the pure system-font stack this app started with; it was chosen for its tabular figures and small-size legibility in a product whose UI is mostly numerals — stat tiles, chart axes, the time grid's hour labels, the load bars' hour counts — not for a bespoke display identity. The system stack remains the fallback chain, not a discarded choice.
+**Character:** One typeface for the whole product, including the largest number on screen and the sign-in hero. Voice comes from scale and weight, never from switching families — the system deliberately refuses a "display font moment." Space Mono replaced Fredoka project-wide: a fixed-width mono face chosen to give the whole interface a technical, typewritten identity rather than a conventional proportional sans. The system's monospace fallback stack remains the fallback chain, not a discarded choice.
+
+Every character in Space Mono occupies the same advance width, so numeral columns (stat tiles, chart axes, the tag-bar values) stay aligned by construction — no `tabular-nums` feature to verify, unlike the proportional faces this system used before. Space Mono ships only Regular (400) and Bold (700), not the five-step weight scale the tokens ask for elsewhere: the CSS font-matching algorithm resolves every token above 500 (`--weight-item` 550, `--weight-title` 600, `--weight-figure` 650) up to Bold and everything at or below (`--weight-label` 500, `--weight-meta` 450, `--weight-body` 400) down to Regular. The Name-Versus-Detail Rule below still holds — a name is now Bold-vs-Regular rather than five shades apart — but a design that actually needs an intermediate weight will not get one from this face.
 
 ### Hierarchy
 
@@ -283,7 +286,7 @@ Sizes are **rem**, anchored so a default 16px root resolves each token to exactl
 
 - **Display** (650, 52px, 1.05 line-height, −0.03em tracking): The Dashboard's hero number (hours planned today) — the one place the type gets loud.
 - **Display Sm** (650, 42px): The same hero number, stepped down at the 640px breakpoint.
-- **Auth Headline** (Instrument Serif, 400, `clamp(36px, 4vw, 52px)`, −0.01em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — the one type in the product that is not Inter, and the only step whose size is fluid rather than fixed. It lives in Persuade mode, not Operate: a high-contrast editorial serif against the sign-in form's Inter is what makes the pairing read as considered. Weight 400 is not a choice to revisit — Instrument Serif ships a single weight, and anything heavier would be a synthesised bold. Scale carries the emphasis instead. Declared directly on `.auth-hero__title`, with no `--font-display` token, so the exception cannot spread into the app's own scale.
+- **Auth Headline** (650, `clamp(36px, 4vw, 52px)`, 1.05 line-height, −0.03em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — the same Display weight and tracking as the Dashboard's hero number, just fluid rather than fixed since it lives in a full-bleed Persuade-mode hero rather than a fixed card. Declared directly on `.auth-hero__title`, with no separate `--font-display` token, so it stays the app's one voice rather than a second typeface for the sign-in moment.
 - **Stat** (650, 28px, −0.02em tracking): A stat tile's headline figure (Open today, Overdue, Done this week).
 - **Headline** (650, 22px, −0.02em tracking): Screen-level titles on the setup screen and the Auth Shell's form panel.
 - **Unit** (500, 24px): The "h" unit beside the hero number.
@@ -334,6 +337,8 @@ Flat by default, still — but "flat" now means depth comes from stacked surface
 ## Shapes
 
 Tightened from the system's original 6/10/16px scale to read sharper and more consistent: a core three-step scale — 4px / 7px / 10px — covers every control and card, plus two smaller steps that shrink in step with the element: 3px on chip-like marks (blocks, chips, the month-cell add button) and 2px on the smallest marks of all — a 9–10px legend swatch, a tag-bars dot, or the drag-hover time tooltip — where anything larger would read as a circle rather than a softened square. A full 999px pill closes the scale for anything circular or fully rounded (badges, the avatar, filter chips) — pills are a distinct shape choice, not a "roundness" the tightened scale reaches into. The rule underneath all of it: radius shrinks with the element, never stays fixed regardless of size. Every corner is soft and uniform; nothing is cut, asymmetric, or sharp. Borders are hairline (1px, 10% alpha) throughout — the system never reaches for a heavier stroke to add emphasis.
+
+The one exception sits outside this scale on the same grounds as the Auth Shell's fixed palette: `.auth-hero`'s 32px radius (24px ≤1080px) is sized to a full-bleed marketing hero, not a control or card, and stays scoped to that one selector — see Auth Shell under Components.
 
 ## Components
 
@@ -396,12 +401,12 @@ Kind is carried by **shape, not colour** — the Day, Span, and Repeat icons the
 It lists **documents, not calendar days**: a repeating task appears once, as its rule, rather than as the occurrences the grids expand it into, and deleting it removes the series. Skipping a single day stays where it belongs — on that occurrence, in the view that draws it. Editing hands off to the existing Task/Event editors and closes the index first: two stacked modals would put two Escape handlers on the window and close both on one press.
 
 ### Auth Shell (deliberate exception)
-Sign-in and sign-up are a fixed, always-dark two-column screen (`.auth-shell`) — brand and pitch on the left, the actual form on the right — and the one surface in the app that does not follow the light/dark toggle. Every color here is a literal, declared once under `.auth-shell`/`.auth-hero`/`.auth-panel`, never a themed `--token`.
+Sign-in and sign-up are a fixed, always-dark two-column screen (`.auth-shell`) — brand and pitch on the left, the actual form on the right — and the one surface in the app that does not follow the light/dark toggle. Every color here is a literal, declared once under `.auth-shell`/`.auth-hero`/`.auth-panel`, never a themed `--token`. The shell itself carries a 28px inset (20px ≤1080px, 0 ≤860px where the hero disappears) and a matching gap between its two columns, so the hero reads as a card floating on the shell's own `#050505`, not a panel flush to the viewport edge.
 
-- **Auth Hero** (left, fills whatever the panel leaves — roughly 60–75% on a desktop viewport, hidden below 860px): a radial glow (`rgba(233,213,255,0.9)`, positioned top-center) over a top-to-bottom linear gradient — Auth Violet `#7c3aed` → Auth Violet Deep `#4c1d95` → Auth Void `#1a0b2e` → black — carrying the brand mark, "Cadence," and a 32px headline pitch, all centered, white text at 72%/100% opacity for lead/heading.
-- **Auth Panel** (right, a fixed column: `clamp(480px, 50%, 700px)`, sized to its 380px content plus a gutter rather than growing with the viewport; falls back to filling the screen below 860px, where the hero is gone): Auth Panel Background `#050505`, holding a centered 380px-max form column — a white Google button (real multi-color "G," the one exception to the icon grammar), a divider, the existing `.field`/`.input`/`.auth-form__switch`/`.link-button` markup restyled dark via scoped descendant selectors (Auth Input Background `#17171a`, white text, `rgba(255,255,255,*)` steps for label/hint/border), and the shared `.primary-button` (still Signal Violet — the one place the themed accent and the fixed palette intentionally meet).
+- **Auth Hero** (left, fills whatever the panel leaves — roughly 60–75% on a desktop viewport, hidden below 860px): a radial glow (`rgba(233,213,255,0.9)`, positioned top-center) over a top-to-bottom linear gradient — Auth Violet `#7c3aed` → Auth Violet Deep `#4c1d95` → Auth Void `#1a0b2e` → black — carrying the brand mark, "Cadence," and a headline pitch, all centered, white text at 72%/100% opacity for lead/heading. Corners are rounded at `{rounded.auth-hero}` (32px, stepping to 24px ≤1080px) with `overflow: hidden` clipping the gradient and glow to match — the one radius in the system outside the 4/7/10px card scale, sized to its own full-bleed hero rather than a control or card.
+- **Auth Panel** (right, a fixed column: `clamp(480px, 50%, 700px)`, sized to its 380px content plus a gutter rather than growing with the viewport; falls back to filling the screen below 860px, where the hero is gone): Auth Panel Background `#050505`, holding a centered 380px-max form column — a white Google button (real multi-color "G," the one exception to the icon grammar), a divider, the existing `.field`/`.input`/`.auth-form__switch`/`.link-button` markup restyled dark via scoped descendant selectors (Auth Input Background `#17171a`, white text, `rgba(255,255,255,*)` steps for label/hint/border), and the shared `.primary-button` (still Signal Violet — the one place the themed accent and the fixed palette intentionally meet). It stays square-cornered and borderless, sitting flat on the shell's own background rather than reading as a second card.
 - **Focus & links:** `.auth-shell :focus-visible` and `.auth-panel .link-button` both use Auth Link `#a78bfa` rather than the themed `--focus`/`--series-1`, chosen for its own contrast against black (7.14:1) regardless of which theme the visitor's browser or OS prefers.
-- **Why fixed, not themed:** this is the one branded moment before the app's own theme toggle is even reachable to a visitor — matching a supplied reference image's specific violet-to-black gradient exactly, in every theme, is the point.
+- **Why fixed, not themed:** this is the one branded moment before the app's own theme toggle is even reachable to a visitor — matching a supplied reference image's specific violet-to-black gradient and inset, rounded-card layout exactly, in every theme, is the point.
 
 ### Repeat Picker
 `RepeatPicker` — one control, shared by the task and event editors, so a rule is chosen the same way for both and the two can never drift into separate vocabularies. A row of toggle chips (the system's one selected idiom): **Never / Every day / Weekdays / Weekends / Pick days / Monthly**. "Pick days" reveals the seven weekday keys; "Monthly" reveals a second chip row — **First / Second / Third / Fourth / Last** — and a live hint reads the whole rule back in words ("Every second Saturday of the month, from today on").
@@ -467,7 +472,7 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Don't** let the Auth Shell's fixed dark palette leak into the rest of the app, or the themed `--series-1` token leak into the Auth Shell — they are two deliberately separate systems.
 - **Don't** add a colored left border, top border, or accent stripe to a generic card, list item, or callout. The Time-Grid Block's left border is functional tag-color coding on the app's signature calendar element — it does not generalize to anything else.
 - **Don't** reach for a shadow as hover feedback or as card decoration. Shadow is reserved for content that floats above the page's own layer (modal, dropdown).
-- **Don't** borrow a display or serif typeface for emphasis. Voice comes from size, weight, and tracking within Inter — including the Dashboard's hero number. The Auth Shell's headline (Instrument Serif) is the single named exception, on the same grounds as its fixed palette: it is a marketing surface, not the app. It is scoped to one selector with no token, and it does not generalise — a second serif anywhere in the product would turn a deliberate exception into an inconsistency.
+- **Don't** borrow a display or serif typeface for emphasis, anywhere — including the Auth Shell. Voice comes from size, weight, and tracking within Space Mono alone, from the Dashboard's hero number down to the sign-in headline. An earlier Instrument Serif exception on `.auth-hero__title` was retired for exactly this reason: two typefaces on one screen read as two voices, not one considered pairing.
 - **Don't** add a second decorative background effect. Glow Violet and the dot-grid are the one motif; a new surface doesn't get its own new pattern.
 - **Don't** set tabular numerals on a standalone figure. Tabular spacing is for aligned columns only.
 - **Don't** let an event into `dayStats`, `overdueTasks`, `upcomingTasks`, `tagBreakdown`, or any completion rate. Events are commitments, not work: counting a three-day conference as seventy-two planned hours would make the completion rate a ratio against things that cannot be completed. `tasksOn(key)` stays task-only permanently — views compose it with `eventsOn(key)` themselves.

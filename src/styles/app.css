@@ -611,6 +611,9 @@ code {
 .auth-shell {
   display: flex;
   min-height: 100dvh;
+  background: #050505;
+  padding: 28px;
+  gap: 28px;
 }
 
 .auth-shell :focus-visible {
@@ -630,6 +633,8 @@ code {
   padding: 48px;
   text-align: center;
   color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
   background-image:
     radial-gradient(ellipse 90% 50% at 50% 8%, rgba(233, 213, 255, 0.9), rgba(233, 213, 255, 0) 60%),
     linear-gradient(180deg, #7c3aed 0%, #4c1d95 35%, #1a0b2e 65%, #000000 100%);
@@ -654,22 +659,14 @@ code {
   max-width: 460px;
 }
 
-/* The one place in the product that isn't Inter. This is the sign-in hero —
-   Persuade mode, a marketing surface, not the app — and a high-contrast
-   editorial serif against the form's Inter is what makes the pairing read as
-   considered rather than as a default. Scoped to this single selector on
-   purpose, with no --font-display token, so the exception can't quietly
-   spread into the app's own type scale (see the Don'ts in DESIGN.md).
-
-   Weight 400 is not a choice to revisit: Instrument Serif ships one weight,
-   and anything heavier here would be a synthesised bold — the smeared
-   letterforms that make a serif look cheap. Scale carries the emphasis. */
+/* Same family as .auth-hero__lead (both inherit --font-sans) so the hero
+   reads as one voice — weight and tracking carry the emphasis, matching the
+   app's own Display role rather than reaching for a second typeface. */
 .auth-hero__title {
-  font-family: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-size: clamp(36px, 4vw, 52px);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.08;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
   margin-bottom: 18px;
 }
 
@@ -799,12 +796,26 @@ code {
    room 48px of side padding was taking, rather than let it wrap to four-word
    lines in the one band where space is tightest. */
 @media (max-width: 1080px) {
+  .auth-shell {
+    padding: 20px;
+    gap: 20px;
+  }
+
   .auth-hero {
     padding: 48px 28px;
+    border-radius: 24px;
   }
 }
 
 @media (max-width: 860px) {
+  /* Hero and its inset are gone below this width, so the shell drops back
+     to edge-to-edge — a 100dvh panel plus outer padding would overflow a
+     phone screen's own height. */
+  .auth-shell {
+    padding: 0;
+    gap: 0;
+  }
+
   .auth-hero {
     display: none;
   }
@@ -1501,6 +1512,19 @@ code {
 
 .block--done {
   opacity: 0.55;
+}
+
+/* Below 45 min (see DayColumn's isCompact), the block's own title and time
+   line together don't fit its height at the app's type sizes — drop the
+   time line and let the title alone use the space, centered rather than
+   pinned to a top edge with dead space below it. The full time still
+   reaches an assistive user or a mouse via the button's own title attr. */
+.block--compact {
+  justify-content: center;
+}
+
+.block--compact .block__time {
+  display: none;
 }
 
 .block--done .block__title {

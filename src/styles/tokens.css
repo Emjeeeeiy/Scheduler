@@ -63,7 +63,7 @@
   --radius-md:  7px;
   --radius-lg:  10px;
 
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
 
   /* Type scale. The sixteen steps DESIGN.md names, as tokens rather than as
      prose — until now the documented scale existed only in the doc, and the

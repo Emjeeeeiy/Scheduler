@@ -246,6 +246,12 @@ export function DayColumn({
         const height = live
           ? ((live.endMin - live.startMin) / (windowEnd - windowStart)) * 100
           : block.height
+        const durationMinutes = live ? live.endMin - live.startMin : item.durationMin
+        // Below 45 min there isn't room for a title line plus a time line at
+        // the app's own type sizes — the title alone gets the block's full
+        // height instead of both lines fighting over ~18px. The hover title
+        // attribute below still carries the time, so nothing is lost.
+        const isCompact = durationMinutes < 45
 
         return (
           <div key={item.id} className="block-slot">
@@ -260,6 +266,7 @@ export function DayColumn({
                 item.done ? 'block--done' : '',
                 block.columns > 1 ? 'block--split' : '',
                 live ? 'block--resizing' : '',
+                isCompact ? 'block--compact' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}

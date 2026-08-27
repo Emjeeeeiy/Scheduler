@@ -48,7 +48,7 @@ await page.waitForSelector('.day-panel')
 await page.screenshot({ path: `${OUT}/rd-07-day-dark.png`, fullPage: true })
 console.log('day (dark) captured')
 
-// New task modal — check card/input radius + Inter rendering in a dialog.
+// New task modal — check card/input radius + Space Mono rendering in a dialog.
 await page.click('.sidebar__new-task')
 await page.waitForSelector('.modal__panel')
 await page.screenshot({ path: `${OUT}/rd-08-modal-dark.png` })
@@ -74,10 +74,10 @@ const scrollInfo = await page.evaluate(() => {
 })
 console.log('scroll test (should be scrollable, scrollTop=100):', JSON.stringify(scrollInfo))
 
-// Confirm Inter actually loaded and is being used.
+// Confirm Space Mono actually loaded and is being used.
 const fontCheck = await page.evaluate(() => {
   const body = getComputedStyle(document.body)
-  return { fontFamily: body.fontFamily, fontsReady: document.fonts.check('16px Inter') }
+  return { fontFamily: body.fontFamily, fontsReady: document.fonts.check('16px "Space Mono"') }
 })
 console.log('font check:', JSON.stringify(fontCheck))
 
