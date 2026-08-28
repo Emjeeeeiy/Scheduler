@@ -177,42 +177,22 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
           </div>
 
           {tags.length > 0 && (
-            <div className="filter-row" role="group" aria-label="Tag">
-              <button
-                type="button"
-                className={`filter-chip${tagFilter === 'all' ? ' filter-chip--on' : ''}`}
-                aria-pressed={tagFilter === 'all'}
-                onClick={() => setTagFilter('all')}
-              >
-                Any tag
-              </button>
+            <select
+              className="input"
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              aria-label="Filter by tag"
+            >
+              <option value="all">Any tag</option>
               {tags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  className={`filter-chip filter-chip--tag${tagFilter === tag.id ? ' filter-chip--on' : ''}`}
-                  aria-pressed={tagFilter === tag.id}
-                  onClick={() => setTagFilter(tag.id)}
-                >
-                  <span
-                    className="tag-swatch tag-swatch--sm"
-                    style={{ background: tag.color }}
-                    aria-hidden="true"
-                  />
-                  {`${tag.name} ${tagCounts.get(tag.id) ?? 0}`}
-                </button>
+                <option key={tag.id} value={tag.id}>
+                  {tag.name} ({tagCounts.get(tag.id) ?? 0})
+                </option>
               ))}
               {untaggedCount > 0 && (
-                <button
-                  type="button"
-                  className={`filter-chip${tagFilter === 'none' ? ' filter-chip--on' : ''}`}
-                  aria-pressed={tagFilter === 'none'}
-                  onClick={() => setTagFilter('none')}
-                >
-                  {`No tag ${untaggedCount}`}
-                </button>
+                <option value="none">No tag ({untaggedCount})</option>
               )}
-            </div>
+            </select>
           )}
         </div>
 
