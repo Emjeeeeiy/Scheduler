@@ -86,6 +86,7 @@ expect('Week view renders 7 day columns', (html.week.match(/class="day-column"/g
 // `class="month__cell`, and would double the count.
 expect('Month view renders 42 cells', (html.month.match(/class="month__cell[" ]/g) ?? []).length === 42)
 expect('Dashboard hero shows planned hours', html.dashboard.includes('hero__value'))
+expect('Dashboard hero carries the pixel ticker', html.dashboard.includes('hero__pixel'))
 expect('Dashboard surfaces the overdue task', html.dashboard.includes('Overdue thing'))
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
@@ -194,18 +195,21 @@ expect(
   (items.match(/>Standing sync</g) ?? []).length === 1,
 )
 expect('A repeating task shows its rule, not a date', items.includes('Every weekday'))
-/* Dated items sort ahead of the undated tail. The sentinel that puts them
-   there is a day key, not punctuation: `localeCompare` collates a `~` BEFORE
-   digits, which silently inverted this whole list. */
+/* Newest first: the fixture stamps "Unscheduled idea" later than everything
+   else, so it has to lead even though it has no date. */
 expect(
-  'Undated and repeating items sort last',
-  items.indexOf('>Overdue thing<') < items.indexOf('>Unscheduled idea<') &&
-    items.indexOf('>Overdue thing<') < items.indexOf('>Standing sync<'),
+  'The latest item sits at the top',
+  items.indexOf('>Unscheduled idea<') < items.indexOf('>Overdue thing<') &&
+    items.indexOf('>Unscheduled idea<') < items.indexOf('>Standing sync<'),
 )
 expect(
   'Item index counts tasks and events separately',
   items.includes(`Tasks ${mockValue.tasks.length}`) &&
     items.includes(`Events ${mockValue.events.length}`),
+)
+expect(
+  'Item index can filter by tag',
+  items.includes('Any tag') && items.includes('Work') && items.includes('Personal'),
 )
 
 console.log('')

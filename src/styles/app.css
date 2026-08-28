@@ -159,6 +159,68 @@
   border-top: 1px solid var(--border);
 }
 
+.account {
+  position: relative;
+  flex: none;
+}
+
+.account__panel {
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+  z-index: 55;
+}
+
+.account__who {
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.account__name {
+  font-size: var(--text-label);
+  font-weight: var(--weight-title);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account__email {
+  margin-top: 2px;
+  font-size: var(--text-meta);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account__out {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: var(--text-item);
+  font-weight: var(--weight-label);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.account__out:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
 /* ======================================================== notifications == */
 
 .notif {
@@ -417,8 +479,7 @@
   color: var(--text-primary);
 }
 
-/* Identity, not a control: signing out is its own labelled row above. No
-   cursor and no hover, so nothing here reads as clickable. */
+/* Identity — and, when the picture is a button, the account menu trigger. */
 .avatar {
   width: 30px;
   height: 30px;
@@ -432,6 +493,16 @@
   font-size: var(--text-label);
   font-weight: var(--weight-title);
   flex: none;
+}
+
+button.avatar {
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.avatar:hover {
+  border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border));
 }
 
 .avatar img {
@@ -897,9 +968,18 @@ code {
 }
 
 .hero__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 28px;
+  flex-wrap: wrap;
+}
+
+.hero__figure {
   display: grid;
   justify-items: start;
   gap: 2px;
+  min-width: 0;
 }
 
 .hero__label {
@@ -911,17 +991,55 @@ code {
 .hero__value {
   /* Proportional figures: tabular-nums makes a large standalone number
      look loose. Tabular is for columns, not for a hero. */
-  font-size: var(--text-display);
+  font-size: var(--text-hero);
   font-weight: var(--weight-figure);
-  line-height: 1.05;
-  letter-spacing: -0.03em;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
 }
 
 .hero__unit {
-  font-size: var(--text-unit);
+  font-size: var(--text-hero-unit);
   font-weight: var(--weight-label);
   color: var(--text-secondary);
-  margin-left: 3px;
+  margin-left: 6px;
+  letter-spacing: 0;
+}
+
+/* Pixel ticker: the spare air in this card, given a job. One line, one
+   caret, no decoration around it — the face is the whole effect. */
+.hero__pixel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 1.25em;
+  max-width: 22ch;
+  margin-bottom: 8px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--text-primary);
+  -webkit-font-smoothing: none;
+}
+
+.hero__pixel-text {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.hero__pixel-caret {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--text-primary);
+  opacity: 0;
+}
+
+.hero__pixel-caret--on {
+  opacity: 1;
 }
 
 /* The fourth placement of the load indicator, on the same 10-hour reference
@@ -2517,6 +2635,11 @@ code {
 
 /* ========================================================== item index == */
 
+.item-manager__filters {
+  display: grid;
+  gap: 8px;
+}
+
 .item-manager__search {
   margin: 10px 0 4px;
 }
@@ -2706,10 +2829,14 @@ code {
 
 .filter-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -2769,11 +2896,9 @@ code {
      its parent's flow rather than a duplicated mobile component, so the two
      bars can never drift out of sync with the desktop rail.
 
-     The labels invert across the breakpoint on purpose. The nav's were hidden
-     when it was a cramped scrolling row up top; a bottom tab bar has four
-     equal columns and room for them, and an unlabelled tab bar is the harder
-     thing to learn. The occasional controls take the opposite trade: icon-only
-     in the top bar, label kept for screen readers, title= for a mouse. */
+     One row, never a wrap: wrapping stacked create buttons under the brand and
+     made the chrome two (sometimes three) taps taller than the content. Every
+     control goes icon-only; labels stay in the accessibility tree. */
   .app-shell {
     flex-direction: column;
   }
@@ -2785,24 +2910,57 @@ code {
     top: 0;
     z-index: 20;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    row-gap: 8px;
-    column-gap: 8px;
-    padding: 10px 14px;
+    gap: 4px;
+    padding: 8px 10px;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .sidebar__brand {
     padding: 0;
     margin-right: auto;
+    gap: 0;
+    position: relative;
+    flex: none;
+  }
+
+  .brand__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .sidebar__new-task,
   .sidebar__new-event {
     width: auto;
+    min-width: 44px;
+    min-height: 44px;
     margin-bottom: 0;
+    padding: 10px;
+    flex: none;
+    position: relative;
+  }
+
+  .sidebar__new-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .sidebar__link {
@@ -2861,8 +3019,17 @@ code {
 
   .sidebar__tools .sidebar__link,
   .sidebar__signout {
-    padding: 7px;
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
     margin-bottom: 0;
+    justify-content: center;
+  }
+
+  /* Log out lives under the avatar on a phone — a labelled row in this bar
+     was a sixth icon fighting for the same 44px. */
+  .sidebar__signout {
+    display: none;
   }
 
   .sidebar__tools .sidebar__label,
@@ -2885,6 +3052,14 @@ code {
   .sidebar__footer {
     padding-top: 0;
     border-top: none;
+    gap: 2px;
+    flex: none;
+  }
+
+  .sidebar__footer .icon-button,
+  .sidebar__footer .notif__trigger {
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .app-content {
@@ -2892,6 +3067,38 @@ code {
     margin: 0;
     /* Clear of the fixed tab bar, plus the home indicator under it. */
     padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  /* Dashboard's header is only the word "Today" — the hero already says
+     that. Drop the extra row so the first tap is the page, not chrome. */
+  .app__header:has(.date-nav--static) {
+    display: none;
+  }
+
+  .app-content:has(.date-nav--static) .app__main {
+    margin-top: 8px;
+  }
+
+  .date-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .date-nav .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .date-nav__label {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__pixel-caret {
+    opacity: 1;
   }
 }
 
@@ -2903,12 +3110,21 @@ code {
   }
 
   .app__header {
-    justify-content: center;
+    justify-content: stretch;
     padding-bottom: 12px;
   }
 
+  .account__trigger {
+    width: 36px;
+    height: 36px;
+  }
+
   .hero__value {
-    font-size: var(--text-display-sm);
+    font-size: var(--text-hero-sm);
+  }
+
+  .hero__unit {
+    font-size: var(--text-hero-unit-sm);
   }
 
   .field-row {
@@ -3401,18 +3617,16 @@ code {
 }
 
 @media (max-width: 900px) {
-  /* Drops below the hero rather than squeezing — the same "collapse the
-     structure, do not merely shrink it" move the sidebar and day layout
-     already make at this width. */
+  /* Month is its own view; the glance calendar is hidden on a phone so the
+     hero is the whole top of the dashboard. */
   .dashboard__top {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Capped once it is no longer in a fixed column: the day cells are square,
-     so a full-width calendar would grow them to ~100px each and turn a glance
-     control into the tallest thing on the page. */
-  .mini-cal {
-    max-width: 360px;
+  /* Month lives in the Month view; on a phone the glance calendar under the
+     hero is a second map of the same days and costs a full screen of scroll. */
+  .dashboard__top .mini-cal {
+    display: none;
   }
 
   /* Sits beside the primary button in the top bar rather than stretching

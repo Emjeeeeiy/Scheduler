@@ -24,6 +24,7 @@ import { EventEditor } from './components/editors/EventEditor.jsx'
 import { TagManager } from './components/editors/TagManager.jsx'
 import { ItemManager } from './components/editors/ItemManager.jsx'
 import { NotificationBell } from './components/shell/NotificationBell.jsx'
+import { AccountMenu } from './components/shell/AccountMenu.jsx'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -64,7 +65,7 @@ const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
 const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
 
 function AppShell() {
-  const { user, signOut } = useAuth()
+  const { signOut } = useAuth()
   const { loading, error } = useSchedule()
   const { theme, cycleTheme } = useTheme()
 
@@ -239,7 +240,8 @@ function AppShell() {
           className="primary-button sidebar__new-task"
           onClick={() => openCreate({})}
         >
-          <PlusIcon className="button-icon" /> New task
+          <PlusIcon className="button-icon" />
+          <span className="sidebar__new-label">New task</span>
         </button>
 
         {/* Two stacked buttons rather than a split menu: there are exactly two
@@ -250,7 +252,8 @@ function AppShell() {
           className="ghost-button sidebar__new-event"
           onClick={() => openCreateEvent({ startDate: focusKey, endDate: focusKey })}
         >
-          <SpanIcon className="button-icon" /> New event
+          <SpanIcon className="button-icon" />
+          <span className="sidebar__new-label">New event</span>
         </button>
 
         <nav className="sidebar__nav" aria-label="Views">
@@ -323,16 +326,7 @@ function AppShell() {
           >
             <ThemeIcon />
           </button>
-          <span className="avatar" title={user?.displayName ?? user?.email ?? 'Signed in'}>
-            {user?.photoURL ? (
-              <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span aria-hidden="true">{(user?.displayName ?? '?').slice(0, 1).toUpperCase()}</span>
-            )}
-            <span className="visually-hidden">
-              Signed in as {user?.displayName ?? user?.email ?? 'this account'}
-            </span>
-          </span>
+          <AccountMenu />
         </div>
       </aside>
 

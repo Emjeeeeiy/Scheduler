@@ -26,6 +26,7 @@ import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
+import { PixelType } from './PixelType.jsx'
 import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
@@ -93,11 +94,14 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
             out of things to say. */}
         <section className="card hero" aria-label="Today at a glance">
           <div className="hero__head">
-            <p className="hero__label">Planned today</p>
-            <p className="hero__value">
-              {toHours(todayTotals.plannedMin)}
-              <span className="hero__unit">h</span>
-            </p>
+            <div className="hero__figure">
+              <p className="hero__label">Planned today</p>
+              <p className="hero__value">
+                {toHours(todayTotals.plannedMin)}
+                <span className="hero__unit">h</span>
+              </p>
+            </div>
+            <PixelType hourMin={now.min} />
           </div>
 
           <div className="hero__load">

@@ -10,13 +10,10 @@ const FILTERS = [
   { id: 'events', label: 'Events' },
 ]
 
-/* Everything without a date sorts after everything with one — a key no real
-   day can reach, rather than a separate partition pass. A repeating task is a
-   rule, not a day on the calendar, so it lands in the same tail.
-
-   A day key past every real one, not a punctuation sentinel: these are
-   compared as plain strings below, and locale collation would have put a `~`
-   ahead of the digits rather than after them. */
+/* Used only as a tie-breaker after createdAt: dated items still outrank
+   undated ones, and a repeating rule is a document without a day, so it
+   shares that tail. The key is a day string no real date can reach — locale
+   collation would have put a `~` ahead of the digits. */
 const UNDATED = '9999-12-31'
 
 function taskRow(task) {
@@ -26,6 +23,7 @@ function taskRow(task) {
     title: task.title,
     tagId: task.tagId,
     done: task.done,
+    createdAt: task.createdAt ?? 0,
     sortKey: task.recurrence ? UNDATED : (task.date ?? UNDATED),
     sortMin: task.startMin ?? -1,
     meta: task.recurrence
@@ -55,6 +53,7 @@ function eventRow(event) {
     title: event.title,
     tagId: event.tagId,
     done: false,
+    createdAt: event.createdAt ?? 0,
     sortKey: event.recurrence ? UNDATED : event.startDate,
     sortMin: event.startMin ?? -1,
     meta: event.startMin === null ? when : `${when} · ${minToShortLabel(event.startMin)}`,
@@ -77,8 +76,9 @@ function eventRow(event) {
  * belong on the occurrence, in the views that draw one.
  */
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
-  const { tasks, events, getTag, removeTask, removeEvent, toggleDone } = useSchedule()
+  const { tasks, events, tags, getTag, removeTask, removeEvent, toggleDone } = useSchedule()
   const [filter, setFilter] = useState('all')
+  const [tagFilter, setTagFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
 
@@ -92,13 +92,17 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
 
   const rows = useMemo(() => {
     const all = [...tasks.map(taskRow), ...events.map(eventRow)]
-    /* Chronological, oldest first, so anything already past — the stuff you
-       opened this list to clear out — is at the top rather than buried under
-       everything still to come. Day keys are fixed-width ASCII, so `<` orders
-       them correctly and, unlike localeCompare, keeps the undated tail last. */
+    /* Newest first: the thing you just added is the thing you opened this
+       list to find. createdAt is a millisecond stamp, so a larger number is
+       later; equal stamps fall back to the calendar day (still newest first)
+       so a batch import does not shuffle. */
     all.sort((a, b) => {
-      if (a.sortKey !== b.sortKey) return a.sortKey < b.sortKey ? -1 : 1
-      return a.sortMin - b.sortMin || a.title.localeCompare(b.title)
+      if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt
+      const aDated = a.sortKey !== UNDATED
+      const bDated = b.sortKey !== UNDATED
+      if (aDated !== bDated) return aDated ? -1 : 1
+      if (a.sortKey !== b.sortKey) return a.sortKey < b.sortKey ? 1 : -1
+      return b.sortMin - a.sortMin || a.title.localeCompare(b.title)
     })
     return all
   }, [tasks, events])
@@ -109,10 +113,21 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     events: events.length,
   }
 
+  const untaggedCount = rows.filter((row) => !row.tagId).length
+  const tagCounts = useMemo(() => {
+    const map = new Map()
+    for (const row of rows) {
+      if (!row.tagId) continue
+      map.set(row.tagId, (map.get(row.tagId) ?? 0) + 1)
+    }
+    return map
+  }, [rows])
   const needle = query.trim().toLowerCase()
   const visible = rows.filter((row) => {
     if (filter === 'tasks' && row.kind !== 'task') return false
     if (filter === 'events' && row.kind !== 'event') return false
+    if (tagFilter === 'none' && row.tagId) return false
+    if (tagFilter !== 'all' && tagFilter !== 'none' && row.tagId !== tagFilter) return false
     return !needle || row.title.toLowerCase().includes(needle)
   })
 
@@ -143,21 +158,62 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
           </button>
         </div>
 
-        <div className="filter-row" role="group" aria-label="Show">
-          {FILTERS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={`filter-chip${filter === option.id ? ' filter-chip--on' : ''}`}
-              aria-pressed={filter === option.id}
-              onClick={() => setFilter(option.id)}
-            >
-              {/* One interpolation, not two adjacent ones: a screen reader
-                  reading "Tasks" and "14" as separate nodes announces them as
-                  separate things. */}
-              {`${option.label} ${counts[option.id]}`}
-            </button>
-          ))}
+        <div className="item-manager__filters">
+          <div className="filter-row" role="group" aria-label="Show">
+            {FILTERS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`filter-chip${filter === option.id ? ' filter-chip--on' : ''}`}
+                aria-pressed={filter === option.id}
+                onClick={() => setFilter(option.id)}
+              >
+                {/* One interpolation, not two adjacent ones: a screen reader
+                    reading "Tasks" and "14" as separate nodes announces them as
+                    separate things. */}
+                {`${option.label} ${counts[option.id]}`}
+              </button>
+            ))}
+          </div>
+
+          {tags.length > 0 && (
+            <div className="filter-row" role="group" aria-label="Tag">
+              <button
+                type="button"
+                className={`filter-chip${tagFilter === 'all' ? ' filter-chip--on' : ''}`}
+                aria-pressed={tagFilter === 'all'}
+                onClick={() => setTagFilter('all')}
+              >
+                Any tag
+              </button>
+              {tags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  className={`filter-chip filter-chip--tag${tagFilter === tag.id ? ' filter-chip--on' : ''}`}
+                  aria-pressed={tagFilter === tag.id}
+                  onClick={() => setTagFilter(tag.id)}
+                >
+                  <span
+                    className="tag-swatch tag-swatch--sm"
+                    style={{ background: tag.color }}
+                    aria-hidden="true"
+                  />
+                  {`${tag.name} ${tagCounts.get(tag.id) ?? 0}`}
+                </button>
+              ))}
+              {untaggedCount > 0 && (
+                <button
+                  type="button"
+                  className={`filter-chip${tagFilter === 'none' ? ' filter-chip--on' : ''}`}
+                  aria-pressed={tagFilter === 'none'}
+                  onClick={() => setTagFilter('none')}
+                >
+                  {`No tag ${untaggedCount}`}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <input

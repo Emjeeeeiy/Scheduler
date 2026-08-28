@@ -44,7 +44,7 @@ const tasks = [
   task('g', { title: 'Tomorrow', date: addDays(TODAY, 1), startMin: 11 * 60, durationMin: 45 }),
   task('h', { title: 'Later this week', date: addDays(TODAY, 3), startMin: 16 * 60, durationMin: 30, tagId: 'personal' }),
   task('i', { title: 'Overdue thing', date: addDays(TODAY, -2), startMin: 10 * 60, durationMin: 60 }),
-  task('j', { title: 'Unscheduled idea' }),
+  task('j', { title: 'Unscheduled idea', createdAt: 50 }),
   task('k', { title: 'Another loose end', tagId: 'personal' }),
   task('l', { title: 'Done in the inbox', done: true }),
   // A repeating task: the exercise for the block/chip/row repeat marker, and

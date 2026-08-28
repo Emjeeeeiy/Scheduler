@@ -64,6 +64,10 @@
   --radius-lg:  10px;
 
   --font-sans: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
+  /* The 8-bit face on the Dashboard hero ticker — a second voice, not a
+     substitute for Space Mono. Sized only in multiples of 8px so the bitmap
+     stays on-grid. */
+  --font-pixel: 'Press Start 2P', ui-monospace, 'SFMono-Regular', monospace;
 
   /* Type scale. The sixteen steps DESIGN.md names, as tokens rather than as
      prose — until now the documented scale existed only in the doc, and the
@@ -75,10 +79,14 @@
      to a 16px root, so at the default every one of these resolves to exactly
      the px value it replaced — this buys the accessibility behaviour without
      moving a single pixel for everyone else. */
-  --text-display:    3.25rem;   /* 52px — the Dashboard's hero figure */
-  --text-display-sm: 2.625rem;  /* 42px — the same figure at 640px */
+  --text-hero:       4.5rem;    /* 72px — the Dashboard's planned-hours figure */
+  --text-hero-sm:    3.5rem;    /* 56px — the same figure at 640px */
+  --text-hero-unit:  2.25rem;   /* 36px — the "h" beside that figure */
+  --text-hero-unit-sm: 1.75rem; /* 28px — the same unit at 640px */
+  --text-display:    3.25rem;   /* 52px — leftover display step */
+  --text-display-sm: 2.625rem;  /* 42px */
   --text-stat:       1.75rem;   /* 28px — a stat tile's figure */
-  --text-unit:       1.5rem;    /* 24px — the "h" beside the hero figure */
+  --text-unit:       1.5rem;    /* 24px — a unit next to a smaller figure */
   --text-headline:   1.375rem;  /* 22px — screen-level titles */
   --text-subtitle:   1.125rem;  /* 18px — the week grid's day-of-month */
   --text-title:      1.0625rem; /* 17px — dialog headings, the brand name */
