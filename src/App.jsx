@@ -305,7 +305,7 @@ function AppShell() {
             avatar — undiscoverable, and one stray click from ending the
             session. It gets its own labelled row above the footer rule; the
             avatar keeps its place below as identity only. */}
-        <button
+        {/* <button
           type="button"
           className="sidebar__link sidebar__signout"
           title="Log out"
@@ -313,7 +313,7 @@ function AppShell() {
         >
           <LogOutIcon className="sidebar__icon" />
           <span className="sidebar__label">Log out</span>
-        </button>
+        </button> */}
 
         <div className="sidebar__footer">
           <NotificationBell onEdit={openEdit} />
