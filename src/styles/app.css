@@ -6,32 +6,6 @@
   min-height: 100dvh;
 }
 
-/* A quiet dot-grid, visible only in the negative space between cards — dense
-   at the two corners a screen's eye lands on last, fading out well before
-   the center so it never competes with content. Fixed to the viewport (not
-   the scrolling content) and z-index 0 so the sidebar and every card, both
-   flex children of .app-shell, paint above it without needing their own
-   opaque background to "hide" it. pointer-events: none is load-bearing —
-   this app lives on drag-and-drop, and a decorative layer must never be able
-   to catch a drop event. */
-.app-shell::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
-  background-size: 22px 22px;
-  mask-image:
-    radial-gradient(ellipse 60% 55% at 100% 0%, black 0%, transparent 70%),
-    radial-gradient(ellipse 60% 55% at 0% 100%, black 0%, transparent 70%);
-  mask-composite: add;
-  -webkit-mask-image:
-    radial-gradient(ellipse 60% 55% at 100% 0%, black 0%, transparent 70%),
-    radial-gradient(ellipse 60% 55% at 0% 100%, black 0%, transparent 70%);
-  -webkit-mask-composite: source-over;
-}
-
 .sidebar {
   width: 232px;
   flex: none;
@@ -39,7 +13,6 @@
   flex-direction: column;
   gap: 2px;
   padding: 20px 14px;
-  background: var(--surface-card);
   border-right: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -66,7 +39,7 @@
 .brand__mark {
   width: 20px;
   height: 20px;
-  color: var(--series-1);
+  color: var(--text-primary);
   flex: none;
 }
 
@@ -119,8 +92,8 @@
 }
 
 .sidebar__link--active {
-  background: color-mix(in srgb, var(--series-1) 12%, transparent);
-  color: var(--series-1);
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-weight: var(--weight-title);
 }
 
@@ -284,7 +257,7 @@
   width: 13px;
   height: 13px;
   margin-top: 1px;
-  accent-color: var(--series-1);
+  accent-color: var(--text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -304,11 +277,18 @@
   gap: 2px;
 }
 
+.notif__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+
 .notif__item {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -319,6 +299,30 @@
 
 .notif__item:hover {
   background: var(--surface-2);
+}
+
+.notif__dismiss {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notif__dismiss:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.notif__dismiss svg {
+  width: 12px;
+  height: 12px;
 }
 
 .notif__dot {
@@ -334,7 +338,7 @@
 }
 
 .notif__dot--now {
-  background: var(--series-1);
+  background: var(--text-primary);
 }
 
 .notif__dot--soon {
@@ -400,15 +404,16 @@
 }
 
 .primary-button {
-  background: var(--series-1);
-  color: #fff;
-  border-color: var(--series-1);
+  background: var(--text-primary);
+  color: var(--page);
+  border-color: var(--text-primary);
   padding: 7px 14px;
   font-weight: var(--weight-item);
 }
 
 .primary-button:hover:not(:disabled) {
-  filter: brightness(1.07);
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
 }
 
 .primary-button:disabled {
@@ -535,10 +540,8 @@ button.avatar:hover {
 /* ================================================== cards & common bits == */
 
 .card {
-  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
   padding: 18px;
 }
 
@@ -675,20 +678,52 @@ code {
 
 /* ============================================================ auth shell == */
 
-/* Fixed, always-dark — see the comment on SignIn.jsx. Every color below is a
-   literal, not a --token, on purpose: this screen does not follow the app's
-   light/dark toggle. */
+/* Theme-reactive, built from the same neutral tokens as every other surface —
+   this used to be a fixed, always-dark exception with a violet-to-black
+   gradient hero; that palette is gone. What marks this screen as its own
+   moment is line, not fill: a topbar rule, one hairline column divider, and
+   the corner-tick frame below — no panel ever carries a background color of
+   its own, so nothing here reads as a card. */
 
 .auth-shell {
   display: flex;
+  flex-direction: column;
   min-height: 100dvh;
-  background: #050505;
-  padding: 28px;
-  gap: 28px;
+  background: var(--page);
 }
 
-.auth-shell :focus-visible {
-  outline-color: #a78bfa;
+.auth-topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: var(--weight-title);
+  font-size: var(--text-title);
+  color: var(--text-primary);
+}
+
+.auth-hero__mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/* The bounded frame below the topbar — hero and form as two plain columns
+   split by one hairline, corner ticks marking the frame itself rather than
+   either column. */
+.auth-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  padding: 28px;
 }
 
 /* The hero takes whatever the panel doesn't: the form is a fixed-ish column
@@ -700,39 +735,68 @@ code {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
   padding: 48px;
   text-align: center;
-  color: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  background-image:
-    radial-gradient(ellipse 90% 50% at 50% 8%, rgba(233, 213, 255, 0.9), rgba(233, 213, 255, 0) 60%),
-    linear-gradient(180deg, #7c3aed 0%, #4c1d95 35%, #1a0b2e 65%, #000000 100%);
-  background-color: #000;
+  color: var(--text-primary);
+  border-right: 1px solid var(--border);
 }
 
-.auth-hero__brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-weight: var(--weight-title);
-  font-size: var(--text-title);
+/* A small drawn cross at each corner of the content frame — the one
+   borrowed, purely decorative motif on this screen, standing in for the
+   accent color it no longer carries. Two hairline strokes per corner, inset
+   off the edge so the frame and the tick read as one deliberate drawing. */
+.auth-tick {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
 }
 
-.auth-hero__mark {
-  width: 22px;
-  height: 22px;
-  flex: none;
+.auth-tick::before,
+.auth-tick::after {
+  content: '';
+  position: absolute;
+  background: var(--baseline);
+}
+
+.auth-tick::before {
+  top: 4px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+
+.auth-tick::after {
+  left: 4px;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.auth-tick--tl {
+  top: 12px;
+  left: 12px;
+}
+
+.auth-tick--tr {
+  top: 12px;
+  right: 12px;
+}
+
+.auth-tick--bl {
+  bottom: 12px;
+  left: 12px;
+}
+
+.auth-tick--br {
+  bottom: 12px;
+  right: 12px;
 }
 
 .auth-hero__copy {
   max-width: 460px;
 }
 
-/* Same family as .auth-hero__lead (both inherit --font-sans) so the hero
-   reads as one voice — weight and tracking carry the emphasis, matching the
-   app's own Display role rather than reaching for a second typeface. */
 .auth-hero__title {
   font-size: clamp(36px, 4vw, 52px);
   font-weight: 650;
@@ -744,7 +808,7 @@ code {
 .auth-hero__lead {
   font-size: var(--text-icon);
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
 }
 
 .auth-panel {
@@ -753,7 +817,6 @@ code {
   align-items: center;
   justify-content: center;
   padding: 40px 24px;
-  background: #050505;
 }
 
 /* 380px rather than 360: register's password and confirm sit side by side,
@@ -772,22 +835,26 @@ code {
   font-size: var(--text-headline);
   font-weight: var(--weight-figure);
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .auth-panel__lead {
   font-size: var(--text-label);
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
 }
 
 .auth-panel__note {
   margin-top: 16px;
   font-size: var(--text-label);
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   text-align: center;
 }
 
+/* The one deliberate exception to the app's monochrome rule: Google's own
+   mark and button convention, kept as its real brand renders rather than
+   folded into the icon grammar. Bordered in both themes so a white button
+   still reads against a near-white light-mode page. */
 .google-button {
   width: 100%;
   display: flex;
@@ -796,7 +863,7 @@ code {
   gap: 10px;
   background: #fff;
   color: #1f1f1f;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 10px 16px;
   font-size: var(--text-item);
@@ -809,93 +876,45 @@ code {
   background: #ececec;
 }
 
-.auth-panel .auth-divider {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.auth-panel .auth-divider::before,
-.auth-panel .auth-divider::after {
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.auth-panel .field__label {
-  color: rgba(255, 255, 255, 0.65);
-}
-
-.auth-panel .field__hint {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.auth-panel .input {
-  background: #17171a;
-  border-color: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-.auth-panel .input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
-}
-
-.auth-panel .password-field__toggle {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.auth-panel .password-field__toggle:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.auth-panel .input:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.28);
-}
-
-.auth-panel .auth-form__switch {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.auth-panel .link-button {
-  color: #a78bfa;
-}
-
-.auth-panel .banner--error {
-  background: rgba(224, 82, 82, 0.16);
-  color: #ff9d9d;
-}
-
 /* The panel holds half the viewport now, so just above the 860px breakpoint
    the hero is the narrower of the two columns — give its 380px pitch back the
    room 48px of side padding was taking, rather than let it wrap to four-word
    lines in the one band where space is tightest. */
 @media (max-width: 1080px) {
-  .auth-shell {
+  .auth-topbar {
+    padding: 16px 20px;
+  }
+
+  .auth-body {
     padding: 20px;
-    gap: 20px;
   }
 
   .auth-hero {
     padding: 48px 28px;
-    border-radius: 24px;
   }
 }
 
 @media (max-width: 860px) {
-  /* Hero and its inset are gone below this width, so the shell drops back
-     to edge-to-edge — a 100dvh panel plus outer padding would overflow a
-     phone screen's own height. */
-  .auth-shell {
+  /* Hero and its divider are gone below this width, so the frame drops back
+     to edge-to-edge — corner ticks and inset padding on a single column
+     would eat into a phone's already-tight width for no reason. */
+  .auth-body {
     padding: 0;
-    gap: 0;
   }
 
   .auth-hero {
     display: none;
   }
 
-  /* Sole occupant now, so it drops the fixed column width — a 400px floor
-     would overflow a phone. */
+  .auth-tick {
+    display: none;
+  }
+
+  /* Sole occupant now, so it drops the fixed column width. It already
+     stretches to fill .auth-body's height via flex's default align-items:
+     stretch — no explicit height needed. */
   .auth-panel {
     flex: 1 1 auto;
-    min-height: 100dvh;
   }
 }
 
@@ -938,14 +957,12 @@ code {
   background: transparent;
   border: none;
   padding: 0;
-  color: var(--series-1);
+  color: var(--text-primary);
   font: inherit;
   font-weight: var(--weight-item);
-  cursor: pointer;
-}
-
-.link-button:hover {
   text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 /* ============================================================= dashboard == */
@@ -962,9 +979,9 @@ code {
 .hero {
   display: flex;
   flex-direction: column;
-  /* The one place the Auth Shell's glow motif reappears in the main app —
-     a low-key echo, not a repeat of its full intensity. */
-  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--glow-violet), transparent 70%);
+  /* The one decorative wash on the Dashboard — an ink-tinted glow, not a
+     repeat of any accent, since there is no accent left to echo. */
+  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--glow-neutral), transparent 70%);
 }
 
 .hero__head {
@@ -1074,7 +1091,7 @@ code {
 .hero__load-fill {
   display: block;
   height: 100%;
-  background: var(--series-1);
+  background: var(--text-primary);
   border-radius: inherit;
 }
 
@@ -1121,16 +1138,14 @@ code {
 }
 
 .stat-tile {
-  background: var(--surface-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
-  transition: background 120ms ease, box-shadow 120ms ease;
+  transition: border-color 120ms ease;
 }
 
 .stat-tile:hover {
-  background: var(--surface-2);
-  box-shadow: var(--shadow-card);
+  border-color: var(--baseline);
 }
 
 .stat-tile__head {
@@ -1229,11 +1244,12 @@ code {
 }
 
 .chart__swatch--done {
-  background: var(--series-1);
+  background: var(--text-primary);
 }
 
 .chart__swatch--planned {
-  background: var(--series-1-soft);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .chart__body {
@@ -1305,8 +1321,8 @@ code {
   position: relative;
   width: 100%;
   max-width: 24px;
-  background: var(--series-1-soft);
-  border: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   padding: 0;
   cursor: pointer;
   /* Rounded at the data end, square at the baseline. */
@@ -1319,7 +1335,7 @@ code {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--series-1);
+  background: var(--text-primary);
   border-radius: 0;
 }
 
@@ -1565,7 +1581,7 @@ code {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--series-1);
+  background: var(--text-primary);
   pointer-events: none;
   z-index: 3;
 }
@@ -1576,8 +1592,8 @@ code {
   left: 3px;
   font-size: var(--text-nano);
   font-weight: var(--weight-title);
-  background: var(--series-1);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--page);
   border-radius: 2px;
   padding: 0 4px;
 }
@@ -1679,7 +1695,7 @@ code {
   gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--series-1) 8%, var(--surface-1));
+  background: var(--surface-2);
   margin-bottom: 14px;
   font-size: var(--text-label);
 }
@@ -1688,7 +1704,7 @@ code {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--series-1);
+  background: var(--text-primary);
   flex: none;
 }
 
@@ -1830,7 +1846,7 @@ code {
 .week__load-fill {
   display: block;
   height: 100%;
-  background: var(--series-1);
+  background: var(--text-primary);
   border-radius: inherit;
 }
 
@@ -1839,8 +1855,8 @@ code {
 }
 
 .week__day--today .week__date {
-  background: var(--series-1);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--page);
   border-radius: 999px;
   min-width: 26px;
   height: 26px;
@@ -1921,7 +1937,7 @@ code {
 }
 
 .week__allday-cell--drop {
-  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 
 .week__events {
@@ -2121,11 +2137,11 @@ code {
 }
 
 .month__cell--today {
-  box-shadow: inset 0 0 0 2px var(--series-1);
+  box-shadow: inset 0 0 0 2px var(--text-primary);
 }
 
 .month__cell--drop {
-  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 
 .month__load-strip {
@@ -2140,7 +2156,7 @@ code {
 .month__load-strip-fill {
   display: block;
   height: 100%;
-  background: var(--series-1);
+  background: var(--text-primary);
 }
 
 .month__load-strip-fill--heavy {
@@ -2245,8 +2261,8 @@ code {
 }
 
 .inbox--drop {
-  border-color: var(--series-1);
-  background: color-mix(in srgb, var(--series-1) 7%, var(--surface-1));
+  border-color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 7%, var(--surface-1));
 }
 
 .quick-add {
@@ -2345,7 +2361,7 @@ code {
   margin-top: 3px;
   width: 15px;
   height: 15px;
-  accent-color: var(--series-1);
+  accent-color: var(--text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -2644,6 +2660,10 @@ code {
   margin: 10px 0 4px;
 }
 
+.item-manager__date {
+  max-width: 160px;
+}
+
 /* Scrolls inside the panel rather than growing it: an account with two
    hundred tasks must not push the filters off the top of the dialog. */
 .item-list {
@@ -2671,7 +2691,7 @@ code {
 .item-list__check {
   width: 15px;
   height: 15px;
-  accent-color: var(--series-1);
+  accent-color: var(--text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -2781,9 +2801,9 @@ code {
 }
 
 .weekday-picker__day--on {
-  background: var(--series-1);
-  border-color: var(--series-1);
-  color: #fff;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--page);
   font-weight: var(--weight-title);
 }
 
@@ -2804,7 +2824,7 @@ code {
 .series-note__mark {
   width: 16px;
   height: 16px;
-  color: var(--series-1);
+  color: var(--text-secondary);
   flex: none;
 }
 
@@ -2813,6 +2833,73 @@ code {
   min-width: 180px;
   font-size: var(--text-label);
   color: var(--text-secondary);
+}
+
+/* ========================================================= item detail == */
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-title__mark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--text-secondary);
+}
+
+.detail-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 14px;
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+
+.detail-status svg {
+  width: 14px;
+  height: 14px;
+}
+
+.detail-status--done {
+  color: var(--good-text);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.detail-field {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.detail-field--full {
+  grid-column: 1 / -1;
+}
+
+.detail-field__label {
+  font-size: var(--text-label);
+  font-weight: var(--weight-label);
+  color: var(--text-secondary);
+}
+
+.detail-field__value {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+}
+
+.detail-field__value--notes {
+  white-space: pre-wrap;
+  line-height: 1.5;
 }
 
 .repeat-mark {
@@ -2856,9 +2943,9 @@ code {
 }
 
 .filter-chip--on {
-  background: var(--series-1);
-  border-color: var(--series-1);
-  color: #fff;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--page);
   font-weight: var(--weight-item);
 }
 
@@ -2979,7 +3066,7 @@ code {
     flex-direction: row;
     gap: 0;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    background: var(--surface-card);
+    background: var(--page);
     border-top: 1px solid var(--border);
   }
 
@@ -3144,16 +3231,16 @@ code {
 
 /* ================================================== events & new gestures == */
 
-/* The range being dragged out on the grid, previewed live. Uses the soft step
-   of the one accent rather than a new colour — it is a proposal, not a thing
-   that exists yet. */
+/* The range being dragged out on the grid, previewed live. A neutral wash
+   with a dashed ink border rather than a filled colour — it is a proposal,
+   not a thing that exists yet. */
 .day-column__draft {
   position: absolute;
   left: 1px;
   right: 1px;
   border-radius: var(--radius-tight);
-  background: var(--series-1-soft);
-  border: 1px dashed var(--series-1);
+  background: var(--surface-2);
+  border: 1px dashed var(--text-primary);
   pointer-events: none;
   z-index: 3;
   display: flex;
@@ -3165,7 +3252,7 @@ code {
 .day-column__draft span {
   font-size: var(--text-nano);
   font-weight: var(--weight-nano);
-  color: var(--series-1);
+  color: var(--text-primary);
 }
 
 /* Siblings of the block, not children: the block is `draggable`, and a native
@@ -3190,7 +3277,7 @@ code {
   width: 22px;
   height: 3px;
   border-radius: 999px;
-  background: var(--series-1);
+  background: var(--text-primary);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -3566,8 +3653,8 @@ code {
 }
 
 .mini-cal__day--today .mini-cal__num {
-  background: var(--series-1);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--page);
 }
 
 .mini-cal__dots {
@@ -3585,7 +3672,7 @@ code {
   width: 3px;
   height: 3px;
   border-radius: 999px;
-  background: var(--series-1);
+  background: var(--text-primary);
 }
 
 .mini-cal__day--heavy .mini-cal__dot {

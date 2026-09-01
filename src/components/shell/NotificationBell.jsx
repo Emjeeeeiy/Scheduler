@@ -4,7 +4,7 @@ import { useNow } from '../../lib/useNow.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
 import { buildNotifications, describeNotification } from '../../lib/notifications.js'
-import { BellIcon } from '../icons.jsx'
+import { BellIcon, CloseIcon } from '../icons.jsx'
 
 const PANEL_WIDTH = 300
 const PANEL_MAX_HEIGHT = 360
@@ -14,12 +14,21 @@ const PANEL_MAX_HEIGHT = 360
  * state to persist, so the badge is always exactly as current as the data
  * already flowing through ScheduleContext. An item drops off on its own the
  * moment it's no longer true (completed, rescheduled, or its window passes).
+ *
+ * Deleting one is a separate, session-only idea layered on top: there is no
+ * notification document to remove, so a delete just hides that id from this
+ * panel until it changes shape (or the tab reloads) — the underlying task is
+ * untouched, and the badge count follows the hidden set the same way.
  */
 export function NotificationBell({ onEdit }) {
   const { tasks, occurrencesOn } = useSchedule()
   const now = useNow()
   const [open, setOpen] = useState(false)
+  const [dismissedIds, setDismissedIds] = useState(() => new Set())
   const dismiss = useCallback(() => setOpen(false), [])
+  const deleteNotification = useCallback((id) => {
+    setDismissedIds((current) => new Set(current).add(id))
+  }, [])
   /* Placement and dismissal both live in the shared hook — see the note there
      about fixed positioning and the single clamped `left`. The month's day
      peek needs identical behaviour, and this logic is too subtle to keep in
@@ -39,9 +48,12 @@ export function NotificationBell({ onEdit }) {
     now.min,
   )
 
-  /* Called unconditionally, independent of `open` — a desktop alert is only
-     useful for the moment nobody has the panel open to see the same thing. */
-  const desktop = useDesktopNotifications(notifications)
+  /* Called unconditionally, independent of `open`, and over the *undismissed*
+     list — a desktop alert is only useful for the moment nobody has the panel
+     open to see the same thing, and deleting an item from the panel should
+     quiet its desktop alert too, not just hide the row. */
+  const visible = notifications.filter((item) => !dismissedIds.has(item.id))
+  const desktop = useDesktopNotifications(visible)
 
   return (
     <div className="notif">
@@ -51,17 +63,17 @@ export function NotificationBell({ onEdit }) {
         className="icon-button notif__trigger"
         onClick={() => setOpen((v) => !v)}
         aria-label={
-          notifications.length === 0
+          visible.length === 0
             ? 'Notifications — nothing needs attention'
-            : `Notifications — ${notifications.length} need attention`
+            : `Notifications — ${visible.length} need attention`
         }
         aria-expanded={open}
         title="Notifications"
       >
         <BellIcon />
-        {notifications.length > 0 && (
+        {visible.length > 0 && (
           <span className="notif__badge" aria-hidden="true">
-            {notifications.length > 9 ? '9+' : notifications.length}
+            {visible.length > 9 ? '9+' : visible.length}
           </span>
         )}
       </button>
@@ -84,12 +96,12 @@ export function NotificationBell({ onEdit }) {
               <span>Desktop alerts for overdue &amp; upcoming</span>
             </label>
           ) : null}
-          {notifications.length === 0 ? (
+          {visible.length === 0 ? (
             <p className="empty empty--sm">Nothing needs your attention right now.</p>
           ) : (
             <ul className="notif__list">
-              {notifications.map((item) => (
-                <li key={item.id}>
+              {visible.map((item) => (
+                <li key={item.id} className="notif__row">
                   <button
                     type="button"
                     className="notif__item"
@@ -103,6 +115,14 @@ export function NotificationBell({ onEdit }) {
                       <span className="notif__title">{item.task.title}</span>
                       <span className="notif__meta">{describeNotification(item)}</span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="notif__dismiss"
+                    onClick={() => deleteNotification(item.id)}
+                    aria-label={`Delete notification: ${item.task.title}`}
+                  >
+                    <CloseIcon />
                   </button>
                 </li>
               ))}

@@ -21,6 +21,7 @@ import { WeekGrid } from './components/views/WeekGrid.jsx'
 import { MonthCalendar } from './components/views/MonthCalendar.jsx'
 import { TaskEditor } from './components/editors/TaskEditor.jsx'
 import { EventEditor } from './components/editors/EventEditor.jsx'
+import { ItemDetail } from './components/editors/ItemDetail.jsx'
 import { TagManager } from './components/editors/TagManager.jsx'
 import { ItemManager } from './components/editors/ItemManager.jsx'
 import { NotificationBell } from './components/shell/NotificationBell.jsx'
@@ -93,38 +94,59 @@ function AppShell() {
   const [itemsOpen, setItemsOpen] = useState(false)
 
   /* The editor is one slot holding either kind. `kind` decides which component
-     renders; `draft`/`task`/`event` carries what it starts from. */
+     renders; `draft`/`task`/`event` carries what it starts from. `mode` adds a
+     third state beyond create/edit: clicking a task or event anywhere in the
+     calendar or dashboard opens it read-only first — 'view' — and only the
+     detail panel's own Edit button (startEditing, below) promotes it to a
+     real 'edit'. A few entry points that are already an explicit "Edit"
+     affordance (the series shortcut inside TaskEditor, the Item Index's own
+     Edit button) skip the view step and go straight to 'edit', since asking
+     "view or edit?" after someone already chose Edit would be a second click
+     for nothing. */
   const openCreate = useCallback(
     (draft = {}) => setEditor({ mode: 'create', kind: 'task', draft }),
     [],
   )
-  const openEdit = useCallback((task) => setEditor({ mode: 'edit', kind: 'task', task }), [])
-  const openCreateEvent = useCallback(
-    (draft = {}) => setEditor({ mode: 'create', kind: 'event', draft }),
+  const openEdit = useCallback((task) => setEditor({ mode: 'view', kind: 'task', task }), [])
+  const openEditEvent = useCallback(
+    (event) => setEditor({ mode: 'view', kind: 'event', event }),
     [],
   )
-  const openEditEvent = useCallback(
+  const editTaskDirect = useCallback(
+    (task) => setEditor({ mode: 'edit', kind: 'task', task }),
+    [],
+  )
+  const editEventDirect = useCallback(
     (event) => setEditor({ mode: 'edit', kind: 'event', event }),
+    [],
+  )
+  const startEditing = useCallback(() => {
+    setEditor((current) => (current && current.mode === 'view' ? { ...current, mode: 'edit' } : current))
+  }, [])
+  const openCreateEvent = useCallback(
+    (draft = {}) => setEditor({ mode: 'create', kind: 'event', draft }),
     [],
   )
   const closeEditor = useCallback(() => setEditor(null), [])
 
   /* The index hands off to the same editors every other surface opens, and
      stands down while one is up: two stacked modals would put two Escape
-     handlers on the window and close both on one press. */
+     handlers on the window and close both on one press. Its own row already
+     carries an explicit Edit button, so — like the series shortcut below —
+     it opens straight into 'edit' rather than the view step. */
   const editFromIndex = useCallback(
     (task) => {
       setItemsOpen(false)
-      openEdit(task)
+      editTaskDirect(task)
     },
-    [openEdit],
+    [editTaskDirect],
   )
   const editEventFromIndex = useCallback(
     (event) => {
       setItemsOpen(false)
-      openEditEvent(event)
+      editEventDirect(event)
     },
-    [openEditEvent],
+    [editEventDirect],
   )
 
   /* Switching kind mid-create keeps the day you had already chosen — that is
@@ -416,11 +438,15 @@ function AppShell() {
         </main>
       </div>
 
+      {editor && editor.mode === 'view' && (
+        <ItemDetail editor={editor} onClose={closeEditor} onEdit={startEditing} />
+      )}
+
       {/* Keyed so that stepping from one day of a repeating task to the rule
           behind it rebuilds the form rather than keeping the old day's state.
           The kind is part of the key too, so switching Task/Event mid-create
           mounts the other form fresh instead of reusing the first one's state. */}
-      {editor && editor.kind === 'event' && (
+      {editor && editor.mode !== 'view' && editor.kind === 'event' && (
         <EventEditor
           key={editor.mode === 'edit' ? `event-${editor.event.id}` : 'create-event'}
           editor={editor}
@@ -428,12 +454,12 @@ function AppShell() {
           onChangeKind={changeEditorKind}
         />
       )}
-      {editor && editor.kind !== 'event' && (
+      {editor && editor.mode !== 'view' && editor.kind !== 'event' && (
         <TaskEditor
           key={editor.mode === 'edit' ? editor.task.id : 'create-task'}
           editor={editor}
           onClose={closeEditor}
-          onEditTask={openEdit}
+          onEditTask={editTaskDirect}
           onChangeKind={changeEditorKind}
         />
       )}

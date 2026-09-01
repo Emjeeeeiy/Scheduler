@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
-import { formatDayLabel, minToShortLabel } from '../../lib/date.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
+import { addDays, formatDayLabel, minToShortLabel, todayKey } from '../../lib/date.js'
+import { occursOn, recurrenceLabel } from '../../lib/recurrence.js'
 import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
 
 const FILTERS = [
@@ -62,6 +62,21 @@ function eventRow(event) {
   }
 }
 
+/* Whether a row belongs on `key`. A plain item answers from its own date (or
+   date range); a repeating one has no fixed date of its own, so the question
+   becomes "would its rule land an occurrence there" — occursOn is the same
+   check the calendar views use to expand a series, just asked once instead
+   of once per rendered day. */
+function matchesDate(row, key) {
+  const source = row.source
+  if (row.kind === 'task') {
+    if (source.recurrence) return occursOn(source.recurrence, key)
+    return source.date === key
+  }
+  if (source.recurrence) return occursOn(source.recurrence, key)
+  return source.startDate <= key && key <= source.endDate
+}
+
 /**
  * One index of everything in the account — every task (including the rule
  * behind a repeating one) and every event — for editing or deleting an item
@@ -79,6 +94,7 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
   const { tasks, events, tags, getTag, removeTask, removeEvent, toggleDone } = useSchedule()
   const [filter, setFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState(null)
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
 
@@ -128,8 +144,11 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     if (filter === 'events' && row.kind !== 'event') return false
     if (tagFilter === 'none' && row.tagId) return false
     if (tagFilter !== 'all' && tagFilter !== 'none' && row.tagId !== tagFilter) return false
+    if (dateFilter && !matchesDate(row, dateFilter)) return false
     return !needle || row.title.toLowerCase().includes(needle)
   })
+
+  const yesterday = addDays(todayKey(), -1)
 
   function edit(row) {
     if (row.kind === 'event') onEditEvent(row.source)
@@ -194,6 +213,40 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
               )}
             </select>
           )}
+
+          <div className="filter-row" role="group" aria-label="Filter by date">
+            <button
+              type="button"
+              className={`filter-chip${dateFilter === null ? ' filter-chip--on' : ''}`}
+              aria-pressed={dateFilter === null}
+              onClick={() => setDateFilter(null)}
+            >
+              Any date
+            </button>
+            <button
+              type="button"
+              className={`filter-chip${dateFilter === todayKey() ? ' filter-chip--on' : ''}`}
+              aria-pressed={dateFilter === todayKey()}
+              onClick={() => setDateFilter(todayKey())}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className={`filter-chip${dateFilter === yesterday ? ' filter-chip--on' : ''}`}
+              aria-pressed={dateFilter === yesterday}
+              onClick={() => setDateFilter(yesterday)}
+            >
+              Yesterday
+            </button>
+            <input
+              type="date"
+              className="input item-manager__date"
+              value={dateFilter ?? ''}
+              onChange={(e) => setDateFilter(e.target.value || null)}
+              aria-label="Filter by a specific date"
+            />
+          </div>
         </div>
 
         <input

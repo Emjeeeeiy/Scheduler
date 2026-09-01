@@ -157,7 +157,7 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
                     <button
                       type="button"
                       className="event-rail__item"
-                      style={{ '--tag': tag?.color ?? 'var(--series-1)' }}
+                      style={{ '--tag': tag?.color ?? 'var(--baseline)' }}
                       onClick={() => onEditEvent?.(event)}
                     >
                       <SpanIcon className="event-rail__mark" width="13" height="13" />
@@ -236,7 +236,7 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
                     className={`agenda__row${item.done ? ' agenda__row--done' : ''}${
                       isEvent ? ' agenda__row--event' : ''
                     }`}
-                    style={{ '--tag': tag?.color ?? 'var(--series-1)' }}
+                    style={{ '--tag': tag?.color ?? 'var(--baseline)' }}
                     onClick={() => (isEvent ? onEditEvent?.(item) : onEdit?.(item))}
                   >
                     <span className="agenda__when">
