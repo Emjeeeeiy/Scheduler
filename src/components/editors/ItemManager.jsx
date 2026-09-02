@@ -91,12 +91,14 @@ function matchesDate(row, key) {
  * belong on the occurrence, in the views that draw one.
  */
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
-  const { tasks, events, tags, getTag, removeTask, removeEvent, toggleDone } = useSchedule()
+  const { tasks, events, tags, getTag, removeTask, removeEvent, removeAllItems, toggleDone } =
+    useSchedule()
   const [filter, setFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(null)
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
+  const [confirmingAll, setConfirmingAll] = useState(false)
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -161,6 +163,11 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     setConfirming(null)
   }
 
+  async function removeAll() {
+    await removeAllItems()
+    setConfirmingAll(false)
+  }
+
   const confirmingRow = visible.find((row) => row.id === confirming) ?? null
 
   return (
@@ -172,10 +179,39 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
       <div className="modal__panel card" role="dialog" aria-modal="true" aria-label="All items">
         <div className="modal__head">
           <h2 className="modal__title">All items</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            <CloseIcon />
-          </button>
+          <div className="modal__head-actions">
+            {rows.length > 0 && (
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => setConfirmingAll(true)}
+              >
+                Delete all
+              </button>
+            )}
+            <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+              <CloseIcon />
+            </button>
+          </div>
         </div>
+
+        {confirmingAll && (
+          <p className="banner banner--error item-manager__confirm-all">
+            Delete all {rows.length} tasks and events? This cannot be undone.
+            <span className="item-manager__confirm-all-actions">
+              <button type="button" className="danger-button danger-button--sm" onClick={removeAll}>
+                Delete all
+              </button>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => setConfirmingAll(false)}
+              >
+                Cancel
+              </button>
+            </span>
+          </p>
+        )}
 
         <div className="item-manager__filters">
           <div className="filter-row" role="group" aria-label="Show">

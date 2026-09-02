@@ -6,11 +6,19 @@ import { RegisterForm } from './RegisterForm.jsx'
 import {
   ClockIcon,
   GoogleIcon,
+  ListIcon,
   ThemeDarkIcon,
   ThemeLightIcon,
   ThemeSystemIcon,
+  TrendIcon,
   WarningIcon,
 } from '../icons.jsx'
+
+const HOW_IT_WORKS = [
+  { icon: ListIcon, term: 'Capture', detail: 'what needs doing' },
+  { icon: ClockIcon, term: 'Schedule', detail: 'a real time slot' },
+  { icon: TrendIcon, term: 'Review', detail: 'where the hours went' },
+]
 
 const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
 const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
@@ -59,12 +67,45 @@ export function SignIn() {
         <span className="auth-tick auth-tick--br" aria-hidden="true" />
 
         <div className="auth-hero">
-          <div className="auth-hero__copy">
-            <h1 className="auth-hero__title">Plan your day in blocks.</h1>
-            <p className="auth-hero__lead">
-              Capture what needs doing, give it a real slot on your calendar, and see afterward
-              exactly where the hours went.
-            </p>
+          <div className="auth-hero__grid">
+            <span className="auth-hero__hatch auth-hero__hatch--l" aria-hidden="true" />
+            <span className="auth-hero__hatch auth-hero__hatch--r" aria-hidden="true" />
+            <span className="auth-hero__vline auth-hero__vline--l" aria-hidden="true" />
+            <span className="auth-hero__vline auth-hero__vline--r" aria-hidden="true" />
+
+            <div className="auth-hero__row">
+              <h1 className="auth-hero__title">Plan your day in blocks.</h1>
+            </div>
+
+            <div className="auth-hero__row">
+              <p className="auth-hero__lead">
+                Capture what needs doing, give it a real slot on your calendar, and see afterward
+                exactly where the hours went.
+              </p>
+            </div>
+
+            <div className="auth-hero__row auth-hero__preview-row">
+              <div className="auth-hero__preview">
+                <p className="auth-hero__preview-text">Tasks &amp; time blocks, one calendar</p>
+                <img
+                  src="/black-calendar.jpg"
+                  alt="A physical desk calendar, open to January"
+                  className="auth-hero__preview-img"
+                />
+              </div>
+            </div>
+
+            <div className="auth-hero__row auth-hero__row--last">
+              <ul className="auth-hero__stats">
+                {HOW_IT_WORKS.map(({ icon: StepIcon, term, detail }) => (
+                  <li className="auth-hero__stat" key={term}>
+                    <StepIcon className="auth-hero__stat-icon" />
+                    <strong className="auth-hero__stat-term">{term}</strong>
+                    <span className="auth-hero__stat-detail">{detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
 

@@ -238,9 +238,27 @@
 }
 
 .notif__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: var(--text-label);
   font-weight: var(--weight-title);
   padding: 4px 6px 8px;
+}
+
+.notif__clear-all {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-meta);
+  font-weight: var(--weight-label);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.notif__clear-all:hover {
+  color: var(--critical-text);
 }
 
 .notif__desktop-toggle {
@@ -731,12 +749,8 @@ code {
    growing past anything the form has to put in it. */
 .auth-hero {
   flex: 1;
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  text-align: center;
   color: var(--text-primary);
   border-right: 1px solid var(--border);
 }
@@ -793,8 +807,66 @@ code {
   right: 12px;
 }
 
-.auth-hero__copy {
-  max-width: 460px;
+/* The full-bleed blueprint grid: two hairline verticals run the entire
+   height of the hero column, and each row rules itself off from the next
+   with a border-bottom that spans edge-to-edge between them — no boxed
+   card, just lines crossing the whole pane the way the reference site's
+   grid does. Content is left-aligned inside the bounded column instead of
+   centered, matching that reference rather than the rest of this screen. */
+.auth-hero__grid {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 48px;
+  text-align: left;
+}
+
+.auth-hero__vline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.auth-hero__vline--l {
+  left: 48px;
+}
+
+.auth-hero__vline--r {
+  right: 48px;
+}
+
+/* The margin outside each vertical rule — reuses the exact diagonal-hatch
+   technique .month__cell--outside already draws for "outside the active
+   month", just relocated: 45°, 1px lines on an 8px pitch, in --gridline. */
+.auth-hero__hatch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  background-image: repeating-linear-gradient(45deg, var(--gridline) 0 1px, transparent 1px 8px);
+  pointer-events: none;
+}
+
+.auth-hero__hatch--l {
+  left: 0;
+}
+
+.auth-hero__hatch--r {
+  right: 0;
+}
+
+.auth-hero__row {
+  padding: 22px 40px;
+  border-bottom: 1px solid var(--border);
+}
+
+.auth-hero__row--last {
+  border-bottom: none;
 }
 
 .auth-hero__title {
@@ -802,13 +874,96 @@ code {
   font-weight: 650;
   letter-spacing: -0.03em;
   line-height: 1.05;
-  margin-bottom: 18px;
 }
 
 .auth-hero__lead {
   font-size: var(--text-icon);
   line-height: 1.6;
   color: var(--text-secondary);
+}
+
+/* The one photographic exception on this screen — a real object standing in
+   for the "one calendar" the badge/lead promise. Framed the way the
+   reference site frames its own preview panels: a dotted field around a
+   bordered, shadowed image, rather than the photo running edge-to-edge. The
+   caption sits over the dots on the left, plain text with no border of its
+   own; the image is a fixed flex item on the right so its size never depends
+   on how much text sits beside it. */
+.auth-hero__preview-row {
+  padding-top: 0;
+}
+
+.auth-hero__preview {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  background-image: radial-gradient(var(--baseline) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.auth-hero__preview-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-subtitle);
+  font-weight: var(--weight-title);
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.auth-hero__preview-img {
+  flex: 0 0 34%;
+  width: 34%;
+  min-width: 160px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* How the product works, in three beats — echoing the lead paragraph's own
+   three clauses so the row reads as a summary, not new information. A grid
+   of three equal columns with hairline rules between them, rather than a
+   loosely-spaced row, so the beats read as divided cells the way the
+   reference site's own feature grid does. */
+.auth-hero__stats {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.auth-hero__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 20px;
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.auth-hero__stat:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.auth-hero__stat-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--text-muted);
+}
+
+.auth-hero__stat-term {
+  font-size: var(--text-label);
+  font-weight: var(--weight-item);
+  color: var(--text-primary);
+}
+
+.auth-hero__stat-detail {
+  font-size: var(--text-meta);
+  color: var(--text-muted);
 }
 
 .auth-panel {
@@ -889,8 +1044,24 @@ code {
     padding: 20px;
   }
 
-  .auth-hero {
-    padding: 48px 28px;
+  .auth-hero__grid {
+    padding: 0 24px;
+  }
+
+  .auth-hero__vline--l {
+    left: 24px;
+  }
+
+  .auth-hero__vline--r {
+    right: 24px;
+  }
+
+  .auth-hero__hatch {
+    width: 24px;
+  }
+
+  .auth-hero__row {
+    padding: 18px 22px;
   }
 }
 
@@ -2451,6 +2622,12 @@ code {
   margin-bottom: 14px;
 }
 
+.modal__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .modal__title {
   font-size: var(--text-title);
   font-weight: var(--weight-title);
@@ -2650,6 +2827,17 @@ code {
 }
 
 /* ========================================================== item index == */
+
+.item-manager__confirm-all {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.item-manager__confirm-all-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
 
 .item-manager__filters {
   display: grid;

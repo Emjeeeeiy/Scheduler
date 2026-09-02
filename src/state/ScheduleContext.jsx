@@ -719,6 +719,24 @@ export function ScheduleProvider({ children }) {
         }
         return deleteDoc(tagDoc(id))
       },
+
+      /** Wipes every task and event document — including the rule behind
+          each repeating series, which stands for every one of its
+          occurrences. This is the "delete all" action in the item index;
+          irreversible, so the caller is expected to confirm first. */
+      async removeAllItems() {
+        const refs = [
+          ...visibleTasks.map((t) => taskDoc(t.id)),
+          ...fixedEvents.map((e) => eventDoc(e.id)),
+          ...eventSeries.map((e) => eventDoc(e.id)),
+        ]
+        // writeBatch caps at 500 operations, so chunk rather than assume.
+        for (let i = 0; i < refs.length; i += 400) {
+          const batch = writeBatch(db)
+          for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
+          await batch.commit()
+        }
+      },
     }
   }, [uid, tasks, tags, events, loading, error])
 

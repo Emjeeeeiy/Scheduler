@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useNow } from '../../lib/useNow.js'
+import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
 import { buildNotifications, describeNotification } from '../../lib/notifications.js'
@@ -8,27 +9,33 @@ import { BellIcon, CloseIcon } from '../icons.jsx'
 
 const PANEL_WIDTH = 300
 const PANEL_MAX_HEIGHT = 360
+const DISMISSED_KEY = 'cadence-app:dismissed-notifications'
 
 /**
- * Purely derived from the live task list and the clock — no read/dismissed
- * state to persist, so the badge is always exactly as current as the data
+ * Purely derived from the live task list and the clock — no notification
+ * document of its own, so the feed is always exactly as current as the data
  * already flowing through ScheduleContext. An item drops off on its own the
  * moment it's no longer true (completed, rescheduled, or its window passes).
  *
- * Deleting one is a separate, session-only idea layered on top: there is no
- * notification document to remove, so a delete just hides that id from this
- * panel until it changes shape (or the tab reloads) — the underlying task is
- * untouched, and the badge count follows the hidden set the same way.
+ * Deleting one is a separate idea layered on top: there is still no
+ * notification document to remove, so a delete records that id in
+ * localStorage instead — permanently, across reloads, so a deleted item
+ * never comes back on its own. The underlying task is untouched; only its
+ * appearance in this panel is gone for good.
  */
 export function NotificationBell({ onEdit }) {
   const { tasks, occurrencesOn } = useSchedule()
   const now = useNow()
   const [open, setOpen] = useState(false)
-  const [dismissedIds, setDismissedIds] = useState(() => new Set())
+  const [dismissedIds, setDismissedIds] = usePersistentState(DISMISSED_KEY, [])
+  const dismissed = useMemo(() => new Set(dismissedIds), [dismissedIds])
   const dismiss = useCallback(() => setOpen(false), [])
-  const deleteNotification = useCallback((id) => {
-    setDismissedIds((current) => new Set(current).add(id))
-  }, [])
+  const deleteNotification = useCallback(
+    (id) => {
+      setDismissedIds((current) => (current.includes(id) ? current : [...current, id]))
+    },
+    [setDismissedIds],
+  )
   /* Placement and dismissal both live in the shared hook — see the note there
      about fixed positioning and the single clamped `left`. The month's day
      peek needs identical behaviour, and this logic is too subtle to keep in
@@ -52,8 +59,16 @@ export function NotificationBell({ onEdit }) {
      list — a desktop alert is only useful for the moment nobody has the panel
      open to see the same thing, and deleting an item from the panel should
      quiet its desktop alert too, not just hide the row. */
-  const visible = notifications.filter((item) => !dismissedIds.has(item.id))
+  const visible = notifications.filter((item) => !dismissed.has(item.id))
   const desktop = useDesktopNotifications(visible)
+
+  const deleteAllNotifications = useCallback(() => {
+    setDismissedIds((current) => {
+      const next = new Set(current)
+      for (const item of visible) next.add(item.id)
+      return [...next]
+    })
+  }, [setDismissedIds, visible])
 
   return (
     <div className="notif">
@@ -80,7 +95,14 @@ export function NotificationBell({ onEdit }) {
 
       {open && placement && (
         <div ref={panelRef} className="notif__panel" style={placement} role="menu" aria-label="Notifications">
-          <div className="notif__head">Notifications</div>
+          <div className="notif__head">
+            <span>Notifications</span>
+            {visible.length > 0 && (
+              <button type="button" className="notif__clear-all" onClick={deleteAllNotifications}>
+                Delete all
+              </button>
+            )}
+          </div>
           {desktop.permission === 'denied' ? (
             <p className="notif__desktop-note">
               Desktop alerts are blocked — allow notifications for this site in your browser
