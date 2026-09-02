@@ -30,7 +30,7 @@ colors:
   dot-color: "rgba(11, 11, 11, 0.12)"
 typography:
   auth-headline:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "clamp(36px, 4vw, 52px)"
     fontWeight: 650
     lineHeight: 1.05
@@ -54,7 +54,7 @@ typography:
     lineHeight: 1.2
     letterSpacing: "-0.02em"
   headline:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "22px"
     fontWeight: 650
     lineHeight: 1.3
@@ -66,7 +66,7 @@ typography:
     lineHeight: 1.2
     letterSpacing: "normal"
   mark:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "20px"
     fontWeight: 400
     lineHeight: 1
@@ -78,37 +78,37 @@ typography:
     lineHeight: 1.1
     letterSpacing: "normal"
   title:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "normal"
   icon:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "16px"
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "normal"
   body:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "normal"
   ui:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "14px"
     fontWeight: 500
     lineHeight: 1.3
     letterSpacing: "normal"
   meta:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "13px"
     fontWeight: 450
     lineHeight: 1.3
     letterSpacing: "normal"
   caption:
-    fontFamily: "'Space Mono', ui-monospace, 'SFMono-Regular', monospace"
+    fontFamily: "'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif"
     fontSize: "12px"
     fontWeight: 450
     lineHeight: 1.3
@@ -202,7 +202,7 @@ The system is quiet, precise, and unshowy by deliberate choice. Its confirmed an
 - Dark is the identity now, not an alternate: a first-time visitor lands on dark; light stays one toggle away, unremoved
 - Zero accent color anywhere — an interactive or "selected" state inverts to solid Ink instead of reaching for a hue, the one idiom the whole app shares
 - Line-based, not card-based: depth comes from a hairline border and the surrounding page color, never a fill or a shadow — shadow is reserved for content that floats above the page (a modal, a dropdown), never for a card at rest — see Elevation & Depth
-- Space Mono throughout the app, at every scale including the largest number on screen and the sign-in hero's headline — one fixed-width, technical voice everywhere rather than a neutral system default; emphasis comes from weight and tracking, never a second typeface
+- Inter carries every word in the app; Space Mono is reserved for numeral content alone — the hero figure, stat tiles, chart axes, and every calendar/time/count readout. Two faces, one clean split: never mixed inside a sentence, never a stylistic pairing
 - A validated, colorblind-safe 8-color palette for user data (tags), kept strictly separate from the app's own chrome
 - A single reusable "selected" idiom (neutral pill → filled Ink pill) used everywhere something toggles
 - One drawn icon grammar, not a scatter of Unicode characters — every icon in the app shares a stroke style and lives in one file
@@ -252,13 +252,13 @@ The categorical and status colors — data the user assigns or the app reports, 
 
 ## Typography
 
-**Body Font:** Space Mono, with a monospace system stack (`ui-monospace, "SFMono-Regular", monospace`) as fallback
-**Display Font:** the same face, distinguished only by size, weight, and tracking
-**Code Monospace:** `ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace` — inline `code` only (the setup screen's env-var and rule-file references). Its own stack, kept separate from the app's own Space Mono so a code reference still reads as "the OS's code font" rather than the product's own voice.
+**Body Font:** Inter, with a system sans stack (`ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif`) as fallback — every text role: headings, labels, nav, buttons, inputs, item names.
+**Numeric Font:** Space Mono, with a monospace system stack (`ui-monospace, "SFMono-Regular", monospace`) as fallback — reserved for numeral content: the hero figure, stat-tile values, and every tabular-nums numeric column (chart axes, the data table, tag-bar values, calendar day numbers, time/duration/count readouts). Never applied to a sentence with words in it — only to an element whose entire content is a numeral.
+**Code Monospace:** `ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace` — inline `code` only (the setup screen's env-var and rule-file references). Its own stack, kept separate from both Inter and Space Mono so a code reference still reads as "the OS's code font" rather than the product's own voice.
 
-**Character:** One typeface for the whole product, including the largest number on screen and the sign-in hero. Voice comes from scale and weight, never from switching families — the system deliberately refuses a "display font moment." Space Mono replaced Fredoka project-wide: a fixed-width mono face chosen to give the whole interface a technical, typewritten identity rather than a conventional proportional sans. The system's monospace fallback stack remains the fallback chain, not a discarded choice.
+**Character:** Two typefaces, each with exactly one job. Inter carries every word in the product — it replaced Space Mono as the default voice project-wide, a conventional proportional sans chosen for the same reason most product UI reaches for one: it reads fast at small sizes and disappears into the task rather than performing a "technical" aesthetic. Space Mono didn't leave; it moved from the whole interface to the app's numeral content alone — the hero figure, stat tiles, chart axes, tag-bar values, and the calendar's time/count readouts — where its fixed advance width is functional, not decorative: numeral columns stay aligned by construction, and a monospaced figure still reads as "data" set against Inter's proportional text around it. The two faces are never mixed inside one sentence — Space Mono only ever wraps an element whose full content is a numeral.
 
-Every character in Space Mono occupies the same advance width, so numeral columns (stat tiles, chart axes, the tag-bar values) stay aligned by construction — no `tabular-nums` feature to verify, unlike the proportional faces this system used before. Space Mono ships only Regular (400) and Bold (700), not the five-step weight scale the tokens ask for elsewhere: the CSS font-matching algorithm resolves every token above 500 (`--weight-item` 550, `--weight-title` 600, `--weight-figure` 650) up to Bold and everything at or below (`--weight-label` 500, `--weight-meta` 450, `--weight-body` 400) down to Regular. The Name-Versus-Detail Rule below still holds — a name is now Bold-vs-Regular rather than five shades apart — but a design that actually needs an intermediate weight will not get one from this face.
+Every character in Space Mono occupies the same advance width, so numeral columns (stat tiles, chart axes, the tag-bar values) stay aligned by construction — no `tabular-nums` feature to verify, unlike the proportional faces this system used before Space Mono. Space Mono ships only Regular (400) and Bold (700); wherever a numeral needs an intermediate weight, the CSS font-matching algorithm resolves it to the nearer of the two rather than the design getting one from this face. Inter is a variable font and does not have this limitation — it renders every weight token (`--weight-body` 400 through `--weight-figure` 650) at its exact value.
 
 ### Hierarchy
 
@@ -268,24 +268,24 @@ Every step below is a token (`--text-*` for size, `--weight-*` for weight, both 
 
 Sizes are **rem**, anchored so a default 16px root resolves each token to exactly the px value it replaced. Nothing moved for anyone; what it buys is that a reader who has raised their browser's default font size finally gets a larger interface. A px scale ignores that setting completely — zoom worked, the font-size preference did nothing.
 
-- **Display** (650, 52px, 1.05 line-height, −0.03em tracking): The Dashboard's hero number (hours planned today) — the one place the type gets loud.
-- **Display Sm** (650, 42px): The same hero number, stepped down at the 640px breakpoint.
-- **Auth Headline** (650, `clamp(36px, 4vw, 52px)`, 1.05 line-height, −0.03em tracking): The Auth Shell's own hero line ("Plan your day in blocks.") — the same Display weight and tracking as the Dashboard's hero number, just fluid rather than fixed since it lives in the hero panel's own variable width rather than a fixed-width card. Declared directly on `.auth-hero__title`, with no separate `--font-display` token, so it stays the app's one voice rather than a second typeface for the sign-in moment.
-- **Stat** (650, 28px, −0.02em tracking): A stat tile's headline figure (Open today, Overdue, Done this week).
-- **Headline** (650, 22px, −0.02em tracking): Screen-level titles on the setup screen and the Auth Shell's form panel.
-- **Unit** (500, 24px): The "h" unit beside the hero number.
-- **Mark** (400, 20px): The sidebar brand glyph.
-- **Subtitle** (600, 18px): The week grid's day-of-month number.
-- **Title** (600, 17px): Dialog/modal headings, the sidebar brand name, and the mobile nav's icon size.
-- **Icon** (400, 16px): Icon-button glyphs and the large primary-button variant.
-- **Body** (`--text-body`, 400, 15px, 1.5 line-height): Base paragraph and UI text — the document base size.
-- **Item** (`--text-item` / `--weight-item`, 550, 14px): The **name of a thing** — a task, event, notification, or index row — plus nav links. One weight for this role wherever it appears: the block, the chip, the row, the notification, the day-peek entry, and the item index all set it identically, rather than each picking its own.
-- **Label** (`--text-label` / `--weight-label`, 500, 13px): What a field or a figure is *called* — field labels, stat-tile and hero labels, small ghost/danger buttons, filter chips.
-- **Meta** (`--text-meta`, 400, 12px): The **detail about** a thing — when, where, how long. Chart legends, notification meta, empty-state hints. Deliberately the body weight, never the label weight: this is the role an item's name has to win against.
-- **Label** (500, 11px, 0.04em tracking, uppercase): Day-of-week headers, the "All day" marker, chart ticks, block/chip time — small structural labels, always uppercase and tracked when they are.
-- **Micro** (700, 10px): The smallest text in the system, reserved for a single numeral in a fixed-size badge or a tight inline readout (the notification count, a drag-hover time tooltip, a month cell's planned-time figure).
+- **Display** (650, 52px, 1.05 line-height, −0.03em tracking, **Space Mono**): The Dashboard's hero number (hours planned today) — the one place the type gets loud.
+- **Display Sm** (650, 42px, **Space Mono**): The same hero number, stepped down at the 640px breakpoint.
+- **Auth Headline** (650, `clamp(36px, 4vw, 52px)`, 1.05 line-height, −0.03em tracking, **Inter**): The Auth Shell's own hero line ("Plan your day in blocks.") — the same weight and tracking as the Dashboard's hero number, just fluid rather than fixed since it lives in the hero panel's own variable width rather than a fixed-width card. Declared directly on `.auth-hero__title`, with no separate `--font-display` token. It reads in Inter, not Space Mono: it is words, not a numeral, so it takes the product's text voice like every other headline.
+- **Stat** (650, 28px, −0.02em tracking, **Space Mono**): A stat tile's headline figure (Open today, Overdue, Done this week).
+- **Headline** (650, 22px, **Inter**): Screen-level titles on the setup screen and the Auth Shell's form panel.
+- **Unit** (500, 24px, **Space Mono**): The "h" unit beside the hero number — set in the same face as the figure it sits against, so "6.5h" reads as one number rather than a digit run handed off to a different voice for its last character.
+- **Mark** (400, 20px, **Inter**): The sidebar brand glyph.
+- **Subtitle** (600, 18px, **Space Mono**): The week grid's day-of-month number. The Auth Shell's preview-panel text reuses this same size step for a line of words, not a numeral — it stays Inter, a documented exception rather than a token split.
+- **Title** (600, 17px, **Inter**): Dialog/modal headings, the sidebar brand name, and the mobile nav's icon size.
+- **Icon** (400, 16px, **Inter**): Icon-button glyphs and the large primary-button variant.
+- **Body** (`--text-body`, 400, 15px, 1.5 line-height, **Inter**): Base paragraph and UI text — the document base size.
+- **Item** (`--text-item` / `--weight-item`, 550, 14px, **Inter**): The **name of a thing** — a task, event, notification, or index row — plus nav links. One weight for this role wherever it appears: the block, the chip, the row, the notification, the day-peek entry, and the item index all set it identically, rather than each picking its own.
+- **Label** (`--text-label` / `--weight-label`, 500, 13px, **Inter**): What a field or a figure is *called* — field labels, stat-tile and hero labels, small ghost/danger buttons, filter chips.
+- **Meta** (`--text-meta`, 400, 12px, **Inter**, with numeral exceptions): The **detail about** a thing — when, where, how long. Chart legends, notification meta, empty-state hints. Deliberately the body weight, never the label weight: this is the role an item's name has to win against. Where the detail *is* a bare numeral readout — a block or agenda row's time, the Now/Next queue's time, a tag's task count — the element steps to Space Mono; a detail that mixes words and a number (a chart tooltip's "2h done") stays Inter, since the face never splits mid-sentence.
+- **Label** (500, 11px, 0.04em tracking, uppercase, **Space Mono**, with text exceptions): Chart ticks, block/chip time, and every calendar day-of-month numeral (week header, month grid, mini calendar) — the numeral majority of this step. Day-of-week headers and the "All day" marker are the exception: they're words, not numerals, and stay Inter at the same size and tracking.
+- **Micro** (700, 10px, **Space Mono**, with text exceptions): The smallest text in the system, reserved for a single numeral in a fixed-size badge or a tight inline readout (the notification count, a drag-hover time tooltip, a month cell's planned-time figure). The mobile nav's tab label and the mini calendar's weekday-letter header borrow this same size for plain words and stay Inter.
 
-Numerals are set proportional everywhere except a genuine column of numbers (the data table, chart axis, tag-bar values), where `font-variant-numeric: tabular-nums` keeps digits aligned.
+Numerals are set proportional everywhere except a genuine column of numbers (the data table, chart axis, tag-bar values), where `font-variant-numeric: tabular-nums` keeps digits aligned. Every numeral role above — proportional or tabular — renders in Space Mono; Inter never carries a standalone figure.
 
 ### Named Rules
 **The Column-Only Tabular Rule.** Tabular numerals are for columns, not for a hero. A single large standalone number (the Dashboard's planned-hours figure) is set proportional — tabular spacing makes an isolated number look loose rather than precise.
@@ -435,6 +435,7 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 
 ### Do:
 - **Do** keep the interface at zero accent color. Every interactive or selected state signals through Ink Invert (fill Ink, text Paper) or a neutral surface-step — never a hue. Color stays reserved for a user's own tag or a system status.
+- **Do** set a new numeral-only element (a figure, a count, a time or duration readout) in `var(--font-mono)`. Everything else — headings, labels, item names, buttons, sentences that happen to contain a number — stays in the default `var(--font-sans)` (Inter). Never split one text run across both faces.
 - **Do** give hover/active feedback with a background-color step (Panel → Hover Surface → Sunken Surface) on any control that has a fill to begin with, or a border-color step (Hairline → Baseline) on an unfilled card — never a shadow, lift, or scale transform.
 - **Do** pair any tag color with a visible text label. Never let color alone carry information.
 - **Do** reuse the toggle-chip idiom (neutral pill at rest → Ink Invert fill when selected) for any new "pick one or more from a small set" control, rather than inventing a new selected-state treatment.
@@ -455,7 +456,7 @@ The calendar's own vocabulary for a scheduled task, and the one place a colored 
 - **Don't** let the Auth Shell's zero-card structure — the topbar rule, the single column divider, the corner-tick frame — leak into the rest of the app, or give a regular `.card` a topbar/corner-tick treatment of its own. The rest of the app still draws its cards with a hairline border; only the Auth Shell goes further and drops the border around whole sections too.
 - **Don't** add a colored left border, top border, or accent stripe to a generic card, list item, or callout. The Time-Grid Block's left border is functional tag-color coding on the app's signature calendar element — it does not generalize to anything else.
 - **Don't** reach for a shadow as hover feedback or as card decoration. Shadow is reserved for content that floats above the page's own layer (modal, dropdown).
-- **Don't** borrow a display or serif typeface for emphasis, anywhere — including the Auth Shell. Voice comes from size, weight, and tracking within Space Mono alone, from the Dashboard's hero number down to the sign-in headline. An earlier Instrument Serif exception on `.auth-hero__title` was retired for exactly this reason: two typefaces on one screen read as two voices, not one considered pairing.
+- **Don't** add a third typeface, or use Space Mono for anything but numeral content. The Inter/Space Mono split is exactly two voices with one clean rule (words vs. a bare numeral) — a decorative third face, or Space Mono creeping onto a headline or a sentence, is the "two voices, not one considered pairing" failure this system already retired once (an earlier Instrument Serif exception on `.auth-hero__title`).
 - **Don't** add a second decorative background effect. Glow Neutral and the dot-grid are the one motif; a new surface doesn't get its own new pattern.
 - **Don't** set tabular numerals on a standalone figure. Tabular spacing is for aligned columns only.
 - **Don't** let an event into `dayStats`, `overdueTasks`, `upcomingTasks`, `tagBreakdown`, or any completion rate. Events are commitments, not work: counting a three-day conference as seventy-two planned hours would make the completion rate a ratio against things that cannot be completed. `tasksOn(key)` stays task-only permanently — views compose it with `eventsOn(key)` themselves.

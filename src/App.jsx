@@ -60,8 +60,6 @@ const DATE_NAV = {
   month: (key, n) => shiftMonth(key, n),
 }
 
-const VIEW_IDS = new Set(NAV_ITEMS.map((item) => item.id))
-
 const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
 const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
 
@@ -70,10 +68,9 @@ function AppShell() {
   const { loading, error } = useSchedule()
   const { theme, cycleTheme } = useTheme()
 
-  const [storedView, setView] = usePersistentState('cadence-app:view', 'dashboard')
-  // A view id from a build that no longer exists (the removed Review page)
-  // falls back to Dashboard rather than rendering nothing.
-  const view = VIEW_IDS.has(storedView) ? storedView : 'dashboard'
+  // Not persisted on purpose: every sign-in — and every fresh mount of the
+  // app shell — starts back on Dashboard rather than wherever you left off.
+  const [view, setView] = useState('dashboard')
   /* Keeping your place across a refresh is useful; being dropped on yesterday
      when you open the app the next morning is not. So a cursor restored from a
      previous session snaps forward — but that correction belongs to the

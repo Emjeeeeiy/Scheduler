@@ -45,9 +45,14 @@
   --radius-md:  7px;
   --radius-lg:  10px;
 
-  --font-sans: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --font-sans: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  /* Complementary voice, not the default any more: reserved for the hero
+     figure, stat-tile values, and every tabular-nums numeric column (chart
+     axes, the data table, tag-bar values, calendar/time readouts) — see
+     DESIGN.md's Typography section. Everything else reads in --font-sans. */
+  --font-mono: 'Space Mono', ui-monospace, 'SFMono-Regular', monospace;
   /* The 8-bit face on the Dashboard hero ticker — a second voice, not a
-     substitute for Space Mono. Sized only in multiples of 8px so the bitmap
+     substitute for --font-mono. Sized only in multiples of 8px so the bitmap
      stays on-grid. */
   --font-pixel: 'Press Start 2P', ui-monospace, 'SFMono-Regular', monospace;
 

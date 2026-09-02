@@ -1,9 +1,11 @@
 import { initializeApp } from 'firebase/app'
 import {
   GoogleAuthProvider,
+  browserSessionPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
+  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
@@ -42,6 +44,12 @@ let db = null
 if (firebaseReady) {
   const app = initializeApp(firebaseConfig)
   auth = getAuth(app)
+
+  /* Session-only: the sign-in lives in sessionStorage, not localStorage, so
+     closing the tab ends it — the next visit lands back on the sign-in
+     screen. An ordinary reload in the same tab is unaffected, since
+     sessionStorage survives that. */
+  setPersistence(auth, browserSessionPersistence).catch(() => {})
 
   /* persistentLocalCache keeps the whole working set in IndexedDB: the app
      opens instantly on reload, keeps working offline, and queues writes until
