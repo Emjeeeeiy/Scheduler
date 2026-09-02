@@ -1,18 +1,33 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
+import { LogOutIcon, UserIcon } from '../icons.jsx'
 import { ProfileModal } from './ProfileModal.jsx'
 
+const PANEL_WIDTH = 190
+const PANEL_MAX_HEIGHT = 110
+
 /**
- * The avatar opens the full Account modal now — photo, sign-in method, and
- * delete account live there, so a click here has one job, not a dropdown's
- * worth of shortcuts. Desktop still has its own labelled Log out row in the
- * sidebar for one-click sign-out; this is the "everything else" door.
+ * The avatar opens a small two-item menu — Account, Log out — rather than
+ * either extreme this has been before: not the full modal directly (that
+ * made a plain sign-out cost a detour through Account first), and not a
+ * name/email dropdown with sign-out buried in it either. Account is what
+ * opens the full modal now; Log out stays a single click from the avatar,
+ * same as the desktop sidebar's own labelled row already gives for free.
  */
 export function AccountMenu() {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const { profile } = useSchedule()
   const [open, setOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const dismiss = useCallback(() => setOpen(false), [])
+  const { placement, triggerRef, panelRef } = usePopoverPlacement({
+    open,
+    onDismiss: dismiss,
+    width: PANEL_WIDTH,
+    maxHeight: PANEL_MAX_HEIGHT,
+  })
 
   const name = user?.displayName?.trim() || user?.email || 'Signed in'
   const photoSrc = profile?.photoBase64 || user?.photoURL || null
@@ -20,11 +35,13 @@ export function AccountMenu() {
   return (
     <div className="account">
       <button
+        ref={triggerRef}
         type="button"
         className="avatar account__trigger"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-label={`Account for ${name}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Account menu for ${name}`}
         title={name}
       >
         {photoSrc ? (
@@ -34,7 +51,42 @@ export function AccountMenu() {
         )}
       </button>
 
-      {open && <ProfileModal onClose={() => setOpen(false)} />}
+      {open && placement && (
+        <div
+          ref={panelRef}
+          className="account__panel"
+          style={placement}
+          role="menu"
+          aria-label="Account"
+        >
+          <button
+            type="button"
+            className="account__item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              setProfileOpen(true)
+            }}
+          >
+            <UserIcon className="sidebar__icon" />
+            Account
+          </button>
+          <button
+            type="button"
+            className="account__item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              signOut()
+            }}
+          >
+            <LogOutIcon className="sidebar__icon" />
+            Log out
+          </button>
+        </div>
+      )}
+
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} />}
     </div>
   )
 }

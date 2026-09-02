@@ -772,12 +772,19 @@ export function ScheduleProvider({ children }) {
           this backs account deletion, where nothing should survive. Must run
           — and finish — while still signed in, since deleteAccount() (see
           firebase.js) ends the session, and the security rules refuse a
-          write to this uid's tree the moment it does. */
+          write to this uid's tree the moment it does.
+
+          Reads the RAW `tasks`/`events`/`tags` state, deliberately not
+          `visibleTasks`/`fixedEvents`/`eventSeries` (which blank themselves
+          to `[]` while `loading` is true — right for "don't flash the last
+          account's data," wrong here, where it would make this resolve
+          having silently deleted nothing. The caller is expected to hold off
+          calling this until `loading` is false, so every doc these
+          snapshots know about is actually in state to be listed. */
       async deleteAllData() {
         const refs = [
-          ...visibleTasks.map((t) => taskDoc(t.id)),
-          ...fixedEvents.map((e) => eventDoc(e.id)),
-          ...eventSeries.map((e) => eventDoc(e.id)),
+          ...tasks.map((t) => taskDoc(t.id)),
+          ...events.map((e) => eventDoc(e.id)),
           ...tags.map((t) => tagDoc(t.id)),
         ]
         for (let i = 0; i < refs.length; i += 400) {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { fileToAvatarDataUri } from '../../lib/image.js'
-import { CameraIcon, CheckIcon, CloseIcon, GoogleIcon, LogOutIcon, TrashIcon } from '../icons.jsx'
+import { CameraIcon, CheckIcon, CloseIcon, GoogleIcon, TrashIcon } from '../icons.jsx'
 
 const PROVIDER_LABEL = {
   'google.com': 'Google',
@@ -12,14 +12,16 @@ const PROVIDER_LABEL = {
 /**
  * What used to be a small dropdown (name, email, log out) is now the one
  * place everything about the signed-in account lives — the photo, how you
- * sign in, and the way out entirely, deleting the account. Reached from the
- * same avatar click that used to open the dropdown; the desktop sidebar's
- * own labelled sign-out row is untouched, so quick logout there still costs
- * one click, not a trip through this modal.
+ * sign in, and deleting the account entirely. Reached from the same avatar
+ * click that used to open the dropdown. Log out itself lives only in the
+ * sidebar's own labelled row now, not here too — the avatar opening straight
+ * into a full account view already reads as "more than sign-out," and a
+ * second Log out button next to that row was the redundant one, not this
+ * modal's reason for existing.
  */
 export function ProfileModal({ onClose }) {
-  const { user, signOut, reauthenticate, deleteAccount } = useAuth()
-  const { profile, updateProfilePhoto, removeProfilePhoto, deleteAllData } = useSchedule()
+  const { user, reauthenticate, deleteAccount } = useAuth()
+  const { profile, loading, updateProfilePhoto, removeProfilePhoto, deleteAllData } = useSchedule()
   const fileInputRef = useRef(null)
 
   const [uploading, setUploading] = useState(false)
@@ -81,8 +83,18 @@ export function ProfileModal({ onClose }) {
 
   /* The whole point of reauthenticating first (see firebase.js) is that it
      never leaves a half-deleted account: nothing here is destroyed until
-     the identity check has already succeeded. */
+     the identity check has already succeeded. This guard is the other half
+     of that same carefulness: deleteAllData() reads whatever's currently in
+     the tasks/events/tags state, and right after sign-in that can still be
+     empty — the first Firestore snapshot hasn't landed yet, even from
+     cache. Deleting then would "succeed" having wiped nothing, and the
+     account would vanish with real data still sitting in Firestore. */
   async function runDelete() {
+    if (loading) {
+      setDeleteError('Still loading your schedule — wait a moment and try again.')
+      setDeleteStage('confirming')
+      return
+    }
     setDeleteError(null)
     setDeleteStage('working')
     try {
@@ -210,13 +222,6 @@ export function ProfileModal({ onClose }) {
                 Connected
               </span>
             </div>
-          </section>
-
-          <section className="profile__section">
-            <button type="button" className="ghost-button button--icon-label" onClick={signOut}>
-              <LogOutIcon className="button-icon" />
-              Log out
-            </button>
           </section>
 
           <section className="profile__section field">

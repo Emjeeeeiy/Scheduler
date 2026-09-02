@@ -302,3 +302,12 @@ export function TrashIcon(props) {
     </Icon>
   )
 }
+
+export function UserIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20c0-3.6 3.13-6 7-6s7 2.4 7 6" />
+    </Icon>
+  )
+}

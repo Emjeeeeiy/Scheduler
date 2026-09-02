@@ -26,6 +26,7 @@ export function TagManager({ onClose }) {
   const [name, setName] = useState('')
   const [slot, setSlot] = useState(null)
   const [confirming, setConfirming] = useState(null)
+  const [adding, setAdding] = useState(false)
 
   // The next unused slot, so the palette is consumed in its validated order.
   const suggested = TAG_SLOTS.find((s) => !tags.some((t) => t.slot === s)) ?? TAG_SLOTS[0]
@@ -41,13 +42,31 @@ export function TagManager({ onClose }) {
 
   const countFor = (id) => tasks.filter((t) => t.tagId === id).length
 
+  /* Three fast clicks on Add used to file three identical tags: the input
+     only cleared after addTag's write resolved, so a second click before
+     then resubmitted the same still-visible name. `adding` closes that
+     window for every submit path at once — a repeat click, and Enter in the
+     input, which fires the form's submit directly and would otherwise skip
+     right past a merely-disabled button. Clearing the field up front (not
+     after the write settles) is what actually stops a second submit from
+     ever seeing the old name; on failure the text comes back so nothing
+     typed is lost. */
   async function onAdd(event) {
     event.preventDefault()
+    if (adding) return
     const trimmed = name.trim()
     if (!trimmed) return
-    await addTag({ name: trimmed, slot: activeSlot })
+    setAdding(true)
     setName('')
     setSlot(null)
+    try {
+      await addTag({ name: trimmed, slot: activeSlot })
+    } catch (caught) {
+      console.error('Could not add tag.', caught)
+      setName(trimmed)
+    } finally {
+      setAdding(false)
+    }
   }
 
   return (
@@ -140,7 +159,7 @@ export function TagManager({ onClose }) {
             aria-label="New tag name"
           />
           <SlotPicker value={activeSlot} onPick={setSlot} label="Colour for the new tag" />
-          <button type="submit" className="primary-button">
+          <button type="submit" className="primary-button" disabled={adding}>
             Add
           </button>
         </form>

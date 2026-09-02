@@ -147,6 +147,43 @@
   flex: none;
 }
 
+/* Same fixed-position, JS-placed popover as `.notif__panel` — only the
+   sizing here is its own, since this one holds two menu rows, not a list. */
+.account__panel {
+  width: 190px;
+  max-width: calc(100vw - 24px);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 55;
+}
+
+.account__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.account__item:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
 /* ======================================================== notifications == */
 
 .notif {
@@ -3570,12 +3607,6 @@ code {
     min-height: 44px;
     margin-bottom: 0;
     justify-content: center;
-  }
-
-  /* Log out lives under the avatar on a phone — a labelled row in this bar
-     was a sixth icon fighting for the same 44px. */
-  .sidebar__signout {
-    display: none;
   }
 
   .sidebar__tools .sidebar__label,
