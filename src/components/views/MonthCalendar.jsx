@@ -130,7 +130,7 @@ function MonthWeek({
                         )
                       }}
                       className={`chip chip--dot${task.done ? ' chip--done' : ''}`}
-                      style={{ '--tag': tag?.color ?? 'var(--baseline)' }}
+                      style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
                       onClick={() => onEdit?.(task)}
                       /* A month cell is too narrow for a repeat marker beside
                          the dot, time, and title, so the rule rides in the
@@ -221,7 +221,7 @@ function MonthWeek({
                       segment.endIndex - segment.startIndex + 1
                     }`,
                     gridRow: segment.lane + 1,
-                    '--tag': tag?.color ?? 'var(--baseline)',
+                    '--tag': tag?.color ?? 'var(--color-baseline)',
                   }}
                   onClick={() => onEditEvent?.(segment.event)}
                   title={[

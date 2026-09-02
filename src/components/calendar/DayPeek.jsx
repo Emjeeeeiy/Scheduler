@@ -70,7 +70,7 @@ export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
                   <button
                     type="button"
                     className="day-peek__item day-peek__item--event"
-                    style={{ '--tag': tag?.color ?? 'var(--baseline)' }}
+                    style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
                     onClick={() => {
                       setOpen(false)
                       onEditEvent?.(event)
@@ -95,7 +95,7 @@ export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
                   <button
                     type="button"
                     className={`day-peek__item${task.done ? ' day-peek__item--done' : ''}`}
-                    style={{ '--tag': tag?.color ?? 'var(--baseline)' }}
+                    style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
                     onClick={() => {
                       setOpen(false)
                       onEdit?.(task)

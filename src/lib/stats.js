@@ -95,7 +95,7 @@ export function tagBreakdown(tasks, tags) {
   return [...buckets.values()]
     .map((bucket) => ({
       ...bucket,
-      tag: byId.get(bucket.id) ?? { id: bucket.id, name: 'Untagged', color: 'var(--text-muted)' },
+      tag: byId.get(bucket.id) ?? { id: bucket.id, name: 'Untagged', color: 'var(--color-text-muted)' },
     }))
     .sort((a, b) => b.plannedMin - a.plannedMin || b.count - a.count)
 }

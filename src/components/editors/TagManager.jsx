@@ -10,7 +10,7 @@ function SlotPicker({ value, onPick, label }) {
           key={slot}
           type="button"
           className={`tag-colors__dot${value === slot ? ' tag-colors__dot--on' : ''}`}
-          style={{ background: `var(--tag-${slot})` }}
+          style={{ background: `var(--color-tag-${slot})` }}
           onClick={() => onPick(slot)}
           aria-label={slot}
           aria-pressed={value === slot}
@@ -128,7 +128,7 @@ export function TagManager({ onClose }) {
         <form className="tag-add" onSubmit={onAdd}>
           <span
             className="tag-swatch"
-            style={{ background: `var(--tag-${activeSlot})` }}
+            style={{ background: `var(--color-tag-${activeSlot})` }}
             aria-hidden="true"
           />
           <input

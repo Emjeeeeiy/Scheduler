@@ -159,7 +159,7 @@ function normalizeTag(id, raw) {
     slot,
     // Resolved once here so every consumer paints from the themed token and
     // no component has to know how a slot maps to a colour.
-    color: `var(--tag-${slot})`,
+    color: `var(--color-tag-${slot})`,
     order: Number.isFinite(raw?.order) ? raw.order : 0,
   }
 }

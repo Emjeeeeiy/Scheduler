@@ -13,7 +13,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 20px 14px;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--color-border);
   position: sticky;
   top: 0;
   align-self: flex-start;
@@ -32,14 +32,14 @@
   align-items: center;
   gap: 9px;
   padding: 4px 10px 18px;
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   letter-spacing: -0.01em;
 }
 
 .brand__mark {
   width: 20px;
   height: 20px;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   flex: none;
 }
 
@@ -80,21 +80,21 @@
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: var(--text-item);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
 }
 
 .sidebar__link:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .sidebar__link--active {
-  background: var(--surface-2);
-  color: var(--text-primary);
-  font-weight: var(--weight-title);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
 }
 
 .sidebar__icon {
@@ -111,7 +111,7 @@
   gap: 2px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
 }
 
 .sidebar__spacer {
@@ -129,7 +129,7 @@
   align-items: center;
   gap: 8px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
 }
 
 .account {
@@ -140,8 +140,8 @@
 .account__panel {
   width: 240px;
   max-width: calc(100vw - 24px);
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: 8px;
@@ -150,14 +150,14 @@
 
 .account__who {
   padding: 6px 8px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   min-width: 0;
 }
 
 .account__name {
   font-size: var(--text-label);
-  font-weight: var(--weight-title);
-  color: var(--text-primary);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -166,7 +166,7 @@
 .account__email {
   margin-top: 2px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -183,15 +183,15 @@
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   font-size: var(--text-item);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
 }
 
 .account__out:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 /* ======================================================== notifications == */
@@ -212,14 +212,14 @@
   height: 15px;
   padding: 0 3px;
   border-radius: 999px;
-  background: var(--critical);
+  background: var(--color-critical);
   color: #fff;
   font-family: var(--font-mono);
   font-size: var(--text-nano);
-  font-weight: var(--weight-nano);
+  font-weight: var(--font-weight-nano);
   line-height: 15px;
   text-align: center;
-  box-shadow: 0 0 0 2px var(--surface-1);
+  box-shadow: 0 0 0 2px var(--color-surface-1);
 }
 
 /* position/top/left/right come from NotificationBell's own JS-computed
@@ -230,8 +230,8 @@
   max-width: calc(100vw - 24px);
   max-height: 360px;
   overflow-y: auto;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   padding: 10px;
@@ -244,22 +244,22 @@
   justify-content: space-between;
   gap: 8px;
   font-size: var(--text-label);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   padding: 4px 6px 8px;
 }
 
 .notif__clear-all {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: var(--text-meta);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
   cursor: pointer;
   padding: 2px 4px;
 }
 
 .notif__clear-all:hover {
-  color: var(--critical-text);
+  color: var(--color-critical-text);
 }
 
 .notif__desktop-toggle {
@@ -268,7 +268,7 @@
   gap: 6px;
   padding: 0 6px 8px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
@@ -276,7 +276,7 @@
   width: 13px;
   height: 13px;
   margin-top: 1px;
-  accent-color: var(--text-primary);
+  accent-color: var(--color-text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -288,7 +288,7 @@
 .notif__desktop-note {
   padding: 0 6px 8px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .notif__list {
@@ -317,7 +317,7 @@
 }
 
 .notif__item:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .notif__dismiss {
@@ -330,13 +330,13 @@
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
 .notif__dismiss:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .notif__dismiss svg {
@@ -353,15 +353,15 @@
 }
 
 .notif__dot--overdue {
-  background: var(--critical);
+  background: var(--color-critical);
 }
 
 .notif__dot--now {
-  background: var(--text-primary);
+  background: var(--color-text-primary);
 }
 
 .notif__dot--soon {
-  background: var(--warning);
+  background: var(--color-warning);
 }
 
 .notif__body {
@@ -372,7 +372,7 @@
 
 .notif__title {
   font-size: var(--text-label);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -380,7 +380,7 @@
 
 .notif__meta {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .app-content {
@@ -423,16 +423,16 @@
 }
 
 .primary-button {
-  background: var(--text-primary);
-  color: var(--page);
-  border-color: var(--text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border-color: var(--color-text-primary);
   padding: 7px 14px;
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
 }
 
 .primary-button:hover:not(:disabled) {
-  background: var(--text-secondary);
-  border-color: var(--text-secondary);
+  background: var(--color-text-secondary);
+  border-color: var(--color-text-secondary);
 }
 
 .primary-button:disabled {
@@ -447,14 +447,14 @@
 
 .ghost-button {
   background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
   padding: 6px 12px;
 }
 
 .ghost-button:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .ghost-button--sm {
@@ -469,13 +469,13 @@
 
 .danger-button {
   background: transparent;
-  color: var(--critical-text);
-  border-color: var(--border);
+  color: var(--color-critical-text);
+  border-color: var(--color-border);
   padding: 6px 12px;
 }
 
 .danger-button:hover {
-  background: color-mix(in srgb, var(--critical) 12%, transparent);
+  background: color-mix(in srgb, var(--color-critical) 12%, transparent);
 }
 
 .danger-button--sm {
@@ -485,7 +485,7 @@
 
 .icon-button {
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   border-color: transparent;
   width: 30px;
   height: 30px;
@@ -499,8 +499,8 @@
 }
 
 .icon-button:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 /* Identity — and, when the picture is a button, the account menu trigger. */
@@ -508,14 +508,14 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-secondary);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
   overflow: hidden;
   display: grid;
   place-items: center;
   font-size: var(--text-label);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   flex: none;
 }
 
@@ -526,7 +526,7 @@ button.avatar {
 }
 
 button.avatar:hover {
-  border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border));
+  border-color: color-mix(in srgb, var(--color-text-primary) 35%, var(--color-border));
 }
 
 .avatar img {
@@ -547,19 +547,19 @@ button.avatar:hover {
 .date-nav__label {
   min-width: 148px;
   text-align: center;
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   font-size: var(--text-body);
 }
 
 .date-nav--static .date-nav__label {
-  color: var(--text-secondary);
-  font-weight: var(--weight-meta);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-meta);
 }
 
 /* ================================================== cards & common bits == */
 
 .card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 18px;
 }
@@ -574,7 +574,7 @@ button.avatar:hover {
 
 .section-head__title {
   font-size: var(--text-body);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -582,27 +582,27 @@ button.avatar:hover {
 
 .section-head__sub {
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-top: 2px;
 }
 
 .count-pill {
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
   border-radius: 999px;
   padding: 1px 8px;
   font-family: var(--font-mono);
   font-size: var(--text-meta);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
 }
 
-.count-pill--critical {
-  background: color-mix(in srgb, var(--critical) 15%, transparent);
-  color: var(--critical-text);
+.count-pill--color-critical {
+  background: color-mix(in srgb, var(--color-critical) 15%, transparent);
+  color: var(--color-critical-text);
 }
 
 .empty {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: center;
   padding: 32px 12px;
   font-size: var(--text-item);
@@ -624,8 +624,8 @@ button.avatar:hover {
 }
 
 .banner--error {
-  background: color-mix(in srgb, var(--critical) 12%, transparent);
-  color: var(--critical-text);
+  background: color-mix(in srgb, var(--color-critical) 12%, transparent);
+  color: var(--color-critical-text);
 }
 
 .banner__icon {
@@ -635,7 +635,7 @@ button.avatar:hover {
 }
 
 .warn-text {
-  color: var(--critical-text);
+  color: var(--color-critical-text);
 }
 
 /* =========================================================== setup/login == */
@@ -647,13 +647,13 @@ button.avatar:hover {
 
 .setup__title {
   font-size: var(--text-headline);
-  font-weight: var(--weight-figure);
+  font-weight: var(--font-weight-figure);
   letter-spacing: -0.02em;
   margin-bottom: 8px;
 }
 
 .setup__lead {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 18px;
 }
 
@@ -662,7 +662,7 @@ button.avatar:hover {
   padding-left: 20px;
   display: grid;
   gap: 8px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--text-item);
 }
 
@@ -673,7 +673,7 @@ button.avatar:hover {
 .setup__missing {
   margin-top: 16px;
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -683,13 +683,13 @@ button.avatar:hover {
 .setup__note {
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   font-size: var(--text-label);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 code {
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 0.9em;
@@ -709,7 +709,7 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  background: var(--page);
+  background: var(--color-page);
 }
 
 .auth-topbar {
@@ -718,16 +718,16 @@ code {
   align-items: center;
   justify-content: space-between;
   padding: 20px 28px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .auth-topbar__brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   font-size: var(--text-title);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .auth-hero__mark {
@@ -753,8 +753,8 @@ code {
   flex: 1;
   position: relative;
   display: flex;
-  color: var(--text-primary);
-  border-right: 1px solid var(--border);
+  color: var(--color-text-primary);
+  border-right: 1px solid var(--color-border);
 }
 
 /* A small drawn cross at each corner of the content frame — the one
@@ -772,7 +772,7 @@ code {
 .auth-tick::after {
   content: '';
   position: absolute;
-  background: var(--baseline);
+  background: var(--color-baseline);
 }
 
 .auth-tick::before {
@@ -830,7 +830,7 @@ code {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--border);
+  background: var(--color-border);
   pointer-events: none;
 }
 
@@ -844,13 +844,13 @@ code {
 
 /* The margin outside each vertical rule — reuses the exact diagonal-hatch
    technique .month__cell--outside already draws for "outside the active
-   month", just relocated: 45°, 1px lines on an 8px pitch, in --gridline. */
+   month", just relocated: 45°, 1px lines on an 8px pitch, in --color-gridline. */
 .auth-hero__hatch {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 48px;
-  background-image: repeating-linear-gradient(45deg, var(--gridline) 0 1px, transparent 1px 8px);
+  background-image: repeating-linear-gradient(45deg, var(--color-gridline) 0 1px, transparent 1px 8px);
   pointer-events: none;
 }
 
@@ -864,7 +864,7 @@ code {
 
 .auth-hero__row {
   padding: 22px 40px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .auth-hero__row--last {
@@ -881,7 +881,7 @@ code {
 .auth-hero__lead {
   font-size: var(--text-icon);
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* The one photographic exception on this screen — a real object standing in
@@ -900,7 +900,7 @@ code {
   align-items: center;
   gap: 20px;
   padding: 18px;
-  background-image: radial-gradient(var(--baseline) 1px, transparent 1px);
+  background-image: radial-gradient(var(--color-baseline) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
@@ -908,9 +908,9 @@ code {
   flex: 1 1 auto;
   min-width: 0;
   font-size: var(--text-subtitle);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   line-height: 1.3;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .auth-hero__preview-img {
@@ -919,7 +919,7 @@ code {
   min-width: 160px;
   aspect-ratio: 4 / 3;
   object-fit: cover;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
 }
@@ -941,8 +941,8 @@ code {
   align-items: flex-start;
   gap: 6px;
   padding: 0 20px;
-  border-left: 1px solid var(--border);
-  color: var(--text-muted);
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .auth-hero__stat:first-child {
@@ -954,18 +954,18 @@ code {
   width: 18px;
   height: 18px;
   flex: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .auth-hero__stat-term {
   font-size: var(--text-label);
-  font-weight: var(--weight-item);
-  color: var(--text-primary);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
 }
 
 .auth-hero__stat-detail {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .auth-panel {
@@ -990,21 +990,21 @@ code {
 
 .auth-panel__title {
   font-size: var(--text-headline);
-  font-weight: var(--weight-figure);
+  font-weight: var(--font-weight-figure);
   letter-spacing: -0.02em;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   margin-bottom: 6px;
 }
 
 .auth-panel__lead {
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .auth-panel__note {
   margin-top: 16px;
   font-size: var(--text-label);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -1020,11 +1020,11 @@ code {
   gap: 10px;
   background: #fff;
   color: #1f1f1f;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 10px 16px;
   font-size: var(--text-item);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   cursor: pointer;
   transition: background 120ms ease;
 }
@@ -1096,7 +1096,7 @@ code {
   align-items: center;
   gap: 10px;
   margin: 16px 0;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: var(--text-meta);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1107,7 +1107,7 @@ code {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border);
+  background: var(--color-border);
 }
 
 .auth-form {
@@ -1122,7 +1122,7 @@ code {
 .auth-form__switch {
   margin-top: 14px;
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 
@@ -1130,9 +1130,9 @@ code {
   background: transparent;
   border: none;
   padding: 0;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font: inherit;
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -1154,7 +1154,7 @@ code {
   flex-direction: column;
   /* The one decorative wash on the Dashboard — an ink-tinted glow, not a
      repeat of any accent, since there is no accent left to echo. */
-  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--glow-neutral), transparent 70%);
+  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--color-glow-neutral), transparent 70%);
 }
 
 .hero__head {
@@ -1174,8 +1174,8 @@ code {
 
 .hero__label {
   font-size: var(--text-label);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
 }
 
 .hero__value {
@@ -1183,7 +1183,7 @@ code {
      look loose. Tabular is for columns, not for a hero. */
   font-family: var(--font-mono);
   font-size: var(--text-hero);
-  font-weight: var(--weight-figure);
+  font-weight: var(--font-weight-figure);
   line-height: 0.95;
   letter-spacing: -0.04em;
 }
@@ -1191,8 +1191,8 @@ code {
 .hero__unit {
   font-family: var(--font-mono);
   font-size: var(--text-hero-unit);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
   margin-left: 6px;
   letter-spacing: 0;
 }
@@ -1212,7 +1212,7 @@ code {
   font-synthesis: none;
   line-height: 1.5;
   letter-spacing: 0;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: none;
 }
 
@@ -1226,7 +1226,7 @@ code {
   width: 8px;
   height: 8px;
   flex: none;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   opacity: 0;
 }
 
@@ -1253,7 +1253,7 @@ code {
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
   overflow: hidden;
 }
 
@@ -1266,24 +1266,24 @@ code {
 .hero__load-fill {
   display: block;
   height: 100%;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   border-radius: inherit;
 }
 
 .hero__load-fill--heavy {
-  background: var(--critical);
+  background: var(--color-critical);
 }
 
 .hero__load-note {
   margin-top: 6px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .hero__foot {
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1293,7 +1293,7 @@ code {
 
 .hero__hint {
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   min-width: 0;
 }
 
@@ -1313,14 +1313,14 @@ code {
 }
 
 .stat-tile {
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
   transition: border-color 120ms ease;
 }
 
 .stat-tile:hover {
-  border-color: var(--baseline);
+  border-color: var(--color-baseline);
 }
 
 .stat-tile__head {
@@ -1334,27 +1334,27 @@ code {
   width: 15px;
   height: 15px;
   flex: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
-.stat-tile--critical .stat-tile__icon {
-  color: var(--critical-text);
+.stat-tile--color-critical .stat-tile__icon {
+  color: var(--color-critical-text);
 }
 
-.stat-tile--good .stat-tile__icon {
-  color: var(--good-text);
+.stat-tile--color-good .stat-tile__icon {
+  color: var(--color-good-text);
 }
 
 .stat-tile__label {
   font-size: var(--text-label);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
 }
 
 .stat-tile__value {
   font-family: var(--font-mono);
   font-size: var(--text-stat);
-  font-weight: var(--weight-figure);
+  font-weight: var(--font-weight-figure);
   line-height: 1.2;
   letter-spacing: -0.02em;
 }
@@ -1362,23 +1362,23 @@ code {
 .stat-tile__unit {
   font-family: var(--font-mono);
   font-size: var(--text-icon);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
   margin-left: 2px;
 }
 
 .stat-tile__hint {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 
-.stat-tile--critical .stat-tile__value {
-  color: var(--critical-text);
+.stat-tile--color-critical .stat-tile__value {
+  color: var(--color-critical-text);
 }
 
-.stat-tile--good .stat-tile__value {
-  color: var(--good-text);
+.stat-tile--color-good .stat-tile__value {
+  color: var(--color-good-text);
 }
 
 .chart-row {
@@ -1391,7 +1391,7 @@ code {
 
 .chart__title {
   font-size: var(--text-item);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   margin-bottom: 14px;
   display: flex;
   align-items: center;
@@ -1404,8 +1404,8 @@ code {
   display: flex;
   gap: 12px;
   font-size: var(--text-meta);
-  font-weight: var(--weight-meta);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
 }
 
 .chart__key-item {
@@ -1421,12 +1421,12 @@ code {
 }
 
 .chart__swatch--done {
-  background: var(--text-primary);
+  background: var(--color-text-primary);
 }
 
 .chart__swatch--planned {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
 }
 
 .chart__body {
@@ -1440,7 +1440,7 @@ code {
   justify-content: space-between;
   height: 168px;
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   text-align: right;
@@ -1471,7 +1471,7 @@ code {
   left: 0;
   right: 0;
   height: 1px;
-  background: var(--gridline);
+  background: var(--color-gridline);
 }
 
 .chart__columns {
@@ -1499,8 +1499,8 @@ code {
   position: relative;
   width: 100%;
   max-width: 24px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
   padding: 0;
   cursor: pointer;
   /* Rounded at the data end, square at the baseline. */
@@ -1513,7 +1513,7 @@ code {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   border-radius: 0;
 }
 
@@ -1527,7 +1527,7 @@ code {
 
 .chart__label {
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: 6px;
   position: absolute;
   bottom: -20px;
@@ -1538,8 +1538,8 @@ code {
   position: absolute;
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  font-weight: var(--weight-title);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
@@ -1548,22 +1548,22 @@ code {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   display: grid;
   gap: 1px;
   font-size: var(--text-meta);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   z-index: 5;
   pointer-events: none;
 }
 
 .chart__tooltip strong {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--text-meta);
 }
 
@@ -1584,19 +1584,19 @@ code {
 .data-table td {
   text-align: right;
   padding: 5px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .data-table thead th {
-  color: var(--text-muted);
-  font-weight: var(--weight-label);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-label);
   font-size: var(--text-meta);
 }
 
 .data-table tbody th {
   text-align: left;
-  font-weight: var(--weight-meta);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
 }
 
 /* tag bars ------------------------------------------------------------- */
@@ -1618,7 +1618,7 @@ code {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1632,7 +1632,7 @@ code {
 }
 
 .tag-bars__track {
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
   border-radius: 3px;
   height: 12px;
   overflow: hidden;
@@ -1646,7 +1646,7 @@ code {
 }
 
 .tag-bars__value {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: var(--text-meta);
@@ -1715,7 +1715,7 @@ code {
   right: 8px;
   transform: translateY(-50%);
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   white-space: nowrap;
@@ -1725,8 +1725,8 @@ code {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  border-top: 1px solid var(--gridline);
-  border-bottom: 1px solid var(--gridline);
+  border-top: 1px solid var(--color-gridline);
+  border-bottom: 1px solid var(--color-gridline);
 }
 
 .grid-body--single .grid-columns {
@@ -1735,7 +1735,7 @@ code {
 
 .day-column {
   position: relative;
-  border-left: 1px solid var(--gridline);
+  border-left: 1px solid var(--color-gridline);
   min-width: 0;
 }
 
@@ -1748,7 +1748,7 @@ code {
   left: 0;
   right: 0;
   height: 1px;
-  background: var(--gridline);
+  background: var(--color-gridline);
   pointer-events: none;
 }
 
@@ -1763,7 +1763,7 @@ code {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   pointer-events: none;
   z-index: 3;
 }
@@ -1774,9 +1774,9 @@ code {
   left: 3px;
   font-family: var(--font-mono);
   font-size: var(--text-nano);
-  font-weight: var(--weight-title);
-  background: var(--text-primary);
-  color: var(--page);
+  font-weight: var(--font-weight-title);
+  background: var(--color-text-primary);
+  color: var(--color-page);
   border-radius: 2px;
   padding: 0 4px;
 }
@@ -1786,7 +1786,7 @@ code {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--now-line);
+  background: var(--color-now-line);
   pointer-events: none;
   z-index: 4;
 }
@@ -1799,7 +1799,7 @@ code {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--now-line);
+  background: var(--color-now-line);
 }
 
 .block {
@@ -1810,8 +1810,8 @@ code {
   border: none;
   border-left: 3px solid var(--tag);
   border-radius: 3px;
-  background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
   cursor: grab;
   display: flex;
   flex-direction: column;
@@ -1850,7 +1850,7 @@ code {
 
 .block__title {
   font-size: var(--text-meta);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1860,7 +1860,7 @@ code {
 .block__time {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -1879,7 +1879,7 @@ code {
   gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  background: var(--color-surface-2);
   margin-bottom: 14px;
   font-size: var(--text-label);
 }
@@ -1888,13 +1888,13 @@ code {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   flex: none;
 }
 
 .now-next__label {
-  color: var(--text-secondary);
-  font-weight: var(--weight-item);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-item);
   flex: none;
 }
 
@@ -1905,8 +1905,8 @@ code {
   border: none;
   padding: 0;
   font: inherit;
-  font-weight: var(--weight-title);
-  color: var(--text-primary);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
   cursor: pointer;
   text-align: left;
   overflow: hidden;
@@ -1920,7 +1920,7 @@ code {
 
 .now-next__time {
   flex: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -1928,7 +1928,7 @@ code {
 .day-panel__foot {
   margin-top: 12px;
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .all-day {
@@ -1936,13 +1936,13 @@ code {
   gap: 10px;
   align-items: flex-start;
   padding: 8px 0 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   margin-bottom: 12px;
 }
 
 .all-day__label {
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding-top: 6px;
@@ -1957,13 +1957,13 @@ code {
 
 .week__summary {
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-bottom: 12px;
 }
 
 .week__summary-heavy {
-  color: var(--critical-text);
-  font-weight: var(--weight-item);
+  color: var(--color-critical-text);
+  font-weight: var(--font-weight-item);
 }
 
 .week__head {
@@ -1996,12 +1996,12 @@ code {
 }
 
 .week__day:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .week__dow {
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2009,13 +2009,13 @@ code {
 .week__date {
   font-family: var(--font-mono);
   font-size: var(--text-subtitle);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   line-height: 1.1;
 }
 
 .week__load {
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -2026,24 +2026,24 @@ code {
   height: 3px;
   margin-top: 3px;
   border-radius: 999px;
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
   overflow: hidden;
 }
 
 .week__load-fill {
   display: block;
   height: 100%;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   border-radius: inherit;
 }
 
 .week__load-fill--heavy {
-  background: var(--critical);
+  background: var(--color-critical);
 }
 
 .week__day--today .week__date {
-  background: var(--text-primary);
-  color: var(--page);
+  background: var(--color-text-primary);
+  color: var(--color-page);
   border-radius: 999px;
   min-width: 26px;
   height: 26px;
@@ -2054,7 +2054,7 @@ code {
 
 .week__allday {
   display: flex;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   padding: 6px 0;
 }
 
@@ -2083,16 +2083,16 @@ code {
   padding: 0 6px;
   border: 0;
   border-radius: var(--radius-tight);
-  background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
   font-size: var(--text-micro);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
   text-align: left;
   cursor: grab;
 }
 
 .week__span:hover {
-  background: color-mix(in srgb, var(--tag) 26%, var(--surface-1));
+  background: color-mix(in srgb, var(--tag) 26%, var(--color-surface-1));
 }
 
 .week__span-title {
@@ -2103,7 +2103,7 @@ code {
 
 .week__span-carry {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .week__allday-cells {
@@ -2124,17 +2124,17 @@ code {
 }
 
 .week__allday-cell--drop {
-  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
 .week__events {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .week__hint {
   margin-top: 12px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -2142,12 +2142,12 @@ code {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: var(--surface-2);
+  background: var(--color-surface-2);
   border: none;
   border-radius: 3px;
   padding: 2px 6px;
   font-size: var(--text-micro);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   cursor: pointer;
   width: 100%;
   min-width: 0;
@@ -2156,7 +2156,7 @@ code {
 }
 
 .chip:hover {
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
 }
 
 .chip--done {
@@ -2170,7 +2170,7 @@ code {
 }
 
 .chip--dot:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .chip__dot {
@@ -2182,14 +2182,14 @@ code {
 }
 
 .chip__time {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   flex: none;
 }
 
 .chip__title {
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2207,7 +2207,7 @@ code {
 .month__dow {
   text-align: center;
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2217,8 +2217,8 @@ code {
    furthest a bar can ever reach — it cannot span a line break. */
 .month__grid {
   display: grid;
-  border-top: 1px solid var(--gridline);
-  border-left: 1px solid var(--gridline);
+  border-top: 1px solid var(--color-gridline);
+  border-left: 1px solid var(--color-gridline);
 }
 
 .month__week {
@@ -2259,16 +2259,16 @@ code {
   /* The same fill recipe as a time-grid block, so an event reads as the same
      material — but with no left border, which stays reserved for the block and
      would in any case imply "starts here" on a bar that may be clipped. */
-  background: color-mix(in srgb, var(--tag) 15%, var(--surface-1));
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
   font-size: var(--text-micro);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
   text-align: left;
   cursor: grab;
 }
 
 .month__bar:hover {
-  background: color-mix(in srgb, var(--tag) 26%, var(--surface-1));
+  background: color-mix(in srgb, var(--tag) 26%, var(--color-surface-1));
 }
 
 .month__bar-title {
@@ -2279,7 +2279,7 @@ code {
 
 .month__bar-carry {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* Reserves exactly the height the row's lanes take, so chips begin below the
@@ -2291,8 +2291,8 @@ code {
 
 .month__cell {
   position: relative;
-  border-right: 1px solid var(--gridline);
-  border-bottom: 1px solid var(--gridline);
+  border-right: 1px solid var(--color-gridline);
+  border-bottom: 1px solid var(--color-gridline);
   padding: 4px 5px 6px;
   min-width: 0;
   display: flex;
@@ -2304,7 +2304,7 @@ code {
    "not this month" at a glance rather than only on a surface step. The step
    alone was carrying it, and in dark that step is now Sunken (#0a0a0a) against
    a page-flat card (#050505) — a difference too small to see. The hatch is
-   drawn in --gridline, the same ink the grid lines use, so it reads as more of
+   drawn in --color-gridline, the same ink the grid lines use, so it reads as more of
    the calendar's own structure rather than a new decorative texture.
 
    background-color and background-image are set separately on purpose: the
@@ -2312,24 +2312,24 @@ code {
    so dragging onto one of these days shows a clean violet tint with no hatch
    under it. That is the state reading clearly, not an accident. */
 .month__cell--outside {
-  background-color: var(--surface-sunken);
+  background-color: var(--color-surface-sunken);
   background-image: repeating-linear-gradient(
     45deg,
-    var(--gridline) 0 1px,
+    var(--color-gridline) 0 1px,
     transparent 1px 8px
   );
 }
 
 .month__cell--outside .month__daynum {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .month__cell--today {
-  box-shadow: inset 0 0 0 2px var(--text-primary);
+  box-shadow: inset 0 0 0 2px var(--color-text-primary);
 }
 
 .month__cell--drop {
-  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
 .month__load-strip {
@@ -2338,17 +2338,17 @@ code {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--gridline);
+  background: var(--color-gridline);
 }
 
 .month__load-strip-fill {
   display: block;
   height: 100%;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
 }
 
 .month__load-strip-fill--heavy {
-  background: var(--critical);
+  background: var(--color-critical);
 }
 
 .month__cell-head {
@@ -2363,8 +2363,8 @@ code {
   border: none;
   cursor: pointer;
   font-size: var(--text-label);
-  font-weight: var(--weight-item);
-  color: var(--text-primary);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
   padding: 1px 4px;
   border-radius: 3px;
   font-variant-numeric: tabular-nums;
@@ -2372,12 +2372,12 @@ code {
 }
 
 .month__daynum:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .month__load {
   font-size: var(--text-nano);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -2398,7 +2398,7 @@ code {
 .month__more {
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-size: var(--text-micro);
   cursor: pointer;
   padding: 1px 3px;
@@ -2406,7 +2406,7 @@ code {
 }
 
 .month__more:hover {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .month__add {
@@ -2420,7 +2420,7 @@ code {
   border-radius: 3px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
   opacity: 0;
   transition: opacity 120ms ease;
@@ -2434,7 +2434,7 @@ code {
 .month__cell:hover .month__add,
 .month__add:focus-visible {
   opacity: 1;
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 /* ======================================================= inbox & task rows */
@@ -2451,8 +2451,8 @@ code {
 }
 
 .inbox--drop {
-  border-color: var(--text-primary);
-  background: color-mix(in srgb, var(--text-primary) 7%, var(--surface-1));
+  border-color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-1));
 }
 
 .quick-add {
@@ -2474,7 +2474,7 @@ code {
 
 .inbox__hint {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-top: 12px;
   text-align: center;
 }
@@ -2493,7 +2493,7 @@ code {
 }
 
 .inbox-item:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .inbox-item:active {
@@ -2502,7 +2502,7 @@ code {
 
 .inbox-item--done .inbox-item__title {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .inbox-item__body {
@@ -2536,7 +2536,7 @@ code {
   gap: 9px;
   padding: 7px 6px;
   border-radius: var(--radius-sm);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .task-row:last-child {
@@ -2544,14 +2544,14 @@ code {
 }
 
 .task-row:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .task-row__check {
   margin-top: 3px;
   width: 15px;
   height: 15px;
-  accent-color: var(--text-primary);
+  accent-color: var(--color-text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -2570,14 +2570,14 @@ code {
 
 .task-row__title {
   font-size: var(--text-item);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .task-row--done .task-row__title {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .task-row__meta {
@@ -2589,7 +2589,7 @@ code {
 
 .task-row__when {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -2599,7 +2599,7 @@ code {
   align-items: center;
   gap: 4px;
   font-size: var(--text-meta);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .tag-chip__dot {
@@ -2631,7 +2631,7 @@ code {
   max-width: 520px;
   max-height: 90dvh;
   overflow-y: auto;
-  background: var(--surface-1);
+  background: var(--color-surface-1);
   box-shadow: var(--shadow-md);
 }
 
@@ -2650,7 +2650,7 @@ code {
 
 .modal__title {
   font-size: var(--text-title);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
 }
 
 .modal__foot {
@@ -2681,18 +2681,18 @@ code {
 
 .field__label {
   font-size: var(--text-label);
-  color: var(--text-secondary);
-  font-weight: var(--weight-label);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-label);
 }
 
 .field__hint {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .input {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 7px 10px;
   width: 100%;
@@ -2700,7 +2700,7 @@ code {
 }
 
 .input:hover:not(:disabled) {
-  border-color: var(--baseline);
+  border-color: var(--color-baseline);
 }
 
 .input:disabled {
@@ -2741,14 +2741,14 @@ code {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
 
 .password-field__toggle:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 /* The global ring sits 2px out; pulled in so it stays inside the input's own
@@ -2769,7 +2769,7 @@ code {
 }
 
 .input--flush:hover {
-  border-color: var(--border);
+  border-color: var(--color-border);
 }
 
 /* ================================================================== tags == */
@@ -2795,7 +2795,7 @@ code {
 
 .tag-list__count {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   min-width: 20px;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -2830,7 +2830,7 @@ code {
 }
 
 .tag-colors__dot--on {
-  border-color: var(--text-primary);
+  border-color: var(--color-text-primary);
 }
 
 .tag-add {
@@ -2838,7 +2838,7 @@ code {
   align-items: center;
   gap: 8px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
 
@@ -2894,13 +2894,13 @@ code {
 }
 
 .item-list__row:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .item-list__check {
   width: 15px;
   height: 15px;
-  accent-color: var(--text-primary);
+  accent-color: var(--color-text-primary);
   cursor: pointer;
   flex: none;
 }
@@ -2917,7 +2917,7 @@ code {
 .item-list__kind {
   display: grid;
   place-items: center;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   flex: none;
 }
 
@@ -2935,7 +2935,7 @@ code {
 
 .item-list__title {
   font-size: var(--text-item);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2944,7 +2944,7 @@ code {
 
 .item-list__title--done {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .item-list__meta {
@@ -2952,7 +2952,7 @@ code {
   align-items: center;
   gap: 4px;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -2994,10 +2994,10 @@ code {
   height: 32px;
   display: grid;
   place-items: center;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--text-label);
   cursor: pointer;
   padding: 0;
@@ -3005,15 +3005,15 @@ code {
 }
 
 .weekday-picker__day:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .weekday-picker__day--on {
-  background: var(--text-primary);
-  border-color: var(--text-primary);
-  color: var(--page);
-  font-weight: var(--weight-title);
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-page);
+  font-weight: var(--font-weight-title);
 }
 
 /* One day of a series, opened on its own. Kept as a quiet ledge rather than an
@@ -3024,7 +3024,7 @@ code {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  background: var(--surface-2);
+  background: var(--color-surface-2);
   border-radius: var(--radius-sm);
   padding: 9px 11px;
   margin-bottom: 14px;
@@ -3033,7 +3033,7 @@ code {
 .series-note__mark {
   width: 16px;
   height: 16px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   flex: none;
 }
 
@@ -3041,7 +3041,7 @@ code {
   flex: 1;
   min-width: 180px;
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* ========================================================= item detail == */
@@ -3056,7 +3056,7 @@ code {
   width: 18px;
   height: 18px;
   flex: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .detail-status {
@@ -3065,7 +3065,7 @@ code {
   gap: 6px;
   margin: -4px 0 14px;
   font-size: var(--text-label);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .detail-status svg {
@@ -3074,7 +3074,7 @@ code {
 }
 
 .detail-status--done {
-  color: var(--good-text);
+  color: var(--color-good-text);
 }
 
 .detail-grid {
@@ -3096,13 +3096,13 @@ code {
 
 .detail-field__label {
   font-size: var(--text-label);
-  font-weight: var(--weight-label);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
 }
 
 .detail-field__value {
   font-size: var(--text-body);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   overflow-wrap: break-word;
 }
 
@@ -3113,7 +3113,7 @@ code {
 
 .repeat-mark {
   display: inline-flex;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .repeat-mark svg {
@@ -3133,17 +3133,17 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 5px 14px;
   font-size: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   cursor: pointer;
 }
 
 .filter-chip:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .filter-chip:disabled {
@@ -3152,23 +3152,23 @@ code {
 }
 
 .filter-chip--on {
-  background: var(--text-primary);
-  border-color: var(--text-primary);
-  color: var(--page);
-  font-weight: var(--weight-item);
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-page);
+  font-weight: var(--font-weight-item);
 }
 
 .notes-list {
   display: grid;
   gap: 10px;
   font-size: var(--text-item);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
 .notes-list strong {
-  color: var(--text-primary);
-  font-weight: var(--weight-title);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
 }
 
 /* ============================================================ responsive == */
@@ -3211,7 +3211,7 @@ code {
     gap: 4px;
     padding: 8px 10px;
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--color-border);
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -3275,8 +3275,8 @@ code {
     flex-direction: row;
     gap: 0;
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    background: var(--page);
-    border-top: 1px solid var(--border);
+    background: var(--color-page);
+    border-top: 1px solid var(--color-border);
   }
 
   /* Equal columns from `1 1 0` rather than content width, so the four tabs
@@ -3300,7 +3300,7 @@ code {
 
   .sidebar__nav .sidebar__label {
     font-size: var(--text-nano);
-    font-weight: var(--weight-item);
+    font-weight: var(--font-weight-item);
   }
 
   /* --- occasional controls, icon-only in the top bar --- */
@@ -3448,8 +3448,8 @@ code {
   left: 1px;
   right: 1px;
   border-radius: var(--radius-tight);
-  background: var(--surface-2);
-  border: 1px dashed var(--text-primary);
+  background: var(--color-surface-2);
+  border: 1px dashed var(--color-text-primary);
   pointer-events: none;
   z-index: 3;
   display: flex;
@@ -3461,8 +3461,8 @@ code {
 .day-column__draft span {
   font-family: var(--font-mono);
   font-size: var(--text-nano);
-  font-weight: var(--weight-nano);
-  color: var(--text-primary);
+  font-weight: var(--font-weight-nano);
+  color: var(--color-text-primary);
 }
 
 /* Siblings of the block, not children: the block is `draggable`, and a native
@@ -3487,7 +3487,7 @@ code {
   width: 22px;
   height: 3px;
   border-radius: 999px;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
   opacity: 0;
   transition: opacity 120ms ease;
 }
@@ -3506,7 +3506,7 @@ code {
    thing without reaching for a second colour. */
 .block--event {
   border-left: none;
-  background: color-mix(in srgb, var(--tag) 22%, var(--surface-1));
+  background: color-mix(in srgb, var(--tag) 22%, var(--color-surface-1));
   border-top: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
   cursor: pointer;
@@ -3515,8 +3515,8 @@ code {
 .day-peek {
   z-index: 40;
   overflow-y: auto;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   padding: 8px;
@@ -3534,7 +3534,7 @@ code {
    notification all use — not its own heavier one. */
 .day-peek__title {
   font-size: var(--text-label);
-  font-weight: var(--weight-item);
+  font-weight: var(--font-weight-item);
 }
 
 .day-peek__list {
@@ -3558,7 +3558,7 @@ code {
 }
 
 .day-peek__item:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .day-peek__item--event {
@@ -3567,13 +3567,13 @@ code {
 
 .day-peek__item--done .day-peek__label {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .day-peek__when {
   flex: none;
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   min-width: 52px;
@@ -3591,7 +3591,7 @@ code {
   flex: none;
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .event-rail {
@@ -3608,21 +3608,21 @@ code {
   padding: 7px 10px;
   border: 0;
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--tag) 14%, var(--surface-1));
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--tag) 14%, var(--color-surface-1));
+  color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
   font-size: var(--text-item);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
 }
 
 .event-rail__item:hover {
-  background: color-mix(in srgb, var(--tag) 24%, var(--surface-1));
+  background: color-mix(in srgb, var(--tag) 24%, var(--color-surface-1));
 }
 
 .event-rail__mark {
   flex: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .event-rail__title {
@@ -3636,8 +3636,8 @@ code {
 .event-rail__meta {
   flex: none;
   font-size: var(--text-meta);
-  font-weight: var(--weight-meta);
-  color: var(--text-secondary);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
 }
 
 .free-slots {
@@ -3646,18 +3646,18 @@ code {
   gap: 10px;
   margin-bottom: 12px;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-sunken);
+  background: var(--color-surface-sunken);
 }
 
 .free-slots__label {
   flex: none;
   font-size: var(--text-micro);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .free-slots__list {
@@ -3671,17 +3671,17 @@ code {
   align-items: baseline;
   gap: 6px;
   padding: 3px 9px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: var(--surface-1);
-  color: var(--text-secondary);
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: var(--text-meta);
 }
 
 .free-slots__slot:hover {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
 }
 
 .free-slots__when {
@@ -3692,7 +3692,7 @@ code {
 .free-slots__len {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .agenda {
@@ -3707,7 +3707,7 @@ code {
   gap: 12px;
   padding: 9px 10px;
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
@@ -3716,7 +3716,7 @@ code {
 }
 
 .agenda__row:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .agenda__row--event {
@@ -3725,14 +3725,14 @@ code {
 
 .agenda__row--done .agenda__title {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .agenda__when {
   flex: none;
   min-width: 68px;
   font-size: var(--text-meta);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
 }
@@ -3741,7 +3741,7 @@ code {
   flex: 1;
   min-width: 0;
   font-size: var(--text-item);
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3750,7 +3750,7 @@ code {
 .agenda__meta {
   flex: none;
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .day-panel__controls {
@@ -3790,13 +3790,13 @@ code {
   padding: 2px 4px;
   border-radius: var(--radius-sm);
   font-size: var(--text-label);
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
   color: inherit;
   cursor: pointer;
 }
 
 .mini-cal__label:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .mini-cal__nav {
@@ -3819,8 +3819,8 @@ code {
 .mini-cal__dow span {
   text-align: center;
   font-size: var(--text-nano);
-  font-weight: var(--weight-label);
-  color: var(--text-muted);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-muted);
   text-transform: uppercase;
 }
 
@@ -3833,7 +3833,7 @@ code {
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--text-meta);
   cursor: pointer;
   font-variant-numeric: tabular-nums;
@@ -3841,11 +3841,11 @@ code {
 }
 
 .mini-cal__day:hover {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .mini-cal__day--outside .mini-cal__num {
-  color: var(--text-muted);
+  color: var(--color-text-muted);
 }
 
 .mini-cal__num {
@@ -3861,16 +3861,16 @@ code {
   height: 20px;
   display: grid;
   place-items: center;
-  font-weight: var(--weight-title);
+  font-weight: var(--font-weight-title);
 }
 
 .mini-cal__day--event .mini-cal__num {
-  background: var(--surface-2);
+  background: var(--color-surface-2);
 }
 
 .mini-cal__day--today .mini-cal__num {
-  background: var(--text-primary);
-  color: var(--page);
+  background: var(--color-text-primary);
+  color: var(--color-page);
 }
 
 .mini-cal__dots {
@@ -3888,11 +3888,11 @@ code {
   width: 3px;
   height: 3px;
   border-radius: 999px;
-  background: var(--text-primary);
+  background: var(--color-text-primary);
 }
 
 .mini-cal__day--heavy .mini-cal__dot {
-  background: var(--critical);
+  background: var(--color-critical);
 }
 
 .editor-kind__options {
@@ -3910,12 +3910,12 @@ code {
   justify-content: center;
   gap: 6px;
   margin-bottom: 16px;
-  font-weight: var(--weight-label);
+  font-weight: var(--font-weight-label);
 }
 
 .modal__note {
   font-size: var(--text-meta);
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   margin-right: 4px;
 }
 

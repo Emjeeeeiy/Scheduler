@@ -19,8 +19,8 @@ body {
 }
 
 body {
-  background: var(--page);
-  color: var(--text-primary);
+  background: var(--color-page);
+  color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: 1.5;
@@ -52,7 +52,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

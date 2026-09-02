@@ -277,7 +277,7 @@ export function DayColumn({
                 height: `calc(${height}% - 2px)`,
                 left: `calc(${block.left}% + 1px)`,
                 width: `calc(${block.width}% - 2px)`,
-                '--tag': tag?.color ?? 'var(--baseline)',
+                '--tag': tag?.color ?? 'var(--color-baseline)',
               }}
               title={[
                 item.title,

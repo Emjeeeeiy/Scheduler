@@ -27,7 +27,7 @@ export function TagBars({ rows, label, emptyText = 'No tagged time in this range
         ...head,
         {
           id: '__other',
-          tag: { id: '__other', name: `Other (${tail.length})`, color: 'var(--text-muted)' },
+          tag: { id: '__other', name: `Other (${tail.length})`, color: 'var(--color-text-muted)' },
           plannedMin: tail.reduce((sum, r) => sum + r.plannedMin, 0),
           completedMin: tail.reduce((sum, r) => sum + r.completedMin, 0),
           count: tail.reduce((sum, r) => sum + r.count, 0),

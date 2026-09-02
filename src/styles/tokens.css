@@ -1,45 +1,57 @@
-/* Design tokens — light is the base; dark is a selected set, not an auto-flip.
-   Dark values are declared twice on purpose: the media query covers the OS
-   setting, the [data-theme] scope covers the in-app toggle and must win both
-   ways. Never give a color its only definition inside a media block. */
+/* Design tokens, as Tailwind v4 theme variables — `@theme` both declares the
+   CSS custom properties every component already reads via var(--token) AND
+   registers them with Tailwind so the same names exist as utility classes
+   (bg-page, text-color-text-primary, rounded-lg, font-sans, ...). Prefixes
+   are Tailwind's own namespaces (--color-*, --font-*, --text-*, --font-weight-*,
+   --radius-*, --shadow-*, --spacing-*) — that's what makes each group of
+   tokens generate the matching utility family; an unprefixed name would just
+   sit there as a plain variable with no class.
 
-:root {
-  color-scheme: light;
+   Light is the base; dark is a selected set, not an auto-flip. Dark values
+   are declared twice on purpose, OUTSIDE this block: the media query covers
+   the OS setting, the [data-theme] scope covers the in-app toggle and must
+   win both ways. Never give a color its only definition inside a media
+   block. Overriding a --theme() variable at a narrower CSS scope like this is
+   the documented Tailwind v4 pattern for runtime-switchable themes — the
+   utility classes below reference the variable, not a baked-in value, so a
+   later `[data-theme="dark"] { --color-page: ... }` is picked up automatically
+   by every element already using bg-page/text-color-page/etc. */
 
+@theme {
   /* surfaces */
-  --page:            #f9f9f7;
-  --surface-1:       #fcfcfb;
-  --surface-2:       #f2f1ed;
-  --surface-sunken:  #edece7;
+  --color-page:            #f9f9f7;
+  --color-surface-1:       #fcfcfb;
+  --color-surface-2:       #f2f1ed;
+  --color-surface-sunken:  #edece7;
 
   /* ink */
-  --text-primary:    #0b0b0b;
-  --text-secondary:  #52514e;
-  --text-muted:      #898781;
+  --color-text-primary:    #0b0b0b;
+  --color-text-secondary:  #52514e;
+  --color-text-muted:      #898781;
 
   /* chrome */
-  --border:          rgba(11, 11, 11, 0.10);
-  --gridline:        #e1e0d9;
-  --baseline:        #c3c2b7;
+  --color-border:          rgba(11, 11, 11, 0.10);
+  --color-gridline:        #e1e0d9;
+  --color-baseline:        #c3c2b7;
 
   /* status — fixed, never themed. Always shipped with an icon + label. */
-  --good:            #0ca30c;
-  --warning:         #fab219;
-  --serious:         #ec835a;
-  --critical:        #d03b3b;
-  --good-text:       #006300;
-  --critical-text:   #b02b2b;
+  --color-good:            #0ca30c;
+  --color-warning:         #fab219;
+  --color-serious:         #ec835a;
+  --color-critical:        #d03b3b;
+  --color-good-text:       #006300;
+  --color-critical-text:   #b02b2b;
 
-  --focus:           var(--text-primary);
-  --shadow-sm:       0 1px 2px rgba(11, 11, 11, 0.06);
+  --color-focus:           var(--color-text-primary);
+  --shadow-sm:              0 1px 2px rgba(11, 11, 11, 0.06);
   /* Reserved for content that floats above the page's own stacking order —
      the modal panel, the notification dropdown, the day-peek popover, the
      chart tooltip. Nothing that merely groups content on the page gets a
      shadow any more; a hairline border does that job instead. */
-  --shadow-md:       0 6px 24px rgba(11, 11, 11, 0.08);
+  --shadow-md:              0 6px 24px rgba(11, 11, 11, 0.08);
   /* The Dashboard hero card's glow — a low-alpha step of Ink, not a hue,
      since there is no accent left to echo. */
-  --glow-neutral:    rgba(11, 11, 11, 0.05);
+  --color-glow-neutral:    rgba(11, 11, 11, 0.05);
 
   --radius-sm:  4px;
   --radius-md:  7px;
@@ -89,21 +101,22 @@
      15px the size steps are 1px apart and carry no hierarchy on their own —
      an item title and its timestamp read as one undifferentiated block unless
      weight and colour do the work. These four are the whole vocabulary. */
-  --weight-figure: 650; /* the big numerals and screen titles */
-  --weight-title:  600;
-  --weight-item:   550; /* the name of a task, event, or notification */
-  --weight-label:  500;
-  --weight-meta:   450; /* one step below label, to de-emphasise deliberately */
-  --weight-body:   400;
-  --weight-nano:   700; /* a 10px numeral needs it to survive at that size */
+  --font-weight-figure: 650; /* the big numerals and screen titles */
+  --font-weight-title:  600;
+  --font-weight-item:   550; /* the name of a task, event, or notification */
+  --font-weight-label:  500;
+  --font-weight-meta:   450; /* one step below label, to de-emphasise deliberately */
+  --font-weight-body:   400;
+  --font-weight-nano:   700; /* a 10px numeral needs it to survive at that size */
 
   /* --- scheduler additions ------------------------------------------------ */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
 
-  /* The time grid. Row height is the single knob that scales the week/day
-     columns; everything else positions off percentages. */
-  --hour-height:  52px;
-  --gutter-width: 60px;
-  --now-line:     #d03b3b;
+  --color-now-line: #d03b3b;
 
   /* Tag palette — the validated categorical order, in slot order. Verified with
      the data-viz validator against both surfaces: every check passes in light
@@ -115,14 +128,24 @@
      use its own step below instead of forcing one hex to serve both. Aqua,
      yellow, and magenta fall under 3:1 on the light surface, so anything
      wearing a tag colour also carries a visible text label — never colour alone. */
-  --tag-blue:    #2a78d6;
-  --tag-orange:  #eb6834;
-  --tag-aqua:    #1baf7a;
-  --tag-yellow:  #eda100;
-  --tag-magenta: #e87ba4;
-  --tag-green:   #008300;
-  --tag-violet:  #4a3aa7;
-  --tag-red:     #e34948;
+  --color-tag-blue:    #2a78d6;
+  --color-tag-orange:  #eb6834;
+  --color-tag-aqua:    #1baf7a;
+  --color-tag-yellow:  #eda100;
+  --color-tag-magenta: #e87ba4;
+  --color-tag-green:   #008300;
+  --color-tag-violet:  #4a3aa7;
+  --color-tag-red:     #e34948;
+}
+
+/* Not a Tailwind theme scale — a plain custom property and one non-token CSS
+   property, so they stay outside @theme. The time grid's row height is the
+   single knob that scales the week/day columns; everything else positions
+   off percentages. */
+:root {
+  color-scheme: light;
+  --hour-height:  52px;
+  --gutter-width: 60px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -131,61 +154,61 @@
     /* Deepened toward the Auth Shell's true black (#050505) rather than the
        softer near-black this app used before it existed — same relative
        step between page/card/hover as before, just shifted darker. */
-    --page:            #050505;
-    --surface-1:       #131313;
-    --surface-2:       #1e1e1e;
-    --surface-sunken:  #0a0a0a;
-    --text-primary:    #ffffff;
-    --text-secondary:  #c3c2b7;
-    --text-muted:      #898781;
-    --border:          rgba(255, 255, 255, 0.10);
-    --gridline:        #232323;
-    --baseline:        #2e2e2e;
-    --good-text:       #0ca30c;
-    --critical-text:   #e66767;
-    --focus:           var(--text-primary);
-    --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-md:       0 6px 24px rgba(0, 0, 0, 0.45);
-    --glow-neutral:    rgba(255, 255, 255, 0.10);
+    --color-page:            #050505;
+    --color-surface-1:       #131313;
+    --color-surface-2:       #1e1e1e;
+    --color-surface-sunken:  #0a0a0a;
+    --color-text-primary:    #ffffff;
+    --color-text-secondary:  #c3c2b7;
+    --color-text-muted:      #898781;
+    --color-border:          rgba(255, 255, 255, 0.10);
+    --color-gridline:        #232323;
+    --color-baseline:        #2e2e2e;
+    --color-good-text:       #0ca30c;
+    --color-critical-text:   #e66767;
+    --color-focus:           var(--color-text-primary);
+    --shadow-sm:              0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md:              0 6px 24px rgba(0, 0, 0, 0.45);
+    --color-glow-neutral:    rgba(255, 255, 255, 0.10);
 
-    --now-line:        #e66767;
-    --tag-blue:        #3987e5;
-    --tag-orange:      #d95926;
-    --tag-aqua:        #199e70;
-    --tag-yellow:      #c98500;
-    --tag-magenta:     #d55181;
-    --tag-green:       #008300;
-    --tag-violet:      #9085e9;
-    --tag-red:         #e66767;
+    --color-now-line:        #e66767;
+    --color-tag-blue:        #3987e5;
+    --color-tag-orange:      #d95926;
+    --color-tag-aqua:        #199e70;
+    --color-tag-yellow:      #c98500;
+    --color-tag-magenta:     #d55181;
+    --color-tag-green:       #008300;
+    --color-tag-violet:      #9085e9;
+    --color-tag-red:         #e66767;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page:            #050505;
-  --surface-1:       #131313;
-  --surface-2:       #1e1e1e;
-  --surface-sunken:  #0a0a0a;
-  --text-primary:    #ffffff;
-  --text-secondary:  #c3c2b7;
-  --text-muted:      #898781;
-  --border:          rgba(255, 255, 255, 0.10);
-  --gridline:        #232323;
-  --baseline:        #2e2e2e;
-  --good-text:       #0ca30c;
-  --critical-text:   #e66767;
-  --focus:           var(--text-primary);
-  --shadow-sm:       0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md:       0 6px 24px rgba(0, 0, 0, 0.45);
-  --glow-neutral:    rgba(255, 255, 255, 0.10);
+  --color-page:            #050505;
+  --color-surface-1:       #131313;
+  --color-surface-2:       #1e1e1e;
+  --color-surface-sunken:  #0a0a0a;
+  --color-text-primary:    #ffffff;
+  --color-text-secondary:  #c3c2b7;
+  --color-text-muted:      #898781;
+  --color-border:          rgba(255, 255, 255, 0.10);
+  --color-gridline:        #232323;
+  --color-baseline:        #2e2e2e;
+  --color-good-text:       #0ca30c;
+  --color-critical-text:   #e66767;
+  --color-focus:           var(--color-text-primary);
+  --shadow-sm:              0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md:              0 6px 24px rgba(0, 0, 0, 0.45);
+  --color-glow-neutral:    rgba(255, 255, 255, 0.10);
 
-  --now-line:        #e66767;
-  --tag-blue:        #3987e5;
-  --tag-orange:      #d95926;
-  --tag-aqua:        #199e70;
-  --tag-yellow:      #c98500;
-  --tag-magenta:     #d55181;
-  --tag-green:       #008300;
-  --tag-violet:      #9085e9;
-  --tag-red:         #e66767;
+  --color-now-line:        #e66767;
+  --color-tag-blue:        #3987e5;
+  --color-tag-orange:      #d95926;
+  --color-tag-aqua:        #199e70;
+  --color-tag-yellow:      #c98500;
+  --color-tag-magenta:     #d55181;
+  --color-tag-green:       #008300;
+  --color-tag-violet:      #9085e9;
+  --color-tag-red:         #e66767;
 }

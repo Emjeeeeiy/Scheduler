@@ -195,7 +195,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                               segment.endIndex - segment.startIndex + 1
                             }`,
                             gridRow: segment.lane + 1,
-                            '--tag': tag?.color ?? 'var(--baseline)',
+                            '--tag': tag?.color ?? 'var(--color-baseline)',
                           }}
                           onClick={() => onEditEvent?.(segment.event)}
                           title={[
