@@ -26,6 +26,7 @@ import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
+import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { PixelType } from './PixelType.jsx'
 import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
@@ -84,15 +85,15 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const activeDays = rangeRows.filter((row) => row.plannedMin > 0).length
 
   return (
-    <div className="dashboard">
-      <div className="dashboard__top">
+    <div className="dashboard frame stack">
+      <FrameTicks />
+      <div className="dashboard__top divided-row">
         {/* Three zones anchored top and bottom rather than one stack piled at
             the top: the figure and what it means, then air, then the footer
             pairing the day's breakdown with its action. The space in the
-            middle is the point — it is what the card had going spare before,
-            except now it reads as deliberate rather than as a card that ran
-            out of things to say. */}
-        <section className="card hero" aria-label="Today at a glance">
+            middle is the point — it is what an unanchored stack would have
+            left dangling under the button instead. */}
+        <section className="hero" aria-label="Today at a glance">
           <div className="hero__head">
             <div className="hero__figure">
               <p className="hero__label">Planned today</p>
@@ -138,7 +139,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         <MiniCalendar onFocusDay={onFocusDay} onFocusMonth={onFocusMonth} />
       </div>
 
-      <div className="tile-row">
+      <div className="tile-row divided-row">
         <StatTile
           icon={DayIcon}
           label="Open today"
@@ -172,8 +173,8 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
           slides left whenever nothing is overdue. Overdue joins it on the
           right when it exists, and Next up takes the full width when it does
           not, which auto-fit handles without a second rule. */}
-      <div className="queue-row">
-        <section className="card" aria-label="Next up">
+      <div className="queue-row divided-row">
+        <section aria-label="Next up">
           <div className="section-head">
             <h2 className="section-head__title">Next up</h2>
           </div>
@@ -189,7 +190,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         </section>
 
         {overdue.length > 0 && (
-          <section className="card" aria-label="Overdue">
+          <section aria-label="Overdue">
             <div className="section-head">
               <h2 className="section-head__title">
                 Overdue <span className="count-pill count-pill--critical">{overdue.length}</span>
@@ -228,7 +229,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         </div>
       </div>
 
-      <div className="tile-row">
+      <div className="tile-row divided-row">
         <StatTile
           icon={ClockIcon}
           label="Hours planned"
@@ -265,7 +266,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         />
       </div>
 
-      <section className="card">
+      <section>
         <BarChart
           rows={rangeRows}
           label={`Planned versus completed — last ${days} days`}
@@ -273,12 +274,12 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         />
       </section>
 
-      <div className="chart-row">
-        <section className="card">
+      <div className="chart-row divided-row">
+        <section>
           <TagBars rows={rangeByTag} label={`Time by tag — last ${days} days`} />
         </section>
 
-        <section className="card">
+        <section>
           <div className="section-head">
             <h2 className="section-head__title">What this says</h2>
           </div>

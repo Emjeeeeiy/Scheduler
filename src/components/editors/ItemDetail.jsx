@@ -89,7 +89,7 @@ export function ItemDetail({ editor, onClose, onEdit }) {
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal__panel card" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__head">
           <h2 className="modal__title detail-title">
             {fields.isOccurrence || fields.isSeries ? (

@@ -15,6 +15,7 @@ import {
   WEEKDAY_HEADERS,
 } from '../../lib/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
+import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 
 const HOUR_HEIGHT = 52
@@ -89,7 +90,8 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   }
 
   return (
-    <section className="card week" aria-label={`Week of ${formatWeekLabel(focusKey)}`}>
+    <section className="frame week" aria-label={`Week of ${formatWeekLabel(focusKey)}`}>
+      <FrameTicks />
       <p className="week__summary">
         {weekPlannedMin > 0 ? (
           <>

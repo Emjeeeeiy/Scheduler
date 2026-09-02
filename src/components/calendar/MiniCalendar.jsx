@@ -41,7 +41,7 @@ export function MiniCalendar({ onFocusDay, onFocusMonth }) {
   const month = monthOf(cursor)
 
   return (
-    <section className="card mini-cal" aria-label={`Calendar — ${formatMonthLabel(cursor)}`}>
+    <section className="mini-cal" aria-label={`Calendar — ${formatMonthLabel(cursor)}`}>
       <div className="mini-cal__head">
         <button
           type="button"

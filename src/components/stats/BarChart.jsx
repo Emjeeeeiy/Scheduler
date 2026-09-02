@@ -1,5 +1,6 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { durationLabel, toHours } from '../../lib/date.js'
+import { CloseIcon } from '../icons.jsx'
 
 /* Round the axis top to a clean number so ticks read 0 / 2 / 4 rather than
    0 / 1.7 / 3.4. */
@@ -125,19 +126,48 @@ export function BarChart({ rows, label, emptyText = 'Nothing planned in this ran
         </div>
       </div>
 
-      {/* Every value stays reachable without hovering. */}
+      {/* Every value stays reachable without hovering. Opens in a modal
+          rather than expanding in place — the chart's own column is only
+          wide enough to cramp a four-column table, and every other reader of
+          exact numbers in this app (the item index, the tag list) already
+          gets a full-width surface rather than a squeezed inline one. */}
       <button
         type="button"
         className="ghost-button ghost-button--sm chart__table-toggle"
-        aria-expanded={showTable}
+        aria-haspopup="dialog"
         aria-controls={tableId}
-        onClick={() => setShowTable((v) => !v)}
+        onClick={() => setShowTable(true)}
       >
-        {showTable ? 'Hide table' : 'Table view'}
+        Table view
       </button>
 
       {showTable && (
-        <table className="data-table" id={tableId}>
+        <ChartTableModal id={tableId} label={label} rows={rows} onClose={() => setShowTable(false)} />
+      )}
+    </figure>
+  )
+}
+
+function ChartTableModal({ id, label, rows, onClose }) {
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={label}>
+        <div className="modal__head">
+          <h2 className="modal__title">{label}</h2>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+            <CloseIcon />
+          </button>
+        </div>
+
+        <table className="data-table" id={id}>
           <thead>
             <tr>
               <th scope="col">Day</th>
@@ -159,7 +189,7 @@ export function BarChart({ rows, label, emptyText = 'Nothing planned in this ran
             ))}
           </tbody>
         </table>
-      )}
-    </figure>
+      </div>
+    </div>
   )
 }

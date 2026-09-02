@@ -1,9 +1,12 @@
+import { FrameTicks } from './FrameTicks.jsx'
+
 /** Shown when .env.local is missing or incomplete. A blank page plus a console
     stack trace is the usual failure here; these are the actual six steps. */
 export function SetupNotice({ missing }) {
   return (
     <div className="centered">
-      <div className="setup card">
+      <div className="setup frame">
+        <FrameTicks />
         <h1 className="setup__title">Connect a Firebase project</h1>
         <p className="setup__lead">
           The app needs a Firebase project before it can sign you in or store anything.

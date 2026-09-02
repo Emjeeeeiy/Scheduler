@@ -323,7 +323,10 @@ function AppShell() {
         {/* Signing out used to be a hidden second meaning of clicking your own
             avatar — undiscoverable, and one stray click from ending the
             session. It gets its own labelled row above the footer rule; the
-            avatar keeps its place below as identity only. */}
+            avatar below opens the full Account modal (photo, sign-in method,
+            delete account) instead of a quick sign-out shortcut, so this is
+            the one-click way out again now that the avatar is a heavier
+            door. */}
         {/* <button
           type="button"
           className="sidebar__link sidebar__signout"

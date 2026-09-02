@@ -5,6 +5,7 @@ import { recurrenceLabel } from '../../lib/recurrence.js'
 import { CloseIcon, RepeatIcon } from '../icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
+import { TagSelect } from './TagSelect.jsx'
 
 /* Its own component rather than a branch inside TaskEditor. TaskEditor already
    resolves three cases — an ordinary task, the rule behind a repeating one, and
@@ -127,7 +128,7 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal__panel card" role="dialog" aria-modal="true" aria-label={heading}>
+      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={heading}>
         <form onSubmit={onSubmit}>
           <div className="modal__head">
             <h2 className="modal__title">{heading}</h2>
@@ -244,14 +245,7 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
 
           <label className="field">
             <span className="field__label">Tag</span>
-            <select className="input" value={tagId} onChange={(e) => setTagId(e.target.value)}>
-              <option value="">No tag</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </select>
+            <TagSelect tags={tags} value={tagId} onChange={setTagId} />
           </label>
 
           <label className="field">

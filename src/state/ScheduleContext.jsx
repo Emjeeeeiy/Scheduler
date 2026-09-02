@@ -180,6 +180,7 @@ export function ScheduleProvider({ children }) {
   const [tasks, setTasks] = useState([])
   const [tags, setTags] = useState([])
   const [events, setEvents] = useState([])
+  const [profile, setProfile] = useState(null)
   const [readyUid, setReadyUid] = useState(null)
   const [error, setError] = useState(null)
 
@@ -273,6 +274,20 @@ export function ScheduleProvider({ children }) {
       unsubscribeTags()
       unsubscribeEvents()
     }
+  }, [uid])
+
+  /* Its own effect, deliberately outside the tasks/tags/events gate above:
+     the profile doc (display photo today) is decorative, not something the
+     rest of the app needs to be "ready" before rendering. A Google account
+     never gets one written until the first photo upload, so a missing doc
+     is normal, not an error. */
+  useEffect(() => {
+    if (!uid) return undefined
+    return onSnapshot(
+      doc(db, 'users', uid),
+      (snap) => setProfile(snap.exists() ? snap.data() : null),
+      (caught) => console.error('Could not read the profile doc.', caught),
+    )
   }, [uid])
 
   const value = useMemo(() => {
@@ -496,6 +511,7 @@ export function ScheduleProvider({ children }) {
       tags: sortedTags,
       tagById,
       inbox,
+      profile,
       loading,
       error,
 
@@ -737,8 +753,42 @@ export function ScheduleProvider({ children }) {
           await batch.commit()
         }
       },
+
+      /** A file picked for the profile photo arrives already resized to a
+          small square JPEG data URI (see ProfileModal) — this just writes it.
+          `merge: true` because a Google account may have no `users/{uid}` doc
+          at all until its first upload. */
+      async updateProfilePhoto(base64) {
+        return setDoc(doc(db, 'users', uid), { photoBase64: base64 }, { merge: true })
+      },
+
+      async removeProfilePhoto() {
+        return updateDoc(doc(db, 'users', uid), { photoBase64: deleteField() })
+      },
+
+      /** Everything this account owns in Firestore — tasks, events (including
+          every repeat rule), tags, and the profile doc itself. Deliberately
+          broader than removeAllItems (which leaves the tag palette alone):
+          this backs account deletion, where nothing should survive. Must run
+          — and finish — while still signed in, since deleteAccount() (see
+          firebase.js) ends the session, and the security rules refuse a
+          write to this uid's tree the moment it does. */
+      async deleteAllData() {
+        const refs = [
+          ...visibleTasks.map((t) => taskDoc(t.id)),
+          ...fixedEvents.map((e) => eventDoc(e.id)),
+          ...eventSeries.map((e) => eventDoc(e.id)),
+          ...tags.map((t) => tagDoc(t.id)),
+        ]
+        for (let i = 0; i < refs.length; i += 400) {
+          const batch = writeBatch(db)
+          for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
+          await batch.commit()
+        }
+        return deleteDoc(doc(db, 'users', uid))
+      },
     }
-  }, [uid, tasks, tags, events, loading, error])
+  }, [uid, tasks, tags, events, profile, loading, error])
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>
 }

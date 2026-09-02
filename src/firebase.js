@@ -1,10 +1,13 @@
 import { initializeApp } from 'firebase/app'
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -72,6 +75,38 @@ export async function signInWithGoogle() {
 export async function logout() {
   if (!auth) return
   await signOut(auth)
+}
+
+/**
+ * Deleting an account is a "sensitive" Auth operation: Firebase refuses it
+ * outright (`auth/requires-recent-login`) unless the session was established
+ * in roughly the last few minutes. Rather than let a visitor hit that wall
+ * mid-deletion — after their data is already gone, since Firestore's rules
+ * would reject the write once signed out anyway — the caller always
+ * re-authenticates first, deliberately, as part of confirming the delete.
+ * Google re-proves itself with a popup; a username/password account needs
+ * the password back, since nothing here stores it.
+ */
+export async function reauthenticate(password) {
+  if (!auth?.currentUser) throw new Error('Not signed in.')
+  const providerId = auth.currentUser.providerData[0]?.providerId
+  if (providerId === 'password') {
+    if (!password) {
+      throw appError('auth/requires-recent-login', 'Enter your password to continue.')
+    }
+    const credential = EmailAuthProvider.credential(auth.currentUser.email, password)
+    await reauthenticateWithCredential(auth.currentUser, credential)
+  } else {
+    await reauthenticateWithPopup(auth.currentUser, provider)
+  }
+}
+
+/** Removes the Auth account itself. The caller is responsible for wiping the
+    account's Firestore data FIRST, while still signed in — this call ends
+    the session, and the security rules would refuse those writes afterward. */
+export async function deleteAccount() {
+  if (!auth?.currentUser) throw new Error('Not signed in.')
+  await deleteUser(auth.currentUser)
 }
 
 function appError(code, message) {

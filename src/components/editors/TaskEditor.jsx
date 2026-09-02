@@ -5,6 +5,7 @@ import { recurrenceLabel } from '../../lib/recurrence.js'
 import { CloseIcon, RepeatIcon } from '../icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
+import { TagSelect } from './TagSelect.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
 
@@ -114,7 +115,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal__panel card" role="dialog" aria-modal="true" aria-label={heading}>
+      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={heading}>
         <form onSubmit={onSubmit}>
           <div className="modal__head">
             <h2 className="modal__title">{heading}</h2>
@@ -206,14 +207,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
 
             <label className="field">
               <span className="field__label">Tag</span>
-              <select className="input" value={tagId} onChange={(e) => setTagId(e.target.value)}>
-                <option value="">No tag</option>
-                {tags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>
-                    {tag.name}
-                  </option>
-                ))}
-              </select>
+              <TagSelect tags={tags} value={tagId} onChange={setTagId} />
             </label>
           </div>
 

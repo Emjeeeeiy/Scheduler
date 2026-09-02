@@ -56,7 +56,7 @@ export function TagManager({ onClose }) {
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal__panel card" role="dialog" aria-modal="true" aria-label="Tags">
+      <div className="modal__panel" role="dialog" aria-modal="true" aria-label="Tags">
         <div className="modal__head">
           <h2 className="modal__title">Tags</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">

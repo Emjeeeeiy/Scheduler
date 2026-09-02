@@ -51,7 +51,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
 
   return (
     <section
-      className={`inbox card${dropActive ? ' inbox--drop' : ''}`}
+      className={`inbox${dropActive ? ' inbox--drop' : ''}`}
       onDragOver={(event) => {
         if (!event.dataTransfer.types.includes(DRAG_TASK)) return
         event.preventDefault()

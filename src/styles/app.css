@@ -104,13 +104,20 @@
 }
 
 /* Tags and All items: the same row idiom as the nav, below one rule that
-   separates "open a manager" from "change the view". */
+   separates "open a manager" from "change the view". The rule runs the
+   sidebar's full width rather than stopping at its own padding: a negative
+   margin matching the sidebar's 14px inset pushes the border out to the
+   sidebar's own edges — including the right one, where `.sidebar`'s own
+   border-right lives — so the divider actually touches it instead of
+   floating a padding's-width short, the same connected-line trade the
+   Dashboard's `.stack`/`.divided-row` make. Matching padding brings the row's
+   own content back to where it was. */
 .sidebar__tools {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 14px;
-  padding-top: 14px;
+  margin: 14px -14px 0;
+  padding: 14px 14px 0;
   border-top: 1px solid var(--color-border);
 }
 
@@ -124,74 +131,20 @@
   margin-bottom: 2px;
 }
 
+/* Same full-bleed trade as `.sidebar__tools` above: the divider reaches the
+   sidebar's own edges instead of stopping at its padding. */
 .sidebar__footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 14px;
+  margin: 0 -14px;
+  padding: 14px 14px 0;
   border-top: 1px solid var(--color-border);
 }
 
 .account {
   position: relative;
   flex: none;
-}
-
-.account__panel {
-  width: 240px;
-  max-width: calc(100vw - 24px);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 8px;
-  z-index: 55;
-}
-
-.account__who {
-  padding: 6px 8px 10px;
-  border-bottom: 1px solid var(--color-border);
-  min-width: 0;
-}
-
-.account__name {
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-title);
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account__email {
-  margin-top: 2px;
-  font-size: var(--text-meta);
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account__out {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin-top: 6px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 8px 10px;
-  font-size: var(--text-item);
-  font-weight: var(--font-weight-label);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  text-align: left;
-}
-
-.account__out:hover {
-  background: var(--color-surface-2);
-  color: var(--color-text-primary);
 }
 
 /* ======================================================== notifications == */
@@ -483,6 +436,17 @@
   font-size: var(--text-label);
 }
 
+/* Every existing icon+label button (sidebar's New task/New event, nav links)
+   sets its own flex layout on a dedicated class, since the base button
+   classes stay plain text by default. This is that layout, pulled out once
+   a `.button-icon` needed it without a bespoke class of its own — apply
+   alongside `.primary-button`/`.ghost-button`/`.danger-button`. */
+.button--icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .icon-button {
   background: transparent;
   color: var(--color-text-secondary);
@@ -536,6 +500,112 @@ button.avatar:hover {
   display: block;
 }
 
+.avatar--lg {
+  width: 72px;
+  height: 72px;
+  font-size: var(--text-headline);
+}
+
+/* ================================================================ profile == */
+
+/* `.stack` (see Cards & Frames in DESIGN.md) draws the hairline between
+   sections; this modal has no `.frame`/corner ticks of its own, so the
+   `:not(.frame-tick)` guard in `.stack`'s rule simply never matches
+   anything to exclude. */
+.profile {
+  padding-top: 4px;
+}
+
+/* `.field` carries its own margin-bottom for stacking several fields in a
+   plain form; here `.stack` already spaces the sections, so the two would
+   otherwise add up to a gap wider than every other row's. */
+.profile__section.field {
+  margin-bottom: 0;
+}
+
+/* `.field`'s grid stretches every direct child to the column's full width by
+   default — exactly what an `<input>` wants and a button never does; every
+   other button in the app sizes to its own content. */
+.profile__section.field > button {
+  justify-self: start;
+}
+
+.profile__photo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile__photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile__provider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile__provider svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* Stands in for a drawn provider mark on a username/password account, which
+   has no third-party logo to show — a plain filled dot rather than leaving
+   the row lopsided next to Google's own icon. */
+.profile__provider-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface-2);
+  flex: none;
+}
+
+.profile__provider-name {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  flex: 1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-label);
+}
+
+.status-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.status-badge--good {
+  background: color-mix(in srgb, var(--color-good) 14%, transparent);
+  color: var(--color-good-text);
+}
+
+.field__label--danger {
+  color: var(--color-critical-text);
+}
+
+.field__hint--error {
+  color: var(--color-critical-text);
+}
+
+.profile__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 /* ============================================================== date nav == */
 
 .date-nav {
@@ -556,12 +626,113 @@ button.avatar:hover {
   font-weight: var(--font-weight-meta);
 }
 
-/* ================================================== cards & common bits == */
+/* =============================================== frames & common bits == */
 
-.card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+/* The base unit for a page-level section, everywhere except a modal (see
+   `.modal__panel`): no border, no fill — the corner-tick frame and internal
+   hairline dividers (`.stack`, `.divided-row`) do all the separating a
+   `.card`'s box used to do. Reserve `position: relative` here so a
+   `<FrameTicks />` child has something to anchor to; a frame that doesn't
+   render ticks doesn't need it, but the padding is the same either way. */
+.frame {
+  position: relative;
   padding: 18px;
+}
+
+@media (max-width: 640px) {
+  .frame {
+    padding: 14px;
+  }
+}
+
+/* A vertical stack whose children separate with a hairline instead of a
+   gap — the same device as the Auth Shell's `.auth-hero__row`, generalised.
+   Direct children only (`>`), so a nested `.stack` doesn't inherit its
+   parent's rule. `:not(.frame-tick)` plus the general-sibling combinator (not
+   `+`) is deliberate: `<FrameTicks />` is a Fragment, so its four spans land
+   as literal DOM siblings ahead of the real content, not a wrapper `+` could
+   skip past — `~` finds the first *real* sibling regardless of how many tick
+   spans precede it, and excluding `.frame-tick` keeps a divider from ever
+   landing on a 9px corner mark.
+
+   Border on every row-group; the 18px breathing room is deliberately NOT
+   padding on the row-group itself when that row-group is a `.divided-row`.
+   Padding here would inset a divided-row's own content box from its own
+   border, and since `.divided-row`'s `align-items: stretch` only stretches
+   a column divider to fill that (now-smaller) content box, the divider
+   would stop short of the row's real edge instead of touching the hairline
+   above and below it — which is exactly the bug this replaced: two
+   separate rulers next to each other, never a connected grid. So a
+   `.divided-row` row-group carries zero padding of its own, and its
+   children (see `.divided-row` below) carry the vertical breathing room
+   instead — a column divider then stretches the row-group's full height,
+   flush against both horizontal hairlines. A plain (non-divided) row-group
+   still takes its own padding directly; it has no column divider that
+   needs to reach anywhere. */
+.stack > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-top: 1px solid var(--color-border);
+}
+
+.stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+  padding-top: 18px;
+}
+
+.stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+  padding-bottom: 18px;
+}
+
+@media (max-width: 640px) {
+  .stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+    padding-top: 14px;
+  }
+
+  .stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+    padding-bottom: 14px;
+  }
+}
+
+/* A horizontal row whose children separate with a hairline instead of a
+   gap — the same device as the Auth Shell's `.auth-hero__stats`, used for
+   Dashboard's stat-tile and card rows once they stopped being individually
+   boxed. `auto-fit` still gives the row itself its columns; this only draws
+   the rule between them. `:not(.frame-tick)` throughout, same reason as
+   `.stack`: a `<FrameTicks />` Fragment lands its four spans as real DOM
+   children, so "first/last child" and "every child but the first" both have
+   to skip them explicitly rather than assume content starts at child 1.
+
+   The vertical padding here — not on `.divided-row` itself — is the other
+   half of the connected-grid fix in `.stack` above: a `.divided-row` that is
+   also a `.stack` row-group carries zero padding of its own, specifically so
+   `align-items: stretch` fills its full height and a column divider touches
+   the hairline above and below it. That breathing room has to live
+   somewhere, so it moves one level down, onto each cell — the same trade a
+   real collapsed-border table makes: the grid lines meet exactly, and every
+   cell insets its own content instead of the row insetting all of them. */
+.divided-row {
+  align-items: stretch;
+}
+
+.divided-row > :not(.frame-tick) {
+  padding: 18px 18px 18px 0;
+}
+
+.divided-row > :not(.frame-tick):last-child {
+  padding-right: 0;
+}
+
+.divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 1px solid var(--color-border);
+  padding-left: 18px;
+}
+
+@media (max-width: 640px) {
+  .divided-row > :not(.frame-tick) {
+    padding: 14px 14px 14px 0;
+  }
+
+  .divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+    padding-left: 14px;
+  }
 }
 
 .section-head {
@@ -596,7 +767,7 @@ button.avatar:hover {
   font-weight: var(--font-weight-item);
 }
 
-.count-pill--color-critical {
+.count-pill--critical {
   background: color-mix(in srgb, var(--color-critical) 15%, transparent);
   color: var(--color-critical-text);
 }
@@ -757,54 +928,55 @@ code {
   border-right: 1px solid var(--color-border);
 }
 
-/* A small drawn cross at each corner of the content frame — the one
-   borrowed, purely decorative motif on this screen, standing in for the
-   accent color it no longer carries. Two hairline strokes per corner, inset
-   off the edge so the frame and the tick read as one deliberate drawing. */
-.auth-tick {
+/* A small drawn cross at each corner of a content frame — originally the
+   Auth Shell's own motif, now the corner mark for every unboxed `.frame`
+   in the app (see Cards & Frames below): standing in for the accent color
+   the system no longer carries. Two hairline strokes per corner, inset off
+   the edge so the frame and the tick read as one deliberate drawing. */
+.frame-tick {
   position: absolute;
   width: 9px;
   height: 9px;
   pointer-events: none;
 }
 
-.auth-tick::before,
-.auth-tick::after {
+.frame-tick::before,
+.frame-tick::after {
   content: '';
   position: absolute;
   background: var(--color-baseline);
 }
 
-.auth-tick::before {
+.frame-tick::before {
   top: 4px;
   left: 0;
   width: 100%;
   height: 1px;
 }
 
-.auth-tick::after {
+.frame-tick::after {
   left: 4px;
   top: 0;
   width: 1px;
   height: 100%;
 }
 
-.auth-tick--tl {
+.frame-tick--tl {
   top: 12px;
   left: 12px;
 }
 
-.auth-tick--tr {
+.frame-tick--tr {
   top: 12px;
   right: 12px;
 }
 
-.auth-tick--bl {
+.frame-tick--bl {
   bottom: 12px;
   left: 12px;
 }
 
-.auth-tick--br {
+.frame-tick--br {
   bottom: 12px;
   right: 12px;
 }
@@ -867,7 +1039,15 @@ code {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Vertical padding moves off the row and onto each `.auth-hero__stat`
+   below, the same connected-grid trade `.stack`/`.divided-row` make for the
+   Dashboard: with the row itself unpadded on top, a stat's own border-left
+   stretches (grid's default align-items) all the way to this row's own top
+   edge — which is exactly where the preview row's border-bottom already
+   sits — so the column dividers touch that hairline instead of floating
+   22px below it. */
 .auth-hero__row--last {
+  padding-top: 0;
   border-bottom: none;
 }
 
@@ -940,7 +1120,7 @@ code {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  padding: 0 20px;
+  padding: 22px 20px 0;
   border-left: 1px solid var(--color-border);
   color: var(--color-text-muted);
 }
@@ -1065,6 +1245,14 @@ code {
   .auth-hero__row {
     padding: 18px 22px;
   }
+
+  .auth-hero__row--last {
+    padding-top: 0;
+  }
+
+  .auth-hero__stat {
+    padding-top: 18px;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1079,7 +1267,7 @@ code {
     display: none;
   }
 
-  .auth-tick {
+  .auth-body .frame-tick {
     display: none;
   }
 
@@ -1140,9 +1328,11 @@ code {
 
 /* ============================================================= dashboard == */
 
+/* `.stack` draws the hairline between each of the dashboard's row-groups
+   (the hero pairing, both stat-tile rows, the queue row, the trends header,
+   the chart, the chart row) instead of a plain grid gap — see `.stack`. */
 .dashboard {
   display: grid;
-  gap: 16px;
 }
 
 /* A column, not a stack: the head sits at the top, the footer is pushed to the
@@ -1298,31 +1488,22 @@ code {
 }
 
 /* Next up and Overdue share a row; auto-fit gives Next up the whole width on
-   its own when nothing is overdue. */
+   its own when nothing is overdue. `.divided-row` draws the hairline between
+   them instead of a gap — and since it only rules off existing siblings,
+   Next up alone gets no stray line when Overdue isn't rendered. */
 .queue-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 16px;
-  align-items: start;
 }
 
 .tile-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
 }
 
-.stat-tile {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  transition: border-color 120ms ease;
-}
-
-.stat-tile:hover {
-  border-color: var(--color-baseline);
-}
-
+/* No box of its own any more — a stat tile is a column of content living
+   inside a `.divided-row` cell, separated from its neighbours by the row's
+   own hairline rather than a border it carries itself. */
 .stat-tile__head {
   display: flex;
   align-items: flex-start;
@@ -1337,11 +1518,11 @@ code {
   color: var(--color-text-muted);
 }
 
-.stat-tile--color-critical .stat-tile__icon {
+.stat-tile--critical .stat-tile__icon {
   color: var(--color-critical-text);
 }
 
-.stat-tile--color-good .stat-tile__icon {
+.stat-tile--good .stat-tile__icon {
   color: var(--color-good-text);
 }
 
@@ -1373,18 +1554,17 @@ code {
   margin-top: 2px;
 }
 
-.stat-tile--color-critical .stat-tile__value {
+.stat-tile--critical .stat-tile__value {
   color: var(--color-critical-text);
 }
 
-.stat-tile--color-good .stat-tile__value {
+.stat-tile--good .stat-tile__value {
   color: var(--color-good-text);
 }
 
 .chart-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
 }
 
 /* ================================================================ charts == */
@@ -1654,11 +1834,22 @@ code {
 
 /* ============================================================ time grids == */
 
+/* The frame for the whole Day view: the grid and the inbox share it rather
+   than each carrying its own box, split by one hairline — the same device
+   as the Auth Shell's hero/panel column. */
 .day-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
   align-items: start;
+}
+
+/* `:not(.frame-tick)` + the general-sibling combinator, not `:first-child` +
+   `+`: `<FrameTicks />` is a Fragment, so its four spans are real DOM
+   children ahead of day-panel and the inbox, not something a wrapper would
+   let `.day-layout`'s own first/second-child math skip past. */
+.day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 1px solid var(--color-border);
+  padding-left: 16px;
 }
 
 .grid-scroll {
@@ -2450,8 +2641,14 @@ code {
   min-width: 0;
 }
 
+/* The Ink Invert drop-target idiom, same as `.day-column__draft`: a dashed
+   ink border rather than a filled colour. `margin: -1px` keeps the outer
+   edge from shifting when the border switches on — it briefly outranks
+   `.day-layout`'s own hairline divider, which is exactly the point: this is
+   the one moment the inbox reads as a target, not a quiet column. */
 .inbox--drop {
-  border-color: var(--color-text-primary);
+  border: 1px dashed var(--color-text-primary);
+  margin: -1px;
   background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-1));
 }
 
@@ -2622,17 +2819,30 @@ code {
   overflow-y: auto;
 }
 
-/* Carries `.card` for its shape and padding, but takes back the raised
-   surface: a modal floats above a dimmed page, and in dark mode a container-
-   coloured panel would be the same near-black as the scrim behind it. Later in
-   the file than `.card` and at equal specificity, which is what lets this win. */
+/* A modal is the one place the app still draws a boxed, raised panel: it
+   floats above a dimmed page, and needs its own bordered shape plus a
+   surface color to read as a distinct layer above the scrim behind it — the
+   Panel surface, not Container, since in dark mode a container-coloured
+   panel would be the same near-black as the scrim. Every other section in
+   the app reads its structure from lines alone (see `.frame`); a modal keeps
+   the shape because "floats above everything" is a different job than
+   "sits flat on the page." */
 .modal__panel {
   width: 100%;
   max-width: 520px;
   max-height: 90dvh;
   overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
   background: var(--color-surface-1);
   box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 640px) {
+  .modal__panel {
+    padding: 14px;
+  }
 }
 
 .modal__head {
@@ -2760,6 +2970,36 @@ code {
 .password-field__toggle svg {
   width: 16px;
   height: 16px;
+}
+
+/* A native `<select>` can't reliably paint its own `<option>` list across
+   browsers, so the swatch lives beside the control and tracks the current
+   selection instead — the one part of a native select a page can actually
+   color. */
+.tag-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tag-select__input {
+  padding-left: 26px;
+}
+
+.tag-select__dot {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.tag-select__dot--empty {
+  background: transparent;
+  border: 1px solid var(--color-baseline);
 }
 
 .input--flush {
@@ -3178,6 +3418,16 @@ code {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* The column divider becomes a stacked one: a horizontal hairline above
+     the inbox instead of a vertical one beside it. */
+  .day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--color-border);
+    padding-top: 18px;
+    margin-top: 18px;
+  }
+
   .inbox {
     position: static;
   }
@@ -3308,8 +3558,8 @@ code {
   .sidebar__tools {
     flex-direction: row;
     gap: 4px;
-    margin-top: 0;
-    padding-top: 0;
+    margin: 0;
+    padding: 0;
     border-top: none;
   }
 
@@ -3346,7 +3596,8 @@ code {
   }
 
   .sidebar__footer {
-    padding-top: 0;
+    margin: 0;
+    padding: 0;
     border-top: none;
     gap: 2px;
     flex: none;
@@ -3431,10 +3682,6 @@ code {
   /* Moved with grid-auto-rows itself, which now lives on the week row. */
   .month__week {
     grid-auto-rows: minmax(74px, auto);
-  }
-
-  .card {
-    padding: 14px;
   }
 }
 
@@ -3766,7 +4013,6 @@ code {
 .dashboard__top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 16px;
   align-items: stretch;
 }
 

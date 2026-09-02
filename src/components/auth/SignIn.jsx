@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useTheme } from '../../lib/useTheme.js'
+import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import {
@@ -61,10 +62,7 @@ export function SignIn() {
       </header>
 
       <div className="auth-body">
-        <span className="auth-tick auth-tick--tl" aria-hidden="true" />
-        <span className="auth-tick auth-tick--tr" aria-hidden="true" />
-        <span className="auth-tick auth-tick--bl" aria-hidden="true" />
-        <span className="auth-tick auth-tick--br" aria-hidden="true" />
+        <FrameTicks />
 
         <div className="auth-hero">
           <div className="auth-hero__grid">

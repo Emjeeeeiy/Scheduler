@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import {
   auth,
+  deleteAccount,
   firebaseReady,
   logout,
+  reauthenticate,
   registerWithUsername,
   signInWithGoogle,
   signInWithUsernameOrEmail,
@@ -119,6 +121,15 @@ export function AuthProvider({ children }) {
           console.error('Sign-out failed.', caught)
         }
       },
+
+      /* Deliberately left to throw, unlike the methods above: the profile
+         modal's delete flow is a multi-step confirmation (reauthenticate,
+         then wipe Firestore, then delete the account) that needs to branch
+         on exactly what failed and where — a wrong password is not the same
+         situation as a closed Google popup — so it keeps its own local error
+         state rather than sharing this banner's single message. */
+      reauthenticate,
+      deleteAccount,
     }),
     [user, loading, error],
   )

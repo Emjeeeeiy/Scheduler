@@ -284,3 +284,21 @@ export function BellIcon(props) {
     </Icon>
   )
 }
+
+export function CameraIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h7l1 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+      <circle cx="12" cy="12.5" r="3.5" />
+    </Icon>
+  )
+}
+
+export function TrashIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7M18 7l-.8 12.1a2 2 0 0 1-2 1.9H8.8a2 2 0 0 1-2-1.9L6 7" />
+      <path d="M10 11v6M14 11v6" />
+    </Icon>
+  )
+}

@@ -17,6 +17,7 @@ import { dayStats } from '../../lib/stats.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
 import { DayPeek } from '../calendar/DayPeek.jsx'
+import { FrameTicks } from '../shell/FrameTicks.jsx'
 
 /* How many rows of content a cell can hold at all — event lanes and task chips
    share this budget, so a day with two spanning bars shows fewer chips rather
@@ -298,7 +299,8 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
   }
 
   return (
-    <section className="card month" aria-label={formatMonthLabel(focusKey)}>
+    <section className="frame month" aria-label={formatMonthLabel(focusKey)}>
+      <FrameTicks />
       <div className="month__head" aria-hidden="true">
         {WEEKDAY_HEADERS.map((label) => (
           <span key={label} className="month__dow">

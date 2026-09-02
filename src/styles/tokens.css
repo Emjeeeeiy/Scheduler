@@ -15,9 +15,22 @@
    the documented Tailwind v4 pattern for runtime-switchable themes — the
    utility classes below reference the variable, not a baked-in value, so a
    later `[data-theme="dark"] { --color-page: ... }` is picked up automatically
-   by every element already using bg-page/text-color-page/etc. */
+   by every element already using bg-page/text-color-page/etc.
 
-@theme {
+   `static`, not the bare `@theme`: Tailwind only keeps a variable in its
+   compiled output if it can see a matching utility class or a literal
+   var(--token) somewhere in the CSS it scans. The eight --color-tag-* tokens
+   are read exclusively from JS — ScheduleContext resolves a tag's color as
+   the STRING `var(--color-tag-${slot})`, assembled at runtime and invisible
+   to that static scan — so Tailwind silently dropped their light-mode
+   defaults from the build (the dark overrides survived only because they're
+   plain CSS outside this block, untouched by the same pass). Every tag
+   rendered colorless the moment a visitor was in light mode or hadn't
+   toggled to dark. `static` forces the whole block to always compile,
+   trading a few unused bytes for tokens that behave like tokens regardless
+   of which ones happen to be read from a template string instead of a class. */
+
+@theme static {
   /* surfaces */
   --color-page:            #f9f9f7;
   --color-surface-1:       #fcfcfb;
