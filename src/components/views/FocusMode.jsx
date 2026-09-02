@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { todayKey } from '../../lib/date.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
-import { CheckIcon, PauseIcon, PlayIcon, ResetIcon } from '../icons.jsx'
+import { CheckIcon, CloseIcon, PauseIcon, PlayIcon, ResetIcon } from '../icons.jsx'
 
 /** The technique's own shape: 25 to focus, 5 to breathe, and — every fourth
     round — a longer break before the cycle starts over. Persisted so the
@@ -39,32 +39,73 @@ function formatClock(totalSeconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-/* A focus round ending gets the alarm — stop, get up, take the break. A
-   break ending gets the lighter notification ping — a nudge back, not a
-   demand. Both live in public/ so they're served as plain static files,
+/* A focus round ending is the one moment this app makes noise on purpose —
+   loud and looping, like an actual alarm, because the whole point is to pull
+   you out of what you're doing. A break ending is the opposite: you're
+   already idle, so it stays silent and just waits for you to start the next
+   round. The file lives in public/ so it's served as a plain static asset,
    unbundled. */
-const SOUND_FOR_PHASE = {
-  focus: '/sounds/alarm.wav',
-  short: '/sounds/notification.wav',
-  long: '/sounds/notification.wav',
-}
-
-function playSound(phase) {
-  try {
-    new Audio(SOUND_FOR_PHASE[phase]).play().catch(() => {
-      /* Autoplay can still be refused in edge cases (e.g. a muted tab) —
-         the on-screen phase change and any OS notification still land. */
-    })
-  } catch {
-    /* `Audio` can be unavailable in some embedded contexts; not fatal. */
-  }
-}
+const ALARM_SRC = '/sounds/alarm.wav'
 
 function notify(phase) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   const title = phase === 'focus' ? 'Focus session complete' : 'Break is over — back to it'
   const body = phase === 'focus' ? 'Time for a break.' : 'Your next focus round is ready.'
   new Notification(title, { body })
+}
+
+const DIAL_CENTER = 50
+const MAJOR_TICK_LENGTH = 10
+const MINOR_TICK_LENGTH = 5
+
+/** A point `length` out from the dial's center, at `angle` degrees measured
+    clockwise from 12 — the one bit of trig the hand and every tick share. */
+function pointOnDial(angle, length) {
+  const radians = (angle - 90) * (Math.PI / 180)
+  return {
+    x: DIAL_CENTER + length * Math.cos(radians),
+    y: DIAL_CENTER + length * Math.sin(radians),
+  }
+}
+
+/** A stopwatch face for the round in progress, not a wall clock — the hand
+    sweeps once per elapsed minute of *this* countdown, so the one thing in
+    motion is tied to the timer itself. It freezes exactly when the timer is
+    paused and picks back up exactly when it resumes, because it reads
+    `elapsedSeconds` off the same state driving the digital clock rather than
+    keeping a clock of its own. */
+function StopwatchFace({ elapsedSeconds, size = 128 }) {
+  const hand = pointOnDial(((elapsedSeconds % 60) / 60) * 360, 41)
+
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} className="focus__stopwatch" aria-hidden="true">
+      <circle cx={DIAL_CENTER} cy={DIAL_CENTER} r={47} className="focus__stopwatch-face" />
+      {Array.from({ length: 12 }, (_, i) => {
+        const angle = i * 30
+        const length = i % 3 === 0 ? MAJOR_TICK_LENGTH : MINOR_TICK_LENGTH
+        const outer = pointOnDial(angle, 47)
+        const inner = pointOnDial(angle, 47 - length)
+        return (
+          <line
+            key={angle}
+            x1={inner.x}
+            y1={inner.y}
+            x2={outer.x}
+            y2={outer.y}
+            className={`focus__stopwatch-tick${i % 3 === 0 ? ' focus__stopwatch-tick--major' : ''}`}
+          />
+        )
+      })}
+      <line
+        x1={DIAL_CENTER}
+        y1={DIAL_CENTER}
+        x2={hand.x}
+        y2={hand.y}
+        className="focus__stopwatch-hand"
+      />
+      <circle cx={DIAL_CENTER} cy={DIAL_CENTER} r={2.4} className="focus__stopwatch-pivot" />
+    </svg>
+  )
 }
 
 export function FocusMode({ onEdit }) {
@@ -80,6 +121,13 @@ export function FocusMode({ onEdit }) {
   const [completed, setCompleted] = useState(0)
   const [running, setRunning] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(() => durationFor('focus', settings))
+  const [alarmRinging, setAlarmRinging] = useState(false)
+  const alarmRef = useRef(null)
+
+  // A safety net, not the normal path (Stop and Escape already pause it) —
+  // this only matters if FocusMode itself ever unmounts mid-ring, e.g. on
+  // sign-out, so the alarm doesn't keep looping after its UI is gone.
+  useEffect(() => () => alarmRef.current?.pause(), [])
 
   const openTasks = tasksOn(todayKey()).filter((t) => !t.done)
   // A stale id — the task finished or got edited elsewhere, or it's simply a
@@ -109,9 +157,11 @@ export function FocusMode({ onEdit }) {
       clearInterval(id)
       setRunning(false)
       setSecondsLeft(0)
-      playSound(phase)
       notify(phase)
       if (phase === 'focus') {
+        // Only a focus round ending rings the alarm — a break ending is
+        // meant to be quiet, since you're already sitting there waiting on it.
+        startAlarm()
         setCompleted((c) => {
           const finished = c + 1
           const next = finished % settings.longEvery === 0 ? 'long' : 'short'
@@ -127,9 +177,43 @@ export function FocusMode({ onEdit }) {
     return () => clearInterval(id)
   }, [running])
 
+  // The alarm rings until someone actually stops it — Escape is the same
+  // "make it stop" gesture every other modal in the app already answers to.
+  useEffect(() => {
+    if (!alarmRinging) return undefined
+    function onKeyDown(event) {
+      if (event.key === 'Escape') stopAlarm()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [alarmRinging])
+
   const total = durationFor(phase, settings)
   const pct = total > 0 ? Math.round(((total - secondsLeft) / total) * 100) : 0
   const roundInCycle = (completed % settings.longEvery) + (phase === 'focus' ? 1 : 0)
+
+  function startAlarm() {
+    try {
+      const audio = new Audio(ALARM_SRC)
+      audio.loop = true
+      alarmRef.current = audio
+      audio.play().catch(() => {
+        /* Autoplay can still be refused in edge cases (e.g. a muted tab) —
+           the modal and any OS notification still land either way. */
+      })
+    } catch {
+      /* `Audio` can be unavailable in some embedded contexts; not fatal. */
+    }
+    setAlarmRinging(true)
+  }
+
+  function stopAlarm() {
+    if (alarmRef.current) {
+      alarmRef.current.pause()
+      alarmRef.current = null
+    }
+    setAlarmRinging(false)
+  }
 
   function toggleRunning() {
     setRunning((r) => !r)
@@ -232,15 +316,24 @@ export function FocusMode({ onEdit }) {
       </div>
 
       <div className="focus__timer">
-        <p className="focus__phase">{PHASE_LABEL[phase]}</p>
+        <p className="focus__phase">
+          {running && <span className="now-next__dot" aria-hidden="true" />}
+          {PHASE_LABEL[phase]}
+        </p>
         <p className="focus__clock">{formatClock(secondsLeft)}</p>
+
+        <StopwatchFace elapsedSeconds={total - secondsLeft} />
 
         <span className="hero__load-track focus__track">
           <span className="hero__load-fill" style={{ width: `${pct}%` }} />
         </span>
 
         <div className="focus__controls">
-          <button type="button" className="primary-button focus__toggle" onClick={toggleRunning}>
+          <button
+            type="button"
+            className="primary-button primary-button--lg focus__toggle"
+            onClick={toggleRunning}
+          >
             {running ? <PauseIcon className="button-icon" /> : <PlayIcon className="button-icon" />}
             {running ? 'Pause' : secondsLeft === total ? 'Start' : 'Resume'}
           </button>
@@ -250,6 +343,29 @@ export function FocusMode({ onEdit }) {
           </button>
         </div>
       </div>
+
+      {alarmRinging && (
+        <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && stopAlarm()}>
+          <div className="modal__panel" role="dialog" aria-modal="true" aria-label="Focus session complete">
+            <div className="modal__head">
+              <h2 className="modal__title">Focus session complete</h2>
+              <button type="button" className="icon-button" onClick={stopAlarm} aria-label="Close">
+                <CloseIcon />
+              </button>
+            </div>
+            {/* The phase/timer state has already rolled over to the break by
+                the time this shows, so it reads straight off `phase`/`total`
+                rather than re-deriving what comes next. */}
+            <p className="field__hint">Time for a {PHASE_LABEL[phase].toLowerCase()} — {formatClock(total)} next.</p>
+            <div className="modal__foot">
+              <span className="modal__spacer" />
+              <button type="button" className="primary-button" onClick={stopAlarm} autoFocus>
+                Stop alarm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

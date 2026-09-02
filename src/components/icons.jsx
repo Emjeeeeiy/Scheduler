@@ -349,3 +349,238 @@ export function ResetIcon(props) {
     </Icon>
   )
 }
+
+/* ------------------------------------------------------------ tag icons -- */
+/* A curated set a tag can wear instead of a plain colour dot — the same 12
+   used everywhere a tag paints itself (see TagGlyph.jsx). Deliberately
+   simple shapes: at the sizes a tag actually renders at (12–14px, next to a
+   line of text) anything busier stops reading as a picture. */
+
+export function BriefcaseIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="7" width="18" height="12" rx="2" />
+      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
+      <path d="M3 13h18" />
+    </Icon>
+  )
+}
+
+export function HomeIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9.5a.5.5 0 0 0 .5.5H10v-5a2 2 0 0 1 4 0v5h3.5a.5.5 0 0 0 .5-.5V10" />
+    </Icon>
+  )
+}
+
+export function BookIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v16H6.5A1.5 1.5 0 0 0 5 20.5Z" />
+      <path d="M5 4.5v16" />
+    </Icon>
+  )
+}
+
+export function HeartIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20s-7-4.4-9.5-9C.7 7.4 2.8 4 6 4c2 0 3.5 1.2 4 2.4.5-1.2 2-2.4 4-2.4 3.2 0 5.3 3.4 3.5 7-2.5 4.6-9.5 9-9.5 9Z" />
+    </Icon>
+  )
+}
+
+export function WalletIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M3 10h18" />
+      <circle cx="16.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function PlaneIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M3 11 21 3l-8 18-2-8-8-2z" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+export function UsersIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <circle cx="17.5" cy="9" r="2.3" />
+      <path d="M15.7 19c.2-2.1 1.6-3.8 3.5-4.3" />
+    </Icon>
+  )
+}
+
+export function CoffeeIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 9h13v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4Z" />
+      <path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17" />
+      <path d="M7 6c0-1 1-1 1-2s-1-1-1-2M11 6c0-1 1-1 1-2s-1-1-1-2" />
+    </Icon>
+  )
+}
+
+export function BulbIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.9v.2h5v-.2c0-.8.4-1.5 1-1.9A6 6 0 0 0 12 3Z" />
+    </Icon>
+  )
+}
+
+export function FlagIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 3v18" />
+      <path d="M5 4h13l-3 4 3 4H5" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+export function StarIcon(props) {
+  return (
+    <Icon {...props}>
+      <path
+        d="M12 3l2.6 5.8 6.4.6-4.8 4.3 1.4 6.3L12 16.9 6.4 20l1.4-6.3-4.8-4.3 6.4-.6Z"
+        strokeLinejoin="round"
+      />
+    </Icon>
+  )
+}
+
+export function DumbbellIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 10.5v3M4 9v6M20 9v6M21.5 10.5v3" />
+      <path d="M7 12h10" />
+      <path d="M7 9v6M17 9v6" />
+    </Icon>
+  )
+}
+
+export function PillIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="2" y="9" width="20" height="6" rx="3" transform="rotate(-45 12 12)" />
+      <path d="M9.5 14.5l5-5" />
+    </Icon>
+  )
+}
+
+export function MusicNoteIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9 18V5l10-2v13" />
+      <circle cx="7" cy="18" r="2.2" />
+      <circle cx="17" cy="16" r="2.2" />
+    </Icon>
+  )
+}
+
+export function CartIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 3h2.5l2.4 12.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6" />
+      <circle cx="9" cy="20" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="20" r="1.3" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function UtensilsIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M7 2v7a1.5 1.5 0 0 1-3 0V2M5.5 9v13" />
+      <path d="M17 2c-1.8 2.6-1.8 6.4 0 9v11" />
+    </Icon>
+  )
+}
+
+export function CarIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M3 15l1.5-5A2 2 0 0 1 6.4 8.5h11.2a2 2 0 0 1 1.9 1.5L21 15" />
+      <rect x="2.5" y="15" width="19" height="4.5" rx="1.5" />
+      <circle cx="7" cy="19.5" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="17" cy="19.5" r="1.6" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function PhoneIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 4h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 3 6.2 2 2 0 0 1 5 4Z" />
+    </Icon>
+  )
+}
+
+export function MailIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3.5 6.5l8.5 6.5 8.5-6.5" />
+    </Icon>
+  )
+}
+
+export function GameControllerIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="2.5" y="7" width="19" height="10" rx="4" />
+      <path d="M7 10v4M5 12h4" />
+      <circle cx="16" cy="10.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18.5" cy="13" r="1" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function PaletteIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3a9 8 0 1 0 0 16c1.5 0 2-1 2-2s-.5-1.5-.5-2.3c0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-3.3-4-6-9-6Z" />
+      <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="8.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="10.5" r="1" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function GraduationCapIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2 9l10-4 10 4-10 4L2 9Z" strokeLinejoin="round" />
+      <path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5" />
+      <path d="M22 9v6" />
+    </Icon>
+  )
+}
+
+export function LeafIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M20 4C11 4 4 11 4 20c9 0 16-7 16-16Z" strokeLinejoin="round" />
+      <path d="M6 18C12 12 16 8 20 4" />
+    </Icon>
+  )
+}
+
+export function MoonIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" strokeLinejoin="round" />
+    </Icon>
+  )
+}

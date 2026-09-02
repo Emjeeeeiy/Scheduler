@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { durationLabel, formatDayLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { CheckIcon, CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
+import { TagGlyph } from './TagGlyph.jsx'
 
 function taskFields(task) {
   const isOccurrence = Boolean(task.occurrenceDate)
@@ -132,7 +133,7 @@ export function ItemDetail({ editor, onClose, onEdit }) {
             <span className="detail-field__value">
               {tag ? (
                 <>
-                  <span className="tag-swatch tag-swatch--sm" style={{ background: tag.color }} aria-hidden="true" />
+                  <TagGlyph tag={tag} variant="swatch" className="tag-swatch tag-swatch--sm" />
                   {' '}
                   {tag.name}
                 </>

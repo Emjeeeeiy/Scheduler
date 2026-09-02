@@ -51,6 +51,37 @@ export const TAG_SLOTS = [
   'red',
 ]
 
+/* Unlike a slot, no icon is ever assigned automatically — a plain colour dot
+   is a complete, valid tag on its own, so this only ever reflects something
+   someone deliberately picked in the Tag Manager. See TagGlyph.jsx for how a
+   key here becomes a component. */
+export const TAG_ICONS = [
+  'briefcase',
+  'home',
+  'book',
+  'heart',
+  'wallet',
+  'plane',
+  'users',
+  'coffee',
+  'bulb',
+  'flag',
+  'star',
+  'dumbbell',
+  'pill',
+  'musicNote',
+  'cart',
+  'utensils',
+  'car',
+  'phone',
+  'mail',
+  'gameController',
+  'palette',
+  'graduationCap',
+  'leaf',
+  'moon',
+]
+
 /* Deterministic ids, so seeding is idempotent: two tabs (or a retry after an
    offline write) converge on the same three docs instead of racing to create
    duplicates. */
@@ -157,6 +188,10 @@ function normalizeTag(id, raw) {
     id,
     name: name || 'Untitled',
     slot,
+    // null is a real, valid state here — "no icon, just the colour" — not a
+    // missing value, so an unrecognised or absent one normalizes to null
+    // rather than to some default glyph nobody chose.
+    icon: TAG_ICONS.includes(raw?.icon) ? raw.icon : null,
     // Resolved once here so every consumer paints from the themed token and
     // no component has to know how a slot maps to a colour.
     color: `var(--color-tag-${slot})`,
@@ -707,6 +742,7 @@ export function ScheduleProvider({ children }) {
             draft.slot ??
             TAG_SLOTS.find((s) => !visibleTags.some((t) => t.slot === s)) ??
             TAG_SLOTS[visibleTags.length % TAG_SLOTS.length],
+          icon: TAG_ICONS.includes(draft.icon) ? draft.icon : null,
           order: visibleTags.length,
         })
       },

@@ -4,6 +4,7 @@ import { useTheme } from '../../lib/useTheme.js'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
+import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
 import {
   ClockIcon,
   GoogleIcon,
@@ -36,6 +37,7 @@ export function SignIn() {
   const { theme, cycleTheme } = useTheme()
   const [mode, setMode] = useState('login')
   const isRegister = mode === 'register'
+  const isForgot = mode === 'forgot'
   const ThemeIcon = THEME_ICON[theme]
 
   function switchTo(nextMode) {
@@ -110,27 +112,41 @@ export function SignIn() {
         <div className="auth-panel">
           <div className="auth-panel__inner">
             <div className="auth-panel__head">
-              <h2 className="auth-panel__title">{isRegister ? 'Sign up' : 'Log in'}</h2>
+              <h2 className="auth-panel__title">
+                {isForgot ? 'Reset your password' : isRegister ? 'Sign up' : 'Log in'}
+              </h2>
               <p className="auth-panel__lead">
-                {isRegister
-                  ? 'Enter your details to create your account.'
-                  : 'Enter your details to access your account.'}
+                {isForgot
+                  ? 'Enter the username or email on your account.'
+                  : isRegister
+                    ? 'Enter your details to create your account.'
+                    : 'Enter your details to access your account.'}
               </p>
             </div>
 
-            <button type="button" className="google-button" onClick={signIn}>
-              <GoogleIcon /> Sign in with Google
-            </button>
+            {/* A password reset has nothing to do with Google's own sign-in,
+                which never has a password to reset — so this and the divider
+                below only make sense on the two forms that do use one. */}
+            {!isForgot && (
+              <>
+                <button type="button" className="google-button" onClick={signIn}>
+                  <GoogleIcon /> Sign in with Google
+                </button>
 
-            <div className="auth-divider" role="presentation">
-              <span>or</span>
-            </div>
-
-            {mode === 'login' ? (
-              <LoginForm onSwitchToRegister={() => switchTo('register')} />
-            ) : (
-              <RegisterForm onSwitchToLogin={() => switchTo('login')} />
+                <div className="auth-divider" role="presentation">
+                  <span>or</span>
+                </div>
+              </>
             )}
+
+            {mode === 'login' && (
+              <LoginForm
+                onSwitchToRegister={() => switchTo('register')}
+                onForgotPassword={() => switchTo('forgot')}
+              />
+            )}
+            {mode === 'register' && <RegisterForm onSwitchToLogin={() => switchTo('login')} />}
+            {mode === 'forgot' && <ForgotPasswordForm onSwitchToLogin={() => switchTo('login')} />}
 
             {error && (
               <p className="banner banner--error" role="alert">

@@ -1417,6 +1417,18 @@ code {
   cursor: pointer;
 }
 
+/* Sits between the password field and the submit button, so it reads as
+   "one more thing about this field" rather than competing with Log in for
+   attention — smaller, secondary-coloured, and pulled up out of the field's
+   own bottom margin instead of adding a full line of its own. */
+.link-button.auth-form__forgot {
+  display: block;
+  margin: -6px 0 14px auto;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+
 /* ============================================================= dashboard == */
 
 /* `.stack` draws the hairline between each of the dashboard's row-groups
@@ -1972,15 +1984,23 @@ code {
   white-space: nowrap;
 }
 
+/* The page's one hero moment, styled after the Dashboard's own: same Glow
+   Neutral wash (the app's single sanctioned decorative echo), just centered
+   here instead of corner-anchored, since this section has no figure competing
+   for a corner the way the Dashboard's stat row does. */
 .focus__timer {
   display: grid;
   justify-items: center;
   text-align: center;
   gap: 4px;
-  padding: 28px 0 8px;
+  padding: 36px 0 12px;
+  background-image: radial-gradient(ellipse 65% 55% at 50% 15%, var(--color-glow-neutral), transparent 70%);
 }
 
 .focus__phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: var(--text-label);
   font-weight: var(--font-weight-label);
   color: var(--color-text-secondary);
@@ -1995,12 +2015,45 @@ code {
   line-height: 0.95;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.focus__stopwatch {
+  margin: 22px 0 4px;
+  color: var(--color-text-primary);
+}
+
+.focus__stopwatch-face {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.focus__stopwatch-tick {
+  stroke: var(--color-baseline);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.focus__stopwatch-tick--major {
+  stroke: var(--color-text-secondary);
+  stroke-width: 2;
+}
+
+.focus__stopwatch-hand {
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+
+.focus__stopwatch-pivot {
+  fill: currentColor;
 }
 
 .focus__track {
   width: 100%;
   max-width: 320px;
-  margin: 18px 0 26px;
+  margin: 22px 0 28px;
 }
 
 .focus__controls {
@@ -2016,7 +2069,7 @@ code {
 }
 
 .focus__toggle {
-  min-width: 128px;
+  min-width: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2026,6 +2079,10 @@ code {
 @media (max-width: 640px) {
   .focus__clock {
     font-size: var(--text-hero-sm);
+  }
+
+  .focus__stopwatch {
+    margin: 18px 0 4px;
   }
 }
 
@@ -3000,7 +3057,20 @@ code {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--tag);
+}
+
+/* A glyph doesn't read at dot size, so a tag wearing one claims a bit more
+   room here than the plain dot it replaces. */
+.tag-chip__dot--icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* Shared by every place TagGlyph renders an icon instead of a dot — just
+   baseline alignment next to the text it sits beside. */
+.tag-glyph-icon {
+  flex: none;
+  vertical-align: -2px;
 }
 
 /* ================================================================ modals == */
@@ -3199,6 +3269,12 @@ code {
   border: 1px solid var(--color-baseline);
 }
 
+.tag-select__dot--icon {
+  width: 13px;
+  height: 13px;
+  left: 9px;
+}
+
 .input--flush {
   border-color: transparent;
   background: transparent;
@@ -3215,6 +3291,19 @@ code {
   display: grid;
   gap: 4px;
   margin-bottom: 14px;
+}
+
+/* One tag's whole block — its row plus the icon strip now permanently under
+   it — so a hairline separates tag from tag instead of leaving the icon
+   strip looking like it could belong to either neighbour. */
+.tag-list__group {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tag-list__group:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .tag-list__item {
@@ -3251,6 +3340,11 @@ code {
   flex: none;
 }
 
+.tag-swatch.tag-swatch--icon {
+  width: 12px;
+  height: 12px;
+}
+
 .tag-colors {
   display: flex;
   gap: 3px;
@@ -3268,6 +3362,44 @@ code {
 
 .tag-colors__dot--on {
   border-color: var(--color-text-primary);
+}
+
+/* The icon strip a tag's swatch button reveals — one extra row under that
+   tag rather than 13 more buttons crammed into its already-busy row. */
+/* A real grid, not a wrapped row: equal-width cells that end at the same
+   edge read as a picker, where a ragged flex-wrap line of two dozen buttons
+   just reads as clutter. `auto-fill` sizes the column count to whatever
+   width the modal actually has rather than a number picked for one width. */
+.tag-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 4px;
+  margin: 6px 0 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.tag-icons__btn {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.tag-icons__btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.tag-icons__btn--on {
+  border-color: var(--color-text-primary);
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
 }
 
 .tag-add {

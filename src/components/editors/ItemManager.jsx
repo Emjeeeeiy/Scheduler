@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { addDays, formatDayLabel, minToShortLabel, todayKey } from '../../lib/date.js'
 import { occursOn, recurrenceLabel } from '../../lib/recurrence.js'
 import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
+import { TagGlyph } from './TagGlyph.jsx'
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -347,11 +348,7 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                       {tag && (
                         <>
                           {' · '}
-                          <span
-                            className="tag-swatch tag-swatch--sm"
-                            style={{ background: tag.color }}
-                            aria-hidden="true"
-                          />
+                          <TagGlyph tag={tag} variant="swatch" className="tag-swatch tag-swatch--sm" />
                           {tag.name}
                         </>
                       )}

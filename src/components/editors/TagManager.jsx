@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { TAG_SLOTS, useSchedule } from '../../state/ScheduleContext.jsx'
+import { TAG_ICONS, TAG_SLOTS, useSchedule } from '../../state/ScheduleContext.jsx'
 import { CloseIcon } from '../icons.jsx'
+import { TAG_ICON_COMPONENTS, TagGlyph } from './TagGlyph.jsx'
 
 function SlotPicker({ value, onPick, label }) {
   return (
@@ -21,10 +22,49 @@ function SlotPicker({ value, onPick, label }) {
   )
 }
 
+/** The full set of glyphs a tag can wear, plus a leading "none" that clears
+    it back to a plain colour dot. Laid out as a real grid rather than a
+    wrapped row — with two dozen options, equal-width cells that end at the
+    same edge read as a picker; a ragged flex-wrap line reads as clutter. */
+function IconPicker({ value, onPick, label }) {
+  return (
+    <div className="tag-icons" role="group" aria-label={label}>
+      <button
+        type="button"
+        className={`tag-icons__btn${value === null ? ' tag-icons__btn--on' : ''}`}
+        onClick={() => onPick(null)}
+        aria-label="No icon"
+        aria-pressed={value === null}
+        title="No icon"
+      >
+        <CloseIcon width="14" height="14" />
+      </button>
+      {TAG_ICONS.map((key) => {
+        const GlyphIcon = TAG_ICON_COMPONENTS[key]
+        return (
+          <button
+            key={key}
+            type="button"
+            className={`tag-icons__btn${value === key ? ' tag-icons__btn--on' : ''}`}
+            onClick={() => onPick(key)}
+            aria-label={key}
+            aria-pressed={value === key}
+            title={key}
+          >
+            <GlyphIcon width="15" height="15" />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function TagManager({ onClose }) {
   const { tags, tasks, addTag, updateTag, removeTag } = useSchedule()
   const [name, setName] = useState('')
   const [slot, setSlot] = useState(null)
+  const [icon, setIcon] = useState(null)
+  const [pickingIconFor, setPickingIconFor] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
 
@@ -59,8 +99,9 @@ export function TagManager({ onClose }) {
     setAdding(true)
     setName('')
     setSlot(null)
+    setIcon(null)
     try {
-      await addTag({ name: trimmed, slot: activeSlot })
+      await addTag({ name: trimmed, slot: activeSlot, icon })
     } catch (caught) {
       console.error('Could not add tag.', caught)
       setName(trimmed)
@@ -88,52 +129,69 @@ export function TagManager({ onClose }) {
         ) : (
           <ul className="tag-list">
             {tags.map((tag) => (
-              <li key={tag.id} className="tag-list__item">
-                <span className="tag-swatch" style={{ background: tag.color }} aria-hidden="true" />
-                <input
-                  className="input input--flush"
-                  value={tag.name}
-                  onChange={(e) => updateTag(tag.id, { name: e.target.value })}
-                  aria-label={`Rename ${tag.name}`}
-                  maxLength={40}
-                />
-                <SlotPicker
-                  value={tag.slot}
-                  onPick={(next) => updateTag(tag.id, { slot: next })}
-                  label={`Colour for ${tag.name}`}
-                />
-                <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
-                  {countFor(tag.id)}
-                </span>
-                {confirming === tag.id ? (
-                  <span className="tag-list__confirm">
-                    <button
-                      type="button"
-                      className="danger-button danger-button--sm"
-                      onClick={async () => {
-                        await removeTag(tag.id)
-                        setConfirming(null)
-                      }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-button ghost-button--sm"
-                      onClick={() => setConfirming(null)}
-                    >
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
+              <li key={tag.id} className="tag-list__group">
+                <div className="tag-list__item">
+                  <TagGlyph tag={tag} variant="swatch" className="tag-swatch" />
+                  <input
+                    className="input input--flush"
+                    value={tag.name}
+                    onChange={(e) => updateTag(tag.id, { name: e.target.value })}
+                    aria-label={`Rename ${tag.name}`}
+                    maxLength={40}
+                  />
+                  <SlotPicker
+                    value={tag.slot}
+                    onPick={(next) => updateTag(tag.id, { slot: next })}
+                    label={`Colour for ${tag.name}`}
+                  />
                   <button
                     type="button"
-                    className="icon-button"
-                    onClick={() => setConfirming(tag.id)}
-                    aria-label={`Delete ${tag.name}`}
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setPickingIconFor((id) => (id === tag.id ? null : tag.id))}
+                    aria-expanded={pickingIconFor === tag.id}
                   >
-                    <CloseIcon />
+                    {pickingIconFor === tag.id ? 'Close' : 'Icon'}
                   </button>
+                  <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
+                    {countFor(tag.id)}
+                  </span>
+                  {confirming === tag.id ? (
+                    <span className="tag-list__confirm">
+                      <button
+                        type="button"
+                        className="danger-button danger-button--sm"
+                        onClick={async () => {
+                          await removeTag(tag.id)
+                          setConfirming(null)
+                        }}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--sm"
+                        onClick={() => setConfirming(null)}
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => setConfirming(tag.id)}
+                      aria-label={`Delete ${tag.name}`}
+                    >
+                      <CloseIcon />
+                    </button>
+                  )}
+                </div>
+                {pickingIconFor === tag.id && (
+                  <IconPicker
+                    value={tag.icon}
+                    onPick={(next) => updateTag(tag.id, { icon: next })}
+                    label={`Icon for ${tag.name}`}
+                  />
                 )}
               </li>
             ))}
@@ -145,10 +203,10 @@ export function TagManager({ onClose }) {
         )}
 
         <form className="tag-add" onSubmit={onAdd}>
-          <span
+          <TagGlyph
+            tag={{ color: `var(--color-tag-${activeSlot})`, icon }}
+            variant="swatch"
             className="tag-swatch"
-            style={{ background: `var(--color-tag-${activeSlot})` }}
-            aria-hidden="true"
           />
           <input
             className="input"
@@ -159,14 +217,25 @@ export function TagManager({ onClose }) {
             aria-label="New tag name"
           />
           <SlotPicker value={activeSlot} onPick={setSlot} label="Colour for the new tag" />
+          <button
+            type="button"
+            className="ghost-button ghost-button--sm"
+            onClick={() => setPickingIconFor((id) => (id === 'new' ? null : 'new'))}
+            aria-expanded={pickingIconFor === 'new'}
+          >
+            {pickingIconFor === 'new' ? 'Close' : 'Icon'}
+          </button>
           <button type="submit" className="primary-button" disabled={adding}>
             Add
           </button>
         </form>
+        {pickingIconFor === 'new' && (
+          <IconPicker value={icon} onPick={setIcon} label="Icon for the new tag" />
+        )}
 
         <p className="field__hint">
           Colours are offered in a fixed order chosen so neighbouring tags stay distinguishable
-          with colour-vision deficiency.
+          with colour-vision deficiency. An icon is optional, and stays off unless you pick one.
         </p>
       </div>
     </div>

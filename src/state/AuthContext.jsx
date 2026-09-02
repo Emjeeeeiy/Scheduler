@@ -7,6 +7,7 @@ import {
   logout,
   reauthenticate,
   registerWithUsername,
+  requestPasswordReset,
   signInWithGoogle,
   signInWithUsernameOrEmail,
 } from '../firebase.js'
@@ -101,6 +102,24 @@ export function AuthProvider({ children }) {
         } catch (caught) {
           console.error('Sign-in failed.', caught)
           setError(friendlyMessage(caught))
+        }
+      },
+
+      /* Unlike its siblings, this reports success back to the caller instead
+         of leaving it to infer from navigation or the shared banner — there
+         is no "signed in now" transition to fall back on, and the same
+         "check your email" message has to show whether the account was real
+         or not (see requestPasswordReset), so the form needs an explicit
+         yes/no to know when that's safe to say. */
+      async resetPassword(identifier) {
+        setError(null)
+        try {
+          await requestPasswordReset(identifier)
+          return true
+        } catch (caught) {
+          console.error('Password reset failed.', caught)
+          setError(friendlyMessage(caught))
+          return false
         }
       },
 

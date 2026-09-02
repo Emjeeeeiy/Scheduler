@@ -2,6 +2,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { durationLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { RepeatIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 /** One task as a line item — used by the inbox, the day agenda, the dashboard,
     and the overdue list, so the checkbox and tag chip look the same everywhere. */
@@ -40,8 +41,8 @@ export function TaskRow({ task, onEdit, showDate = false, showTime = true }) {
             </span>
           )}
           {tag && (
-            <span className="tag-chip" style={{ '--tag': tag.color }}>
-              <span className="tag-chip__dot" aria-hidden="true" />
+            <span className="tag-chip">
+              <TagGlyph tag={tag} variant="chip" className="tag-chip__dot" />
               {tag.name}
             </span>
           )}

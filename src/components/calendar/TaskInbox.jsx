@@ -7,6 +7,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
    three days is a task, not an event. */
 import { DRAG_TASK, readDrag } from '../../lib/dnd.js'
 import { todayKey } from '../../lib/date.js'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 /**
  * The inbox holds everything not yet given a slot. It is both a drag source
@@ -119,8 +120,8 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
                 <button type="button" className="inbox-item__body" onClick={() => onEdit?.(task)}>
                   <span className="inbox-item__title">{task.title}</span>
                   {tag && (
-                    <span className="tag-chip" style={{ '--tag': tag.color }}>
-                      <span className="tag-chip__dot" aria-hidden="true" />
+                    <span className="tag-chip">
+                      <TagGlyph tag={tag} variant="chip" className="tag-chip__dot" />
                       {tag.name}
                     </span>
                   )}

@@ -8,6 +8,7 @@ import {
   getAuth,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
+  sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -238,5 +239,40 @@ export async function signInWithUsernameOrEmail({ identifier, password }) {
       throw appError('app/invalid-credential', 'Incorrect username/email or password.')
     }
     throw caught
+  }
+}
+
+/**
+ * Same identifier resolution as signInWithUsernameOrEmail, and the same
+ * non-enumeration stance carried one step further: where sign-in can't avoid
+ * distinguishing "wrong password" from "no such account" forever (the user
+ * eventually gets in or doesn't), a reset request never has to reveal that —
+ * so an unknown username, an unknown email, and a Google-only account with no
+ * password to reset all resolve as a quiet no-op instead of a thrown error.
+ * The caller shows the identical "check your email" message either way; only
+ * a genuine infrastructure failure (network, unpublished rules) still throws.
+ */
+export async function requestPasswordReset(identifier) {
+  if (!auth || !db) throw new Error('Firebase is not configured.')
+
+  const trimmed = identifier.trim()
+  let email = trimmed
+
+  if (!trimmed.includes('@')) {
+    let snap
+    try {
+      snap = await getDoc(doc(db, 'usernames', normalizeUsername(trimmed)))
+    } catch (caught) {
+      throw describeInfraFailure(caught, 'Resetting a password by username, rather than an email address,')
+    }
+    if (!snap.exists()) return
+    email = snap.data().email
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email)
+  } catch (caught) {
+    if (caught.code === 'auth/user-not-found' || caught.code === 'auth/invalid-email') return
+    throw describeInfraFailure(caught, 'Sending a password reset email')
   }
 }
