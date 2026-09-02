@@ -19,6 +19,7 @@ import { Dashboard } from './components/views/Dashboard.jsx'
 import { TodayView } from './components/views/TodayView.jsx'
 import { WeekGrid } from './components/views/WeekGrid.jsx'
 import { MonthCalendar } from './components/views/MonthCalendar.jsx'
+import { FocusMode } from './components/views/FocusMode.jsx'
 import { TaskEditor } from './components/editors/TaskEditor.jsx'
 import { EventEditor } from './components/editors/EventEditor.jsx'
 import { ItemDetail } from './components/editors/ItemDetail.jsx'
@@ -32,6 +33,7 @@ import {
   ClockIcon,
   DashboardIcon,
   DayIcon,
+  FocusIcon,
   ListIcon,
   LogOutIcon,
   MonthIcon,
@@ -48,10 +50,17 @@ import './styles/app.css'
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
+  { id: 'schedule', label: 'Schedule', Icon: MonthIcon },
+  { id: 'focus', label: 'Focus', Icon: FocusIcon },
+]
+
+/** The schedule page's three sub-views, and the tab shown for each. */
+const SCHEDULE_TABS = [
   { id: 'today', label: 'Day', Icon: DayIcon },
   { id: 'week', label: 'Week', Icon: WeekIcon },
   { id: 'month', label: 'Month', Icon: MonthIcon },
 ]
+const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
 
 /** Which views carry a date cursor, and how far one arrow press moves it. */
 const DATE_NAV = {
@@ -276,19 +285,22 @@ function AppShell() {
         </button>
 
         <nav className="sidebar__nav" aria-label="Views">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`sidebar__link${view === item.id ? ' sidebar__link--active' : ''}`}
-              aria-current={view === item.id ? 'page' : undefined}
-              title={item.label}
-              onClick={() => setView(item.id)}
-            >
-              <item.Icon className="sidebar__icon" />
-              <span className="sidebar__label">{item.label}</span>
-            </button>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const active = item.id === 'schedule' ? SCHEDULE_VIEWS.includes(view) : view === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`sidebar__link${active ? ' sidebar__link--active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+                title={item.label}
+                onClick={() => setView(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
+              >
+                <item.Icon className="sidebar__icon" />
+                <span className="sidebar__label">{item.label}</span>
+              </button>
+            )
+          })}
         </nav>
 
         {/* The two things that open a manager rather than change the view —
@@ -353,32 +365,50 @@ function AppShell() {
       </aside>
 
       <div className="app-content">
-        <header className="app__header">
+        <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
           {step ? (
-            <div className="date-nav">
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Previous"
-                onClick={() => setFocusKey(step(focusKey, -1))}
-              >
-                <ChevronLeftIcon />
-              </button>
-              <span className="date-nav__label">{dateLabel}</span>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Next"
-                onClick={() => setFocusKey(step(focusKey, 1))}
-              >
-                <ChevronRightIcon />
-              </button>
-              {focusKey !== todayKey() && (
-                <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
-                  Today
+            <>
+              <div className="date-nav">
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Previous"
+                  onClick={() => setFocusKey(step(focusKey, -1))}
+                >
+                  <ChevronLeftIcon />
                 </button>
-              )}
-            </div>
+                <span className="date-nav__label">{dateLabel}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Next"
+                  onClick={() => setFocusKey(step(focusKey, 1))}
+                >
+                  <ChevronRightIcon />
+                </button>
+                {focusKey !== todayKey() && (
+                  <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
+                    Today
+                  </button>
+                )}
+              </div>
+
+              <div className="view-tabs" role="tablist" aria-label="Schedule view">
+                {SCHEDULE_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === tab.id}
+                    className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
+                    onClick={() => setView(tab.id)}
+                  >
+                    <tab.Icon className="view-tabs__icon" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="date-nav date-nav--static">
               <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
@@ -433,6 +463,13 @@ function AppShell() {
                   onEditEvent={openEditEvent}
                 />
               )}
+              {/* Always mounted, just hidden off-screen when another view is
+                  showing — a running round has to keep counting down while
+                  you check the schedule, not restart from 25:00 the moment
+                  you tab away and back. */}
+              <div hidden={view !== 'focus'}>
+                <FocusMode onEdit={openEdit} />
+              </div>
             </>
           )}
         </main>

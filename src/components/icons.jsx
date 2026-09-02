@@ -311,3 +311,41 @@ export function UserIcon(props) {
     </Icon>
   )
 }
+
+/** Focus Mode's nav icon — a target, for the one thing a Pomodoro round asks
+    you to do. */
+export function FocusIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function PlayIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M8 5.5v13l11-6.5-11-6.5z" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+export function PauseIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </Icon>
+  )
+}
+
+export function ResetIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 4v6h6" />
+      <path d="M5.5 10A8 8 0 1 1 6 17.5" />
+    </Icon>
+  )
+}
