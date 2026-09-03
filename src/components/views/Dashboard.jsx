@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import {
   HEAVY_DAY_MIN,
   dayStats,
+  isSeriesTemplate,
   overdueTasks,
   rangeStats,
   summarize,
@@ -41,13 +43,14 @@ const RANGES = [
 
 export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
+  const { settings } = useSettings()
   const now = useNow()
   const [days, setDays] = useState(7)
 
   const today = tasksOn(now.key)
   const todayTotals = dayStats(today)
 
-  const week = summarize(rangeStats(tasksOn, weekKeys(now.key)))
+  const week = summarize(rangeStats(tasksOn, weekKeys(now.key, settings.weekStartsOn)))
 
   const overdue = overdueTasks(tasks, now.key)
   /* Stored tasks reach as far ahead as they were scheduled, so they go in
@@ -58,6 +61,11 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   )
   const next = upcomingTasks([...tasks, ...horizon.flat()], now.key, now.min, 3)
   const openInbox = inbox.filter((t) => !t.done).length
+  // Pinned surfaces regardless of date — a deliberate exception to every
+  // other section here, which is built around "when." A repeating task's
+  // own rule document is never itself "on" a day (see isSeriesTemplate in
+  // stats.js), so it has no business in a dated pinned list either.
+  const pinned = tasks.filter((t) => t.pinned && !t.done && !isSeriesTemplate(t))
 
   /* Today's load against the same 10-hour reference the week bar, month strip,
      and mini calendar all scale to — the hero states the number, this says how
@@ -168,6 +176,19 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         />
       </div>
 
+      {pinned.length > 0 && (
+        <section aria-label="Pinned">
+          <div className="section-head">
+            <h2 className="section-head__title">Pinned</h2>
+          </div>
+          <ul>
+            {pinned.map((task) => (
+              <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* The two task queues side by side. Next up leads because it is always
           there — a column that keeps its place is easier to read than one that
           slides left whenever nothing is overdue. Overdue joins it on the
@@ -205,7 +226,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
             </div>
             <ul>
               {overdue.slice(0, 5).map((task) => (
-                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate showQuickActions />
               ))}
             </ul>
           </section>

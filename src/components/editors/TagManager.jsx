@@ -62,8 +62,8 @@ function IconPicker({ value, onPick, label }) {
 }
 
 export function TagManager({ onClose }) {
-  const { tags, tasks, addTag, updateTag, removeTag } = useSchedule()
-  const { pushError } = useToast()
+  const { tags, tasks, addTag, updateTag, removeTag, importData } = useSchedule()
+  const { pushError, pushUndo } = useToast()
   const [name, setName] = useState('')
   const [slot, setSlot] = useState(null)
   const [icon, setIcon] = useState(null)
@@ -111,10 +111,23 @@ export function TagManager({ onClose }) {
 
   async function onRemove(id) {
     if (deleting) return
+    // Snapshotting before the delete, not the row afterward — removeTag
+    // itself doesn't hand back what it removed.
+    const snapshot = tags.find((t) => t.id === id)
     setDeleting(true)
     try {
       await removeTag(id)
       setConfirming(null)
+      if (snapshot) {
+        pushUndo(`Deleted "${snapshot.name}".`, async () => {
+          try {
+            await importData({ tags: [snapshot] })
+          } catch (caught) {
+            console.error('Could not restore the tag.', caught)
+            pushError('Could not restore the tag.')
+          }
+        })
+      }
     } catch (caught) {
       console.error('Could not delete tag.', caught)
       pushError('Could not delete the tag. Try again.')

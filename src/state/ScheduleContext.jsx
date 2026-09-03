@@ -25,6 +25,7 @@ import {
   DEFAULT_EVENT_DURATION_MIN,
   TAG_ICONS,
   TAG_SLOTS,
+  TASK_PRIORITIES,
   normalizeEvent,
   normalizeTag,
   normalizeTask,
@@ -431,6 +432,8 @@ export function ScheduleProvider({ children }) {
           tagId: draft.tagId ?? null,
           done: false,
           completedAt: null,
+          priority: TASK_PRIORITIES.includes(draft.priority) ? draft.priority : 'normal',
+          pinned: draft.pinned === true,
           recurrence: normalizeRecurrence(draft.recurrence, date),
           overrides: {},
           createdAt: stamp,
@@ -677,6 +680,48 @@ export function ScheduleProvider({ children }) {
           await batch.commit()
         }
         return deleteDoc(doc(db, 'users', uid))
+      },
+
+      /** Restores a JSON backup (see SettingsModal's export). Deliberately
+          not built on addTask/addEvent/addTag: those exist for *creating*
+          a fresh item and hardcode fresh-item defaults (done: false, no
+          overrides) — an import needs to preserve exactly what was
+          exported, done state and recurrence overrides included, so it
+          writes full documents directly. Every item still goes through
+          normalizeTask/normalizeEvent/normalizeTag first, the same
+          untrusted-input treatment a Firestore snapshot gets, so a
+          hand-edited or corrupted export file can't write garbage. */
+      async importData({ tasks: importedTasks = [], events: importedEvents = [], tags: importedTags = [] }) {
+        const stamp = now()
+        const strip = ({ id: _id, ...rest }) => rest
+
+        const writes = [
+          ...importedTags.map((raw) => ({
+            ref: doc(collection(db, 'users', uid, 'tags')),
+            data: strip(normalizeTag('tmp', raw)),
+          })),
+          ...importedTasks.map((raw) => {
+            const normalized = strip(normalizeTask('tmp', raw))
+            return {
+              ref: doc(tasksCol()),
+              data: { ...normalized, createdAt: normalized.createdAt || stamp, updatedAt: stamp },
+            }
+          }),
+          ...importedEvents.map((raw) => {
+            const normalized = strip(normalizeEvent('tmp', raw))
+            return {
+              ref: doc(eventsCol()),
+              data: { ...normalized, createdAt: normalized.createdAt || stamp, updatedAt: stamp },
+            }
+          }),
+        ]
+
+        for (let i = 0; i < writes.length; i += 400) {
+          const batch = writeBatch(db)
+          for (const { ref, data } of writes.slice(i, i + 400)) batch.set(ref, data)
+          await batch.commit()
+        }
+        return writes.length
       },
     }
   }, [uid, tasks, tags, events, profile, loading, error])

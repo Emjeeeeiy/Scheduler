@@ -81,6 +81,8 @@ export const TAG_ICONS = [
   'scissors',
 ]
 
+export const TASK_PRIORITIES = ['low', 'normal', 'high']
+
 export function normalizeTask(id, raw) {
   const date = isValidKey(raw?.date) ? raw.date : null
   // A start time without a date is meaningless — such a task belongs in the
@@ -101,6 +103,10 @@ export function normalizeTask(id, raw) {
     tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
     done: raw?.done === true,
     completedAt: Number.isFinite(raw?.completedAt) ? raw.completedAt : null,
+    priority: TASK_PRIORITIES.includes(raw?.priority) ? raw.priority : 'normal',
+    // Pinning is a deliberate, one-off choice — never inferred, so an
+    // absent or malformed value reads as "not pinned" rather than guessed.
+    pinned: raw?.pinned === true,
     recurrence,
     overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,

@@ -931,7 +931,16 @@
   gap: 2px;
 }
 
+.task-row__title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
 .task-row__title {
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-item);
   font-weight: var(--font-weight-item);
   overflow: hidden;
@@ -941,6 +950,30 @@
 .task-row--done .task-row__title {
   text-decoration: line-through;
   color: var(--color-text-muted);
+}
+
+/* A small, fixed-size marker rather than a colour on the whole row — a task
+   row already carries a tag colour, and layering a second meaning onto the
+   same channel would make both harder to read at a glance. */
+.task-row__priority {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-critical);
+}
+
+.task-row__pin {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.task-row__quick-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
 }
 
 .task-row__meta {

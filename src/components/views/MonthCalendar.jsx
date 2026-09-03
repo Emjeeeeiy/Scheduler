@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { packSpans } from '../../lib/spans.js'
@@ -12,7 +13,7 @@ import {
   minToLabel,
   monthOf,
   monthGrid,
-  WEEKDAY_HEADERS,
+  weekdayHeaders,
 } from '../../lib/date.js'
 import { dayStats } from '../../lib/stats.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
@@ -270,22 +271,27 @@ function MonthWeek({
 export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEvent }) {
   const { tasksOn, eventsInRange, getTag, updateTask, moveEvent } = useSchedule()
   const { pushError } = useToast()
+  const { settings } = useSettings()
   const now = useNow()
   const [dropKey, setDropKey] = useState(null)
 
   const month = monthOf(focusKey)
 
   // Six rows of seven. A bar cannot cross a line break, so packing happens per
-  // row and each row owns its own lanes. Memoized on `focusKey` alone so
-  // these arrays' identity survives a dropKey-only re-render (the pointer
+  // row and each row owns its own lanes. Memoized on `focusKey`/`weekStartsOn`
+  // so these arrays' identity survives a dropKey-only re-render (the pointer
   // crossing cells during a drag) — that's what lets each MonthWeek's own
   // eventsInRange/packSpans memoization above actually skip real work.
   const rows = useMemo(() => {
-    const keys = monthGrid(focusKey)
+    const keys = monthGrid(focusKey, settings.weekStartsOn)
     const out = []
     for (let i = 0; i < keys.length; i += 7) out.push(keys.slice(i, i + 7))
     return out
-  }, [focusKey])
+  }, [focusKey, settings.weekStartsOn])
+  const headers = useMemo(
+    () => weekdayHeaders(settings.weekStartsOn),
+    [settings.weekStartsOn],
+  )
 
   async function onDropTask(event, key) {
     if (!hasDrag(event, DRAG_TASK)) return
@@ -321,8 +327,8 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
     <section className="frame month" aria-label={formatMonthLabel(focusKey)}>
       <FrameTicks />
       <div className="month__head" aria-hidden="true">
-        {WEEKDAY_HEADERS.map((label) => (
-          <span key={label} className="month__dow">
+        {headers.map((label, index) => (
+          <span key={index} className="month__dow">
             {label}
           </span>
         ))}

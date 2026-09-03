@@ -517,6 +517,15 @@
   color: var(--color-text-primary);
 }
 
+/* A pressed/active state for an icon-only toggle (ItemDetail's pin button) —
+   the same "on" language filter-chip already uses elsewhere, just without a
+   text label to carry it, so the fill has to. */
+.icon-button--on {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
 /* Identity — and, when the picture is a button, the account menu trigger. */
 .avatar {
   width: 30px;
@@ -921,8 +930,32 @@ button.avatar:hover {
   box-shadow: var(--shadow-md);
 }
 
+/* An error toast gets its look from .banner.banner--error (shared with the
+   session-level banner). An action toast (undo-delete) isn't reporting a
+   failure, so it never carries that modifier and needs a surface of its
+   own — a plain modifier rather than styling bare .toast, since .toast and
+   .banner/.banner--error are equal-specificity single classes and .toast's
+   declaration comes later in this file; giving it its own background there
+   would have silently outrun banner--error's for the error case too. */
+.toast--action {
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: var(--text-item);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
 .toast__message {
   flex: 1;
+}
+
+.toast__action {
+  flex: none;
+  font-weight: var(--font-weight-label);
 }
 
 .toast__dismiss {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
 import {
@@ -10,7 +11,7 @@ import {
   monthOf,
   shiftMonth,
   todayKey,
-  WEEKDAY_HEADERS,
+  weekdayHeaders,
 } from '../../lib/date.js'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 
@@ -34,11 +35,13 @@ function loadDots(plannedMin) {
  */
 export function MiniCalendar({ onFocusDay, onFocusMonth }) {
   const { tasksOn, eventsOn } = useSchedule()
+  const { settings } = useSettings()
   const now = useNow()
   const [cursor, setCursor] = useState(() => todayKey())
 
-  const keys = monthGrid(cursor)
+  const keys = monthGrid(cursor, settings.weekStartsOn)
   const month = monthOf(cursor)
+  const headers = weekdayHeaders(settings.weekStartsOn)
 
   return (
     <section className="mini-cal" aria-label={`Calendar — ${formatMonthLabel(cursor)}`}>
@@ -72,8 +75,8 @@ export function MiniCalendar({ onFocusDay, onFocusMonth }) {
       </div>
 
       <div className="mini-cal__dow" aria-hidden="true">
-        {WEEKDAY_HEADERS.map((label) => (
-          <span key={label}>{label.slice(0, 1)}</span>
+        {headers.map((label, index) => (
+          <span key={index}>{label.slice(0, 1)}</span>
         ))}
       </div>
 

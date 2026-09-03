@@ -57,16 +57,19 @@ export function daysBetween(a, b) {
 
 /* ----------------------------------------------------------------- weeks -- */
 
-export function startOfWeek(key) {
+/** `weekStartsOn` defaults to the app-wide constant so every existing call
+    site keeps working unchanged; a caller that knows the user's own setting
+    (from SettingsContext) passes it explicitly. */
+export function startOfWeek(key, weekStartsOn = WEEK_STARTS_ON) {
   const date = fromKey(key)
-  const shift = (date.getDay() - WEEK_STARTS_ON + 7) % 7
+  const shift = (date.getDay() - weekStartsOn + 7) % 7
   date.setDate(date.getDate() - shift)
   return toKey(date)
 }
 
 /** The 7 day keys of the week containing `key`, in display order. */
-export function weekKeys(key) {
-  const start = startOfWeek(key)
+export function weekKeys(key, weekStartsOn = WEEK_STARTS_ON) {
+  const start = startOfWeek(key, weekStartsOn)
   return Array.from({ length: 7 }, (_, i) => addDays(start, i))
 }
 
@@ -107,10 +110,10 @@ export function shiftMonth(key, months) {
 
 /** 42 day keys — six full weeks covering the month of `key`, with the leading
     and trailing days of the neighbouring months included so the grid is square. */
-export function monthGrid(key) {
+export function monthGrid(key, weekStartsOn = WEEK_STARTS_ON) {
   const date = fromKey(key)
   const firstOfMonth = toKey(new Date(date.getFullYear(), date.getMonth(), 1))
-  const start = startOfWeek(firstOfMonth)
+  const start = startOfWeek(firstOfMonth, weekStartsOn)
   return Array.from({ length: 42 }, (_, i) => addDays(start, i))
 }
 
@@ -187,12 +190,19 @@ const MONTH_LONG = [
 ]
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** getDay() indices in display order — Monday first. Anything that lays out a
-    week of weekdays walks this rather than 0..6. */
-export const WEEKDAY_ORDER = Array.from({ length: 7 }, (_, i) => (WEEK_STARTS_ON + i) % 7)
+/** getDay() indices in display order — Monday first by default. Anything
+    that lays out a week of weekdays walks this rather than 0..6. Functions,
+    not constants, now that the start of the week is a per-account setting
+    (SettingsContext) rather than fixed — a caller that hasn't wired the
+    setting through yet still gets the original Monday-first order for free. */
+export function weekdayOrder(weekStartsOn = WEEK_STARTS_ON) {
+  return Array.from({ length: 7 }, (_, i) => (weekStartsOn + i) % 7)
+}
 
-/** Weekday initials in display order, for the month grid header. */
-export const WEEKDAY_HEADERS = WEEKDAY_ORDER.map((day) => DAY_SHORT[day])
+/** Weekday initials in display order, for the month/week grid headers. */
+export function weekdayHeaders(weekStartsOn = WEEK_STARTS_ON) {
+  return weekdayOrder(weekStartsOn).map((day) => DAY_SHORT[day])
+}
 
 export function dayOfMonth(key) {
   return fromKey(key).getDate()
@@ -217,8 +227,8 @@ export function formatMonthLabel(key) {
 }
 
 /** 'Aug 24 – Aug 30' or 'Aug 31 – Sep 6' — the week header. */
-export function formatWeekLabel(key) {
-  const keys = weekKeys(key)
+export function formatWeekLabel(key, weekStartsOn = WEEK_STARTS_ON) {
+  const keys = weekKeys(key, weekStartsOn)
   const start = fromKey(keys[0])
   const end = fromKey(keys[6])
   const left = `${MONTH_SHORT[start.getMonth()]} ${start.getDate()}`

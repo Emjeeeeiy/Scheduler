@@ -3,6 +3,7 @@ import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
 import { ToastProvider } from './state/ToastContext.jsx'
+import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import {
@@ -30,6 +31,8 @@ import { NotificationBell } from './components/shell/NotificationBell.jsx'
 import { AccountMenu } from './components/shell/AccountMenu.jsx'
 import { ToastStack } from './components/shell/ToastStack.jsx'
 import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
+import { SettingsModal } from './components/shell/SettingsModal.jsx'
+import { CommandPalette } from './components/shell/CommandPalette.jsx'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -41,6 +44,7 @@ import {
   LogOutIcon,
   MonthIcon,
   PlusIcon,
+  SettingsIcon,
   SpanIcon,
   TagIcon,
   ThemeDarkIcon,
@@ -91,10 +95,13 @@ function AppShell() {
   const { signOut } = useAuth()
   const { loading, error } = useSchedule()
   const { theme, cycleTheme } = useTheme()
+  const { settings } = useSettings()
 
-  // Not persisted on purpose: every sign-in — and every fresh mount of the
-  // app shell — starts back on Dashboard rather than wherever you left off.
-  const [view, setView] = useState('dashboard')
+  // Not persisted across navigation on purpose: every sign-in — and every
+  // fresh mount of the app shell — starts back on the configured landing
+  // view (Settings → default: Dashboard) rather than wherever you left off
+  // last time you switched views.
+  const [view, setView] = useState(settings.landingView)
   /* Keeping your place across a refresh is useful; being dropped on yesterday
      when you open the app the next morning is not. So a cursor restored from a
      previous session snaps forward — but that correction belongs to the
@@ -113,6 +120,14 @@ function AppShell() {
   const [editor, setEditor] = useState(null)
   const [tagsOpen, setTagsOpen] = useState(false)
   const [itemsOpen, setItemsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  // Any one of these being open is "a modal is up" for the purposes of the
+  // global keyboard shortcuts below — stacking a second one on top (Cmd+K
+  // while an editor is open, `n` while the palette has focus) is exactly
+  // the kind of thing useModalA11y's single-dialog focus trap doesn't
+  // expect.
+  const modalOpen = Boolean(editor) || tagsOpen || itemsOpen || settingsOpen || paletteOpen
 
   /* The editor is one slot holding either kind. `kind` decides which component
      renders; `draft`/`task`/`event` carries what it starts from. `mode` adds a
@@ -224,13 +239,26 @@ function AppShell() {
 
   useEffect(() => {
     function onKeyDown(event) {
+      /* Cmd/Ctrl+K checked first, and deliberately ahead of the "typing in a
+         field" guard below — a command palette that only opens when focus
+         happens to be somewhere inert is not a very useful shortcut. It
+         still won't stack on top of another modal (same reasoning as every
+         other shortcut here), and pressing it again while the palette is
+         already open closes it — a plain toggle. */
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        if (modalOpen && !paletteOpen) return
+        event.preventDefault()
+        setPaletteOpen((v) => !v)
+        return
+      }
+
       // Never steal keys from a field the user is typing in.
       const tag = event.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target.isContentEditable) {
         return
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (editor || tagsOpen || itemsOpen) return
+      if (modalOpen) return
 
       // Holding a key repeats it; without this, leaning on `n` stacks modals.
       if (event.repeat) return
@@ -260,15 +288,52 @@ function AppShell() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [editor, tagsOpen, itemsOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
+  }, [modalOpen, paletteOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
 
   const dateLabel = useMemo(() => {
-    if (view === 'week') return formatWeekLabel(focusKey)
+    if (view === 'week') return formatWeekLabel(focusKey, settings.weekStartsOn)
     if (view === 'month') return formatMonthLabel(focusKey)
     return relativeDayLabel(focusKey)
-  }, [view, focusKey])
+  }, [view, focusKey, settings.weekStartsOn])
 
   const ThemeIcon = THEME_ICON[theme]
+
+  /* Built from the same handlers the sidebar buttons and keyboard shortcuts
+     already call — a palette entry can't drift from what its equivalent
+     button does, because there is no separate implementation to drift. */
+  const paletteActions = useMemo(
+    () => [
+      { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => setView('dashboard') },
+      { id: 'view-day', label: 'Go to Day', Icon: DayIcon, onRun: () => setView('today') },
+      { id: 'view-week', label: 'Go to Week', Icon: WeekIcon, onRun: () => setView('week') },
+      { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => setView('month') },
+      { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
+      {
+        id: 'new-task',
+        label: 'New task',
+        hint: 'n',
+        Icon: PlusIcon,
+        onRun: () => openCreate(SCHEDULE_VIEWS.includes(view) ? { date: focusKey } : {}),
+      },
+      {
+        id: 'new-event',
+        label: 'New event',
+        hint: 'e',
+        Icon: SpanIcon,
+        onRun: () =>
+          openCreateEvent(
+            SCHEDULE_VIEWS.includes(view)
+              ? { startDate: focusKey, endDate: focusKey }
+              : { startDate: todayKey(), endDate: todayKey() },
+          ),
+      },
+      { id: 'jump-today', label: 'Jump to today', hint: 't', Icon: ClockIcon, onRun: () => setFocusKey(todayKey()) },
+      { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => setTagsOpen(true) },
+      { id: 'open-items', label: 'Open All items', Icon: ListIcon, onRun: () => setItemsOpen(true) },
+      { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => setSettingsOpen(true) },
+    ],
+    [view, focusKey, openCreate, openCreateEvent, setFocusKey],
+  )
 
   return (
     <div className="app-shell">
@@ -375,7 +440,7 @@ function AppShell() {
           >
             <ThemeIcon />
           </button>
-          <AccountMenu />
+          <AccountMenu onOpenSettings={() => setSettingsOpen(true)} />
         </div>
       </aside>
 
@@ -523,6 +588,10 @@ function AppShell() {
           onEditEvent={editEventFromIndex}
         />
       )}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {paletteOpen && (
+        <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />
+      )}
     </div>
   )
 }
@@ -554,9 +623,11 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <AuthProvider>
-          <Gate />
-        </AuthProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <Gate />
+          </AuthProvider>
+        </SettingsProvider>
         <ToastStack />
       </ToastProvider>
     </ErrorBoundary>

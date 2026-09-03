@@ -695,3 +695,49 @@ export function ScissorsIcon(props) {
     </Icon>
   )
 }
+
+export function SettingsIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </Icon>
+  )
+}
+
+export function SearchIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-4.3-4.3" />
+    </Icon>
+  )
+}
+
+export function PinIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 2.5c-3.2 0-5.5 2.34-5.5 5.5 0 3.2 2.6 6.34 5.5 9.5 2.9-3.16 5.5-6.3 5.5-9.5 0-3.16-2.3-5.5-5.5-5.5Z" />
+      <circle cx="12" cy="8" r="2" />
+      <path d="M12 17.5V21.5" />
+    </Icon>
+  )
+}
+
+export function DownloadIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3.5v12M7 11l5 5 5-5" />
+      <path d="M4.5 19.5h15" />
+    </Icon>
+  )
+}
+
+export function UploadIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 20.5v-12M7 12.5l5-5 5 5" />
+      <path d="M4.5 19.5h15" />
+    </Icon>
+  )
+}

@@ -3,13 +3,16 @@ import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.j
 import { useToast } from '../../state/ToastContext.jsx'
 import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
+import { TASK_PRIORITIES } from '../../lib/normalize.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { CloseIcon, RepeatIcon } from '../icons.jsx'
+import { CloseIcon, PinIcon, RepeatIcon } from '../icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
 import { TagSelect } from './TagSelect.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
+
+const PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High' }
 
 function durationOption(min) {
   if (min < 60) return `${min} min`
@@ -20,8 +23,8 @@ function durationOption(min) {
 /** Create and edit share one form: the fields are identical, and keeping them
     together means a change to the time model can only be made in one place. */
 export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
-  const { addTask, updateTask, removeTask, tags, getSeries } = useSchedule()
-  const { pushError } = useToast()
+  const { addTask, updateTask, removeTask, importData, tags, getSeries } = useSchedule()
+  const { pushError, pushUndo } = useToast()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.task : editor.draft
 
@@ -39,6 +42,8 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   )
   const [durationMin, setDurationMin] = useState(source.durationMin ?? DEFAULT_DURATION_MIN)
   const [tagId, setTagId] = useState(source.tagId ?? '')
+  const [priority, setPriority] = useState(source.priority ?? 'normal')
+  const [pinned, setPinned] = useState(source.pinned ?? false)
   const [repeat, setRepeat] = useState(isSeries ? source.recurrence : null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -67,6 +72,8 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
       startMin: nextDate ? timeValueToMin(time) : null,
       durationMin,
       tagId: tagId || null,
+      priority,
+      pinned,
     }
 
     if (!isOccurrence) {
@@ -90,9 +97,24 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   }
 
   async function onDelete() {
+    // "Skip this day" (isOccurrence) detaches a day from a rule rather than
+    // removing a document — restoring that through importData would create
+    // a duplicate task, not undo the skip, so only an ordinary task or a
+    // whole series (both real document deletes) offer Undo.
+    const snapshot = !isOccurrence ? editor.task : null
     try {
       await removeTask(editor.task.id)
       onClose()
+      if (snapshot) {
+        pushUndo(`Deleted "${snapshot.title}".`, async () => {
+          try {
+            await importData({ tasks: [snapshot] })
+          } catch (caught) {
+            console.error('Could not restore the task.', caught)
+            pushError('Could not restore the task.')
+          }
+        })
+      }
     } catch (caught) {
       console.error('Could not delete task.', caught)
       pushError('Could not delete the task. Try again.')
@@ -205,6 +227,38 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
               <span className="field__label">Tag</span>
               <TagSelect tags={tags} value={tagId} onChange={setTagId} />
             </label>
+          </div>
+
+          <div className="field-row">
+            <div className="field">
+              <span className="field__label">Priority</span>
+              <div className="filter-row" role="group" aria-label="Priority">
+                {TASK_PRIORITIES.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`filter-chip${priority === option ? ' filter-chip--on' : ''}`}
+                    aria-pressed={priority === option}
+                    onClick={() => setPriority(option)}
+                  >
+                    {PRIORITY_LABEL[option]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="field">
+              <span className="field__label">Pin</span>
+              <button
+                type="button"
+                className={`filter-chip${pinned ? ' filter-chip--on' : ''}`}
+                aria-pressed={pinned}
+                onClick={() => setPinned((v) => !v)}
+              >
+                <PinIcon width="14" height="14" />
+                {pinned ? 'Pinned' : 'Pin to dashboard'}
+              </button>
+            </div>
           </div>
 
           {!isOccurrence && (

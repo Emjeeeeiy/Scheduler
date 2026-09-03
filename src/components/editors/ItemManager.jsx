@@ -94,9 +94,9 @@ function matchesDate(row, key) {
  * belong on the occurrence, in the views that draw one.
  */
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
-  const { tasks, events, tags, getTag, removeTask, removeEvent, removeAllItems, toggleDone } =
+  const { tasks, events, tags, getTag, removeTask, removeEvent, removeAllItems, importData, toggleDone } =
     useSchedule()
-  const { pushError } = useToast()
+  const { pushError, pushUndo } = useToast()
   const [filter, setFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(null)
@@ -155,11 +155,27 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     else onEdit(row.source)
   }
 
+  async function undoRestore(snapshotTasks, snapshotEvents) {
+    try {
+      await importData({ tasks: snapshotTasks, events: snapshotEvents })
+    } catch (caught) {
+      console.error('Could not restore.', caught)
+      pushError('Could not restore. The deletion still went through.')
+    }
+  }
+
   async function remove(row) {
+    // Every row here is a real document — a repeating task or event's
+    // series doc included, never one detached day of it (see the file
+    // comment above) — so a snapshot always has enough to fully restore.
+    const snapshot = row.source
     try {
       if (row.kind === 'event') await removeEvent(row.id)
       else await removeTask(row.id)
       setConfirming(null)
+      pushUndo(`Deleted "${row.title}".`, () =>
+        undoRestore(row.kind === 'event' ? [] : [snapshot], row.kind === 'event' ? [snapshot] : []),
+      )
     } catch (caught) {
       console.error('Could not delete item.', caught)
       pushError(`Could not delete "${row.title}". Try again.`)
@@ -167,9 +183,15 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
   }
 
   async function removeAll() {
+    const snapshotTasks = tasks
+    const snapshotEvents = events
+    const count = snapshotTasks.length + snapshotEvents.length
     try {
       await removeAllItems()
       setConfirmingAll(false)
+      pushUndo(`Deleted ${count} item${count === 1 ? '' : 's'}.`, () =>
+        undoRestore(snapshotTasks, snapshotEvents),
+      )
     } catch (caught) {
       console.error('Could not delete all items.', caught)
       pushError('Could not delete everything. Some items may remain — try again.')

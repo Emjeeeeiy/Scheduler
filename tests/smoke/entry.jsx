@@ -12,6 +12,7 @@
 import { renderToString } from 'react-dom/server'
 import { addDays, todayKey } from '../../src/lib/date.js'
 import { ToastProvider } from '../../src/state/ToastContext.jsx'
+import { SettingsProvider } from '../../src/state/SettingsContext.jsx'
 import { Dashboard } from '../../src/components/views/Dashboard.jsx'
 import { TodayView } from '../../src/components/views/TodayView.jsx'
 import { WeekGrid } from '../../src/components/views/WeekGrid.jsx'
@@ -27,6 +28,9 @@ import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
 import { NotificationBell } from '../../src/components/shell/NotificationBell.jsx'
+import { SettingsModal } from '../../src/components/shell/SettingsModal.jsx'
+import { CommandPalette } from '../../src/components/shell/CommandPalette.jsx'
+import { DashboardIcon } from '../../src/components/icons.jsx'
 import { mockValue } from './mockSchedule.jsx'
 
 const KEY = todayKey()
@@ -34,14 +38,25 @@ const noop = () => {}
 
 /* ScheduleContext/AuthContext are aliased to fixtures by
    tests/smoke/vite.config.js because they'd otherwise reach for Firebase.
-   ToastContext has no such dependency, so rather than a third mock it is
-   just mounted for real — several components (TaskEditor, EventEditor,
-   TagManager, ItemManager, TaskInbox, DayColumn, WeekGrid, MonthCalendar)
-   call useToast() to report a failed write, and this is the one place their
-   real component tree is exercised end to end. */
+   ToastContext and SettingsContext have no such dependency (SettingsContext
+   only touches localStorage, which usePersistentState already guards with a
+   try/catch — it throws ReferenceError under Node SSR and falls back to
+   defaults), so rather than two more mocks they're just mounted for real —
+   several components (TaskEditor, EventEditor, TagManager, ItemManager,
+   TaskInbox, DayColumn, WeekGrid, MonthCalendar, SettingsModal) call
+   useToast()/useSettings(), and this is the one place their real component
+   tree is exercised end to end. */
 function render(element) {
-  return renderToString(<ToastProvider>{element}</ToastProvider>)
+  return renderToString(
+    <ToastProvider>
+      <SettingsProvider>{element}</SettingsProvider>
+    </ToastProvider>,
+  )
 }
+
+const paletteActions = [
+  { id: 'sample', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: noop },
+]
 
 const cases = [
   ['SetupNotice', <SetupNotice missing={['VITE_FIREBASE_API_KEY']} />],
@@ -61,6 +76,8 @@ const cases = [
   ['EventEditor (edit)', <EventEditor editor={{ mode: 'edit', event: mockValue.events[0] }} onClose={noop} />],
   ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
+  ['SettingsModal', <SettingsModal onClose={noop} />],
+  ['CommandPalette', <CommandPalette actions={paletteActions} onClose={noop} />],
 ]
 
 let failed = 0

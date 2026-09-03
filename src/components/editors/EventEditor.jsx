@@ -21,8 +21,8 @@ import { TagSelect } from './TagSelect.jsx'
    rather than a reason to merge the forms — the rule vocabulary is identical,
    everything around it is not. */
 export function EventEditor({ editor, onClose, onChangeKind }) {
-  const { addEvent, updateEvent, removeEvent, tags } = useSchedule()
-  const { pushError } = useToast()
+  const { addEvent, updateEvent, removeEvent, importData, tags } = useSchedule()
+  const { pushError, pushUndo } = useToast()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.event : editor.draft
 
@@ -101,9 +101,23 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
   }
 
   async function onDelete() {
+    // Same reasoning as TaskEditor's onDelete: a single detached day isn't a
+    // document, so only a genuine document delete (an ordinary event, or a
+    // whole series) offers Undo.
+    const snapshot = !isOccurrence ? editor.event : null
     try {
       await removeEvent(editor.event.id)
       onClose()
+      if (snapshot) {
+        pushUndo(`Deleted "${snapshot.title}".`, async () => {
+          try {
+            await importData({ events: [snapshot] })
+          } catch (caught) {
+            console.error('Could not restore the event.', caught)
+            pushError('Could not restore the event.')
+          }
+        })
+      }
     } catch (caught) {
       console.error('Could not delete event.', caught)
       pushError('Could not delete the event. Try again.')

@@ -19,8 +19,12 @@ const isTimedToday = (task, reference) =>
  *
  * Returns a flat list, most urgent first: overdue, then in progress right
  * now, then starting soon.
+ *
+ * `soonWindowMin` defaults to SOON_WINDOW_MIN so every existing call site
+ * keeps working unchanged; NotificationBell passes the user's own
+ * Settings → notification lead time instead.
  */
-export function buildNotifications(tasks, reference, nowMin) {
+export function buildNotifications(tasks, reference, nowMin, soonWindowMin = SOON_WINDOW_MIN) {
   const overdue = overdueTasks(tasks, reference).map((task) => ({
     id: `overdue-${task.id}`,
     kind: 'overdue',
@@ -36,7 +40,7 @@ export function buildNotifications(tasks, reference, nowMin) {
     const end = task.startMin + task.durationMin
     if (nowMin >= task.startMin && nowMin < end) {
       now.push({ id: `now-${task.id}`, kind: 'now', task })
-    } else if (task.startMin > nowMin && task.startMin - nowMin <= SOON_WINDOW_MIN) {
+    } else if (task.startMin > nowMin && task.startMin - nowMin <= soonWindowMin) {
       soon.push({ id: `soon-${task.id}`, kind: 'soon', task, minutesUntil: task.startMin - nowMin })
     }
   }

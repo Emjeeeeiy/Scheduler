@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
@@ -25,6 +26,7 @@ const DISMISSED_KEY = 'cadence-app:dismissed-notifications'
  */
 export function NotificationBell({ onEdit }) {
   const { tasks, occurrencesOn } = useSchedule()
+  const { settings } = useSettings()
   const now = useNow()
   const [open, setOpen] = useState(false)
   const [dismissedIds, setDismissedIds] = usePersistentState(DISMISSED_KEY, [])
@@ -53,6 +55,7 @@ export function NotificationBell({ onEdit }) {
     [...tasks, ...occurrencesOn(now.key)],
     now.key,
     now.min,
+    settings.notificationLeadMin,
   )
 
   /* Called unconditionally, independent of `open`, and over the *undismissed*

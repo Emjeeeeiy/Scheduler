@@ -1,5 +1,6 @@
-import { DAY_LONG, DAY_SHORT, WEEKDAY_ORDER, weekdayOf } from '../../lib/date.js'
+import { DAY_LONG, DAY_SHORT, weekdayOrder, weekdayOf } from '../../lib/date.js'
 import { LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../../lib/recurrence.js'
+import { useSettings } from '../../state/SettingsContext.jsx'
 
 const PRESETS = [
   { id: 'none', label: 'Never' },
@@ -21,9 +22,10 @@ const NTHS = [
 /** The weekday toggles behind "Pick days". Initials repeat (T/T, S/S), so the
     accessible name is always the full day and never the letter on the key. */
 function WeekdayPicker({ days, onChange }) {
+  const { settings } = useSettings()
   return (
     <div className="weekday-picker" role="group" aria-label="Days to repeat on">
-      {WEEKDAY_ORDER.map((day) => {
+      {weekdayOrder(settings.weekStartsOn).map((day) => {
         const on = days.includes(day)
         return (
           <button

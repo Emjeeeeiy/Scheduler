@@ -1,9 +1,11 @@
 import { useRef } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
-import { durationLabel, formatDayLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
+import { useToast } from '../../state/ToastContext.jsx'
+import { addDays, durationLabel, formatDayLabel, minToLabel, relativeDayLabel, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
+import { isSeriesTemplate } from '../../lib/stats.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { CheckIcon, CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
+import { CheckIcon, CloseIcon, DayIcon, PinIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 
 function taskFields(task) {
@@ -71,7 +73,8 @@ function eventFields(event) {
     a task/event pair — unlike the editors, there is no per-field state or
     submit logic here to keep apart, just which handful of rows to show. */
 export function ItemDetail({ editor, onClose, onEdit }) {
-  const { getTag } = useSchedule()
+  const { getTag, updateTask, scheduleTask } = useSchedule()
+  const { pushError } = useToast()
   const isEvent = editor.kind === 'event'
   const source = isEvent ? editor.event : editor.task
   const fields = isEvent ? eventFields(source) : taskFields(source)
@@ -82,6 +85,31 @@ export function ItemDetail({ editor, onClose, onEdit }) {
   const KindIcon = isEvent ? SpanIcon : DayIcon
   const kindLabel = isEvent ? 'Event' : 'Task'
   const title = source.title || `Untitled ${kindLabel.toLowerCase()}`
+
+  // Quick actions available straight from this read-only stop, the same way
+  // a task row's own checkbox toggles done without a trip through the full
+  // editor — pinning and a same-day reschedule are low-risk enough not to
+  // need one.
+  const canQuickAct = !isEvent && !isSeriesTemplate(source)
+
+  async function togglePinned() {
+    try {
+      await updateTask(source.id, { pinned: !source.pinned })
+    } catch (caught) {
+      console.error('Could not update the task.', caught)
+      pushError('Could not update the task. Try again.')
+    }
+  }
+
+  async function snooze(days) {
+    try {
+      await scheduleTask(source.id, { date: addDays(todayKey(), days), startMin: source.startMin })
+      onClose()
+    } catch (caught) {
+      console.error('Could not reschedule the task.', caught)
+      pushError('Could not reschedule the task. Try again.')
+    }
+  }
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -95,6 +123,18 @@ export function ItemDetail({ editor, onClose, onEdit }) {
             )}
             {title}
           </h2>
+          {canQuickAct && (
+            <button
+              type="button"
+              className={`icon-button${source.pinned ? ' icon-button--on' : ''}`}
+              onClick={togglePinned}
+              aria-pressed={source.pinned}
+              aria-label={source.pinned ? 'Unpin from dashboard' : 'Pin to dashboard'}
+              title={source.pinned ? 'Unpin from dashboard' : 'Pin to dashboard'}
+            >
+              <PinIcon />
+            </button>
+          )}
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </button>
@@ -151,6 +191,16 @@ export function ItemDetail({ editor, onClose, onEdit }) {
         </div>
 
         <div className="modal__foot">
+          {canQuickAct && !source.done && source.date && (
+            <>
+              <button type="button" className="ghost-button ghost-button--sm" onClick={() => snooze(1)}>
+                Tomorrow
+              </button>
+              <button type="button" className="ghost-button ghost-button--sm" onClick={() => snooze(7)}>
+                Next week
+              </button>
+            </>
+          )}
           <span className="modal__spacer" />
           <button type="button" className="ghost-button" onClick={onClose}>
             Close

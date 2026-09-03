@@ -5,6 +5,7 @@ import {
   DEFAULT_EVENT_DURATION_MIN,
   MAX_EVENT_DAYS,
   TAG_SLOTS,
+  TASK_PRIORITIES,
   normalizeEvent,
   normalizeTag,
   normalizeTask,
@@ -25,6 +26,8 @@ describe('normalizeTask', () => {
       tagId: null,
       done: false,
       completedAt: null,
+      priority: 'normal',
+      pinned: false,
       recurrence: null,
       overrides: {},
       createdAt: 0,
@@ -73,6 +76,18 @@ describe('normalizeTask', () => {
     assert.equal(normalizeTask('t1', { done: 'yes' }).done, false)
     assert.equal(normalizeTask('t1', { done: 1 }).done, false)
     assert.equal(normalizeTask('t1', { done: true }).done, true)
+  })
+
+  it('only accepts a priority from the validated set', () => {
+    assert.equal(normalizeTask('t1', {}).priority, 'normal')
+    assert.equal(normalizeTask('t1', { priority: 'high' }).priority, 'high')
+    assert.equal(normalizeTask('t1', { priority: 'urgent' }).priority, 'normal')
+    assert.deepEqual(TASK_PRIORITIES, ['low', 'normal', 'high'])
+  })
+
+  it('only treats an exact boolean true as pinned', () => {
+    assert.equal(normalizeTask('t1', { pinned: 'yes' }).pinned, false)
+    assert.equal(normalizeTask('t1', { pinned: true }).pinned, true)
   })
 
   it('keeps overrides only when the task is actually a series', () => {

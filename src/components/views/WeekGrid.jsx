@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { hourMarks, visibleWindow } from '../../lib/layout.js'
 import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
@@ -13,7 +14,7 @@ import {
   formatWeekLabel,
   minToShortLabel,
   weekKeys,
-  WEEKDAY_HEADERS,
+  weekdayHeaders,
 } from '../../lib/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
@@ -32,14 +33,22 @@ const ALLDAY_BUDGET = 4
 export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEvent, onFocusDay }) {
   const { tasksOn, eventsInRange, eventsOn, getTag, scheduleTask, moveEvent } = useSchedule()
   const { pushError } = useToast()
+  const { settings } = useSettings()
   const now = useNow()
   const [dropKey, setDropKey] = useState(null)
 
-  // Memoized on `focusKey` alone so this array's identity survives a
+  // Memoized on `focusKey`/`weekStartsOn` so this array's identity survives a
   // dropKey-only re-render (the pointer crossing cells during a drag) — that
   // stability is what lets rowEvents/spans below skip real recomputation
   // rather than just moving the freshly-allocated-array problem downstream.
-  const keys = useMemo(() => weekKeys(focusKey), [focusKey])
+  const keys = useMemo(
+    () => weekKeys(focusKey, settings.weekStartsOn),
+    [focusKey, settings.weekStartsOn],
+  )
+  const headers = useMemo(
+    () => weekdayHeaders(settings.weekStartsOn),
+    [settings.weekStartsOn],
+  )
   const byDay = keys.map((key) => tasksOn(key))
   const eventsByDay = keys.map((key) => eventsOn(key))
   const dayTotals = byDay.map(dayStats)
@@ -110,7 +119,10 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   }
 
   return (
-    <section className="frame week" aria-label={`Week of ${formatWeekLabel(focusKey)}`}>
+    <section
+      className="frame week"
+      aria-label={`Week of ${formatWeekLabel(focusKey, settings.weekStartsOn)}`}
+    >
       <FrameTicks />
       <p className="week__summary">
         {weekPlannedMin > 0 ? (
@@ -146,7 +158,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                   onClick={() => onFocusDay?.(key)}
                   title={`Open ${key}`}
                 >
-                  <span className="week__dow">{WEEKDAY_HEADERS[index]}</span>
+                  <span className="week__dow">{headers[index]}</span>
                   <span className="week__date">{dayOfMonth(key)}</span>
                   <span className="week__load">
                     {stats.plannedMin > 0 ? durationLabel(stats.plannedMin) : '—'}

@@ -2,11 +2,11 @@ import { useCallback, useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
-import { LogOutIcon, UserIcon } from '../icons.jsx'
+import { LogOutIcon, SettingsIcon, UserIcon } from '../icons.jsx'
 import { ProfileModal } from './ProfileModal.jsx'
 
 const PANEL_WIDTH = 190
-const PANEL_MAX_HEIGHT = 110
+const PANEL_MAX_HEIGHT = 150
 
 /**
  * The avatar opens a small two-item menu — Account, Log out — rather than
@@ -15,8 +15,12 @@ const PANEL_MAX_HEIGHT = 110
  * name/email dropdown with sign-out buried in it either. Account is what
  * opens the full modal now; Log out stays a single click from the avatar,
  * same as the desktop sidebar's own labelled row already gives for free.
+ *
+ * `onOpenSettings` is owned by AppShell, not local state here — the command
+ * palette also needs to open Settings, and a modal two components can
+ * trigger has to live where both can reach it.
  */
-export function AccountMenu() {
+export function AccountMenu({ onOpenSettings }) {
   const { user, signOut } = useAuth()
   const { profile } = useSchedule()
   const [open, setOpen] = useState(false)
@@ -70,6 +74,18 @@ export function AccountMenu() {
           >
             <UserIcon className="sidebar__icon" />
             Account
+          </button>
+          <button
+            type="button"
+            className="account__item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onOpenSettings?.()
+            }}
+          >
+            <SettingsIcon className="sidebar__icon" />
+            Settings
           </button>
           <button
             type="button"
