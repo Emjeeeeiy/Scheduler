@@ -159,6 +159,10 @@ expect('Week draws event spans', html.week.includes('week__span'))
 expect('Day view rails multi-day and all-day events', html.today.includes('event-rail'))
 expect('Day view counts the day of a running event', /Day \d+ of \d+/.test(html.today))
 expect('Day view offers free slots', html.today.includes('free-slots'))
+/* "Plan my day" is offered only when there is something in the inbox to
+   plan — the fixtures have one, so its absence here would mean the button
+   never renders at all rather than that it is correctly hidden. */
+expect('Day view offers to plan the day from the inbox', html.today.includes('Plan my day'))
 expect('Dashboard carries the mini calendar beside the hero', html.dashboard.includes('mini-cal'))
 expect('Mini calendar shows load density', html.dashboard.includes('mini-cal__dot'))
 /* Events are commitments, not work: they must never reach the planned-hours

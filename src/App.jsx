@@ -8,13 +8,16 @@ import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import {
   addDays,
+  durationLabel,
   formatMonthLabel,
   formatWeekLabel,
   isValidKey,
+  minToShortLabel,
   relativeDayLabel,
   shiftMonth,
   todayKey,
 } from './lib/date.js'
+import { parseQuickAdd } from './lib/parseQuickAdd.js'
 import { SetupNotice } from './components/shell/SetupNotice.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'
 import { Dashboard } from './components/views/Dashboard.jsx'
@@ -416,6 +419,48 @@ function AppShell() {
     [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, setFocusKey],
   )
 
+  /* Typing "lunch with Ana tomorrow 1pm" into the palette offers to create
+     exactly that. The parse is only ever used to PRE-FILL the create form —
+     never to save straight from here — so a misread date is one glance away
+     from being corrected rather than something discovered days later.
+
+     Offered only when the text yields something the plain "New task" action
+     wouldn't have: a date, a time, or a length. Without that, this would be
+     a second, noisier copy of "New task" on every keystroke. */
+  const quickAdd = useCallback(
+    (query) => {
+      const text = query.trim()
+      if (text.length < 3) return null
+      const parsed = parseQuickAdd(text, { today: todayKey() })
+      if (!parsed.title || (parsed.date === null && parsed.startMin === null && parsed.durationMin === null)) {
+        return null
+      }
+
+      const when = [
+        parsed.date && relativeDayLabel(parsed.date),
+        parsed.startMin !== null && minToShortLabel(parsed.startMin),
+        parsed.durationMin !== null && durationLabel(parsed.durationMin),
+      ]
+        .filter(Boolean)
+        .join(' · ')
+
+      return {
+        id: 'quick-add',
+        label: `Create "${parsed.title}"`,
+        hint: when,
+        Icon: PlusIcon,
+        onRun: () =>
+          openCreate({
+            title: parsed.title,
+            date: parsed.date ?? undefined,
+            startMin: parsed.startMin ?? undefined,
+            durationMin: parsed.durationMin ?? undefined,
+          }),
+      }
+    },
+    [openCreate],
+  )
+
   /* Global search, folded into the palette rather than given a surface of
      its own: "find that thing" and "go do that thing" are the same reflex,
      and every task and event is already in memory — this is a filter over
@@ -504,10 +549,10 @@ function AppShell() {
           })}
         </nav>
 
-        {/* The two things that open a manager rather than change the view —
+        {/* The things that open a manager rather than change the view —
             grouped so the rule dividing them from the nav is drawn once, and
-            so the pair moves together when the nav leaves for the bottom bar
-            on a narrow screen. */}
+            so they move together when the nav leaves for the bottom bar on a
+            narrow screen. */}
         <div className="sidebar__tools">
           {/* title= carries the label for a mouse on a narrow window, where
               these go icon-only and the text is left to screen readers. */}
@@ -715,6 +760,7 @@ function AppShell() {
         <CommandPalette
           actions={paletteActions}
           searchItems={searchItems}
+          quickAdd={quickAdd}
           onClose={() => setPaletteOpen(false)}
         />
       )}

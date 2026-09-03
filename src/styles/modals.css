@@ -359,6 +359,24 @@
   flex: none;
 }
 
+.tag-suggest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.tag-suggest:hover {
+  color: var(--color-text-primary);
+}
+
 .shortcut-list {
   display: grid;
   gap: 6px;

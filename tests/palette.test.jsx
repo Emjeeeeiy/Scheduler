@@ -95,3 +95,77 @@ describe('CommandPalette search', () => {
     expect(screen.queryByText('Your items')).toBeNull()
   })
 })
+
+/* The quick-add offer sits ahead of everything else, so it interacts with
+   both other groups and with the keyboard index that runs across all three.
+ */
+describe('CommandPalette quick add', () => {
+  /** Stands in for App.jsx's parser-backed offer: only answers for text
+      that actually carries a date or time. */
+  const quickAdd = (query) =>
+    /tomorrow/.test(query)
+      ? { id: 'quick-add', label: `Create "${query.replace(/\s*tomorrow\s*/, '')}"`, onRun: vi.fn() }
+      : null
+
+  it('offers nothing for a query that parses to no date or time', () => {
+    render(<CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={quickAdd} />)
+    type('week')
+    expect(screen.queryByText(/^Create /)).toBeNull()
+  })
+
+  it('leads the list once the query reads as something to create', () => {
+    const { container } = render(
+      <CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={quickAdd} searchItems={searchItems} />,
+    )
+    type('week review tomorrow')
+    const labels = [...container.querySelectorAll('.palette__item-label')].map((n) => n.textContent)
+    expect(labels[0]).toBe('Create "week review"')
+  })
+
+  it('is selected by default, so Enter creates what was typed', () => {
+    const onRun = vi.fn()
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        actions={ACTIONS}
+        quickAdd={() => ({ id: 'quick-add', label: 'Create "lunch"', onRun })}
+      />,
+    )
+    type('lunch tomorrow 1pm')
+    fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'Enter' })
+    expect(onRun).toHaveBeenCalledTimes(1)
+  })
+
+  /* A whole sentence matches no command — "lunch with Ana tomorrow" is not
+     a fuzzy spelling of "Go to Week" — so the realistic shape here is the
+     offer followed straight by whatever the words found. This fixture
+     searches on the first word so there is something to follow it with. */
+  const searchFirstWord = (query) => {
+    const first = query.trim().split(/\s+/)[0].toLowerCase()
+    if (first.length < 2) return []
+    return [{ id: 'search-1', label: 'Weekly review', onRun: vi.fn() }].filter((item) =>
+      item.label.toLowerCase().includes(first),
+    )
+  }
+
+  it('groups found items below the offer under their own heading', () => {
+    render(
+      <CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={quickAdd} searchItems={searchFirstWord} />,
+    )
+    type('week tomorrow')
+    expect(screen.getByText('Create "week"')).toBeTruthy()
+    expect(screen.getByText('Your items')).toBeTruthy()
+    expect(screen.getByText('Weekly review')).toBeTruthy()
+  })
+
+  it('arrows off the offer and into the results below it', () => {
+    render(
+      <CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={quickAdd} searchItems={searchFirstWord} />,
+    )
+    type('week tomorrow')
+    fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'ArrowDown' })
+    expect(screen.getByText('Weekly review').closest('button').getAttribute('aria-selected')).toBe(
+      'true',
+    )
+  })
+})

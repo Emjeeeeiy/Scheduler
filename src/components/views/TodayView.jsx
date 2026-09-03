@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { hourMarks, visibleWindow } from '../../lib/layout.js'
+import { planDay } from '../../lib/autoSchedule.js'
 import { freeSlots } from '../../lib/slots.js'
 import { dayOfSpan, eventSpanDays, isMultiDay } from '../../lib/spans.js'
 import { dayStats, upcomingTasks } from '../../lib/stats.js'
@@ -44,10 +47,14 @@ function taskHappeningNow(tasks, nowMin) {
 }
 
 export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEvent }) {
-  const { tasksOn, eventsOn, getTag } = useSchedule()
+  const { tasksOn, eventsOn, getTag, inbox, scheduleTask } = useSchedule()
   const { settings } = useSettings()
+  const { pushError, pushUndo } = useToast()
   const now = useNow()
   const [mode, setMode] = usePersistentState('cadence-app:day-mode', 'grid')
+  // null = not asked for. An empty array is a real answer: "nothing fits."
+  const [plan, setPlan] = useState(null)
+  const [applying, setApplying] = useState(false)
 
   const tasks = tasksOn(focusKey)
   const events = eventsOn(focusKey)
@@ -106,6 +113,58 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
       .map((item) => ({ kind: item.startDate === undefined ? 'task' : 'event', item })),
   ]
 
+  /* Planning today starts from now, not from this morning — proposing a
+     10am slot at four in the afternoon is offering a time that has gone.
+     Any other day is planned from its own beginning. */
+  function proposePlan() {
+    if (plan !== null) {
+      setPlan(null)
+      return
+    }
+    setPlan(
+      planDay({
+        inbox,
+        dayItems: (key) => [...tasksOn(key), ...eventsOn(key).filter((e) => Number.isFinite(e.startMin))],
+        key: focusKey,
+        workingHours: settings.workingHours,
+        fromMin: isToday ? now.min : 0,
+      }),
+    )
+  }
+
+  async function acceptPlan() {
+    const placements = plan
+    setApplying(true)
+    try {
+      /* Sequential rather than Promise.all: these are writes to the same
+         day, and a partial failure part-way through a batch is much easier
+         to reason about (and to report) than an unknown subset of eight
+         concurrent ones having landed. */
+      for (const placement of placements) {
+        await scheduleTask(placement.task.id, {
+          date: placement.date,
+          startMin: placement.startMin,
+        })
+      }
+      setPlan(null)
+      pushUndo(`Scheduled ${placements.length} task${placements.length === 1 ? '' : 's'}.`, async () => {
+        try {
+          for (const placement of placements) {
+            await scheduleTask(placement.task.id, { date: null, startMin: null })
+          }
+        } catch (caught) {
+          console.error('Could not undo the plan.', caught)
+          pushError('Could not put those back in the inbox.')
+        }
+      })
+    } catch (caught) {
+      console.error('Could not schedule the plan.', caught)
+      pushError('Could not schedule all of those. Some may already have moved.')
+    } finally {
+      setApplying(false)
+    }
+  }
+
   return (
     <div className="day-layout frame">
       <FrameTicks />
@@ -151,6 +210,16 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
                 </button>
               ))}
             </div>
+            {inbox.some((t) => !t.done) && (
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={proposePlan}
+                aria-expanded={plan !== null}
+              >
+                Plan my day
+              </button>
+            )}
             <button
               type="button"
               className="ghost-button ghost-button--sm"
@@ -160,6 +229,58 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
             </button>
           </div>
         </div>
+
+        {/* A proposal, shown in full and accepted as a whole or not at all.
+            Writing straight to the calendar would be faster and much worse:
+            this moves several tasks onto real times at once, and undoing
+            that one by one is not a reasonable thing to ask. */}
+        {plan !== null && (
+          <div className="day-plan">
+            {plan.length === 0 ? (
+              <>
+                <p className="day-plan__note">
+                  No room left on this day for anything in the inbox — every open gap is shorter
+                  than the tasks waiting.
+                </p>
+                <div className="day-plan__actions">
+                  <button type="button" className="ghost-button ghost-button--sm" onClick={() => setPlan(null)}>
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="day-plan__note">
+                  {`Put ${plan.length} inbox task${plan.length === 1 ? '' : 's'} on this day?`}
+                </p>
+                <ul className="day-plan__list">
+                  {plan.map((placement) => (
+                    <li key={placement.task.id} className="day-plan__row">
+                      <span className="day-plan__time">{minToLabel(placement.startMin)}</span>
+                      <span className="day-plan__title">{placement.task.title}</span>
+                      <span className="day-plan__length">
+                        {durationLabel(placement.task.durationMin)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="day-plan__actions">
+                  <button
+                    type="button"
+                    className="primary-button primary-button--sm"
+                    onClick={acceptPlan}
+                    disabled={applying}
+                  >
+                    {applying ? 'Scheduling…' : 'Schedule these'}
+                  </button>
+                  <button type="button" className="ghost-button ghost-button--sm" onClick={() => setPlan(null)}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Shown as their own rail rather than mixed into the task list,
             because there is nothing here to tick off. */}

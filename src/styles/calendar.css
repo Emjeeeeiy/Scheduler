@@ -241,6 +241,55 @@
   font-size: var(--text-label);
 }
 
+/* ============================================================ day plan == */
+
+/* The proposed schedule, on the same sunken surface every other "here is
+   something to decide on" block in the app uses. */
+.day-plan {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  margin-bottom: 14px;
+}
+
+.day-plan__note {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.day-plan__list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.day-plan__row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  font-size: var(--text-label);
+}
+
+.day-plan__time,
+.day-plan__length {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.day-plan__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-plan__actions {
+  display: flex;
+  gap: 8px;
+}
+
 .now-next__dot {
   width: 7px;
   height: 7px;

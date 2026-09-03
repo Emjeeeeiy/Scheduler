@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -6,8 +6,10 @@ import { minToLabel, minToTimeValue, relativeDayLabel, timeValueToMin, todayKey 
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { TASK_PRIORITIES } from '../../lib/normalize.js'
 import { suggestSlots } from '../../lib/autoSchedule.js'
+import { buildTagModel, suggestTag } from '../../lib/suggestTag.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon, PinIcon, RepeatIcon, SearchIcon } from '../icons.jsx'
+import { TagGlyph } from './TagGlyph.jsx'
 import { BlockedByPicker } from './BlockedByPicker.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
@@ -27,7 +29,7 @@ function durationOption(min) {
 /** Create and edit share one form: the fields are identical, and keeping them
     together means a change to the time model can only be made in one place. */
 export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
-  const { addTask, updateTask, removeTask, restoreItem, addTemplate, tags, getSeries, tasksOn, eventsOn } =
+  const { addTask, updateTask, removeTask, restoreItem, addTemplate, tags, tasks, getSeries, tasksOn, eventsOn } =
     useSchedule()
   const { settings } = useSettings()
   const { pushError, pushSuccess, pushUndo } = useToast()
@@ -55,6 +57,20 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const [repeat, setRepeat] = useState(isSeries ? source.recurrence : null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  /* Which tag this title looks like, learned from the tasks already filed by
+     hand (see suggestTag.js). The model is a pass over every task, so it is
+     memoized against the list rather than rebuilt on each keystroke; the
+     lookup itself is a few Map reads and can run per render.
+
+     Only offered when the field is still empty — a suggestion next to a tag
+     someone deliberately chose is second-guessing, not help. */
+  const tagModel = useMemo(() => buildTagModel(tasks), [tasks])
+  const suggestedTag = useMemo(() => {
+    if (tagId) return null
+    const guess = suggestTag(title, tagModel, new Set(tags.map((t) => t.id)))
+    return guess ? (tags.find((t) => t.id === guess.tagId) ?? null) : null
+  }, [tagId, title, tagModel, tags])
   // null = not searched yet, [] = searched and found nothing, otherwise the
   // suggestions themselves — three distinct states the UI reads apart.
   const [suggestions, setSuggestions] = useState(null)
@@ -283,6 +299,20 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
             <label className="field">
               <span className="field__label">Tag</span>
               <TagSelect tags={tags} value={tagId} onChange={setTagId} />
+              {/* Offered, never applied. One click to take it, and no click
+                  at all to ignore it — a tag filled in silently is a tag
+                  nobody reviews. */}
+              {suggestedTag && (
+                <button
+                  type="button"
+                  className="tag-suggest"
+                  onClick={() => setTagId(suggestedTag.id)}
+                  title={`Based on other tasks you've filed under ${suggestedTag.name}`}
+                >
+                  <TagGlyph tag={suggestedTag} variant="swatch" className="tag-swatch tag-swatch--sm" />
+                  Use {suggestedTag.name}?
+                </button>
+              )}
             </label>
           </div>
 

@@ -35,7 +35,7 @@ function matches(query, label) {
  * pre-built actions is what keeps every task in the account out of the
  * palette when the box is empty.
  */
-export function CommandPalette({ onClose, actions, searchItems }) {
+export function CommandPalette({ onClose, actions, searchItems, quickAdd }) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const panelRef = useRef(null)
@@ -43,13 +43,21 @@ export function CommandPalette({ onClose, actions, searchItems }) {
   useModalA11y(panelRef, { onClose, initialFocusRef: inputRef })
 
   const found = useMemo(() => searchItems?.(query) ?? [], [searchItems, query])
-  /* Commands first, then what the query found. Commands are a fixed, known
+  /* Typing a whole sentence into a command palette is a statement of intent
+     to create something, not to navigate — so when the query parses as one,
+     that offer leads the list rather than sitting under the commands. */
+  const create = useMemo(() => quickAdd?.(query) ?? null, [quickAdd, query])
+  /* Commands next, then what the query found. Commands are a fixed, known
      list someone learns the position of; results are a variable tail. Sorting
      the two together by relevance would move "New task" around under the
      cursor depending on what else happened to match. */
   const filtered = useMemo(
-    () => [...actions.filter((action) => matches(query, action.label)), ...found],
-    [actions, query, found],
+    () => [
+      ...(create ? [create] : []),
+      ...actions.filter((action) => matches(query, action.label)),
+      ...found,
+    ],
+    [create, actions, query, found],
   )
   const commandCount = filtered.length - found.length
   // Clamped rather than reset to 0 on every filter change: losing the

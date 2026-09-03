@@ -486,6 +486,13 @@
   font-size: var(--text-label);
 }
 
+/* The same step down ghost and danger already take, so the three read as
+   one size when they sit in a row together. */
+.primary-button--sm {
+  padding: 3px 9px;
+  font-size: var(--text-label);
+}
+
 /* Every existing icon+label button (sidebar's New task/New event, nav links)
    sets its own flex layout on a dedicated class, since the base button
    classes stay plain text by default. This is that layout, pulled out once
