@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  bestDayOfWeek,
   dayStats,
+  focusByTag,
+  focusStatsFor,
   isSeriesTemplate,
   openBlockers,
   overdueTasks,
@@ -10,6 +13,7 @@ import {
   tagBreakdown,
   upcomingTasks,
 } from '../src/lib/stats.js'
+import { weekdayOf } from '../src/lib/date.js'
 
 const timed = (id, date, startMin, durationMin, done = false, tagId = null) => ({
   id,
@@ -174,6 +178,41 @@ describe('upcomingTasks', () => {
   })
 })
 
+describe('focusStatsFor', () => {
+  const sessions = [
+    { date: '2026-08-24', minutes: 25, tagId: 'work' },
+    { date: '2026-08-24', minutes: 25, tagId: 'work' },
+    { date: '2026-08-25', minutes: 25, tagId: 'personal' },
+    { date: '2026-09-01', minutes: 25, tagId: null },
+  ]
+
+  it('sums minutes and counts rounds within the given day keys', () => {
+    assert.deepEqual(focusStatsFor(sessions, ['2026-08-24']), { minutes: 50, count: 2 })
+    assert.deepEqual(focusStatsFor(sessions, ['2026-08-24', '2026-08-25']), { minutes: 75, count: 3 })
+  })
+
+  it('is zero for a range with nothing in it', () => {
+    assert.deepEqual(focusStatsFor(sessions, ['2020-01-01']), { minutes: 0, count: 0 })
+    assert.deepEqual(focusStatsFor([], ['2026-08-24']), { minutes: 0, count: 0 })
+  })
+})
+
+describe('focusByTag', () => {
+  it('groups minutes by tag, largest first, reporting untagged rather than dropping it', () => {
+    const sessions = [
+      { tagId: 'work', minutes: 25 },
+      { tagId: 'work', minutes: 25 },
+      { tagId: 'personal', minutes: 10 },
+      { tagId: null, minutes: 90 },
+    ]
+    const rows = focusByTag(sessions, [{ id: 'work', name: 'Work' }, { id: 'personal', name: 'Personal' }])
+    assert.deepEqual(
+      rows.map((r) => [r.tag.name, r.minutes]),
+      [['Untagged', 90], ['Work', 50], ['Personal', 10]],
+    )
+  })
+})
+
 describe('openBlockers', () => {
   const all = [
     timed('a', '2026-08-24', 540, 60, false),
@@ -195,5 +234,40 @@ describe('openBlockers', () => {
 
   it('is empty once every blocker is done', () => {
     assert.deepEqual(openBlockers({ blockedBy: ['b'] }, all), [])
+  })
+})
+
+describe('bestDayOfWeek', () => {
+  // Weekdays are derived through weekdayOf rather than hardcoded, for the
+  // same reason date.js warns against `new Date('YYYY-MM-DD')` — the shape of
+  // a key says nothing about which day it lands on.
+  const row = (key, count, doneCount) => ({ key, count, doneCount, plannedMin: 0, completedMin: 0 })
+
+  it('picks the weekday that finishes the largest share of its work', () => {
+    const rows = [
+      row('2026-08-24', 2, 2),
+      row('2026-08-31', 2, 2),
+      row('2026-08-25', 2, 0),
+      row('2026-09-01', 2, 0),
+    ]
+    const best = bestDayOfWeek(rows)
+    assert.equal(best.day, weekdayOf('2026-08-24'))
+    assert.equal(best.rate, 1)
+  })
+
+  it('ignores a weekday with too little history to mean anything', () => {
+    const rows = [row('2026-08-24', 1, 1), row('2026-08-25', 4, 3)]
+    assert.equal(bestDayOfWeek(rows).day, weekdayOf('2026-08-25'))
+  })
+
+  it('is null when no weekday clears the minimum', () => {
+    assert.equal(bestDayOfWeek([row('2026-08-24', 1, 1)]), null)
+    assert.equal(bestDayOfWeek([]), null)
+  })
+
+  it('aggregates a weekday across the range rather than ranking single days', () => {
+    // One hit and three misses on the same weekday is 25%, not a perfect day
+    // sitting beside a bad one.
+    assert.equal(bestDayOfWeek([row('2026-08-24', 1, 1), row('2026-08-31', 3, 0)]).rate, 0.25)
   })
 })

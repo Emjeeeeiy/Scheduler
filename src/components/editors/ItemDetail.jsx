@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { addDays, durationLabel, formatDayLabel, minToLabel, relativeDayLabel, todayKey } from '../../lib/date.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
+import { currentStreak, recurrenceLabel } from '../../lib/recurrence.js'
 import { isSeriesTemplate, openBlockers } from '../../lib/stats.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CheckIcon, CloseIcon, DayIcon, PinIcon, RepeatIcon, SpanIcon, WarningIcon } from '../icons.jsx'
@@ -73,7 +73,7 @@ function eventFields(event) {
     a task/event pair — unlike the editors, there is no per-field state or
     submit logic here to keep apart, just which handful of rows to show. */
 export function ItemDetail({ editor, onClose, onEdit }) {
-  const { tasks, getTag, updateTask, scheduleTask } = useSchedule()
+  const { tasks, getTag, getSeries, updateTask, scheduleTask } = useSchedule()
   const { pushError } = useToast()
   const isEvent = editor.kind === 'event'
   const source = isEvent ? editor.event : editor.task
@@ -84,6 +84,12 @@ export function ItemDetail({ editor, onClose, onEdit }) {
   const blockers = isEvent ? [] : openBlockers(source, tasks)
   const subtaskCount = !isEvent && source.subtasks ? source.subtasks.length : 0
   const subtaskDone = !isEvent && source.subtasks ? source.subtasks.filter((s) => s.done).length : 0
+  // Streak needs the SERIES document's own overrides map — an occurrence
+  // carries no overrides of its own (see occurrenceOn), so for a single day
+  // of a repeating task this looks the parent up; for the rule itself,
+  // `source` already is that document.
+  const streakSeries = isEvent ? null : fields.isOccurrence ? getSeries(source.seriesId) : fields.isSeries ? source : null
+  const streak = streakSeries ? currentStreak(streakSeries) : 0
 
   const KindIcon = isEvent ? SpanIcon : DayIcon
   const kindLabel = isEvent ? 'Event' : 'Task'
@@ -200,6 +206,14 @@ export function ItemDetail({ editor, onClose, onEdit }) {
             <span className="detail-field__label">Repeat</span>
             <span className="detail-field__value">{fields.repeat}</span>
           </div>
+          {streakSeries && (
+            <div className="detail-field">
+              <span className="detail-field__label">Streak</span>
+              <span className="detail-field__value">
+                {streak === 0 ? 'Not started' : `${streak} day${streak === 1 ? '' : 's'}`}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="detail-field detail-field--full">

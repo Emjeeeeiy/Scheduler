@@ -61,6 +61,38 @@ function IconPicker({ value, onPick, label }) {
   )
 }
 
+/** A weekly-hours goal for a tag, edited as whole hours since a minute-level
+    goal isn't a thing anyone actually sets. `null` (no goal) is reachable via
+    Clear, kept distinct from `0` — a goal of zero hours would just be "no
+    goal" wearing a number. */
+function GoalInput({ value, onChange, label }) {
+  const hours = value ? Math.round(value / 60) : ''
+  return (
+    <div className="tag-goal" role="group" aria-label={label}>
+      <input
+        className="input input--sm"
+        type="number"
+        min="1"
+        max="168"
+        step="1"
+        value={hours}
+        onChange={(e) => {
+          const n = Number(e.target.value)
+          onChange(Number.isFinite(n) && n > 0 ? n * 60 : null)
+        }}
+        placeholder="Hours"
+        aria-label={label}
+      />
+      <span className="field__hint">hrs / week</span>
+      {value !== null && (
+        <button type="button" className="ghost-button ghost-button--sm" onClick={() => onChange(null)}>
+          Clear
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function TagManager({ onClose }) {
   const { tags, tasks, addTag, updateTag, removeTag, importData } = useSchedule()
   const { pushError, pushUndo } = useToast()
@@ -68,6 +100,7 @@ export function TagManager({ onClose }) {
   const [slot, setSlot] = useState(null)
   const [icon, setIcon] = useState(null)
   const [pickingIconFor, setPickingIconFor] = useState(null)
+  const [settingGoalFor, setSettingGoalFor] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -178,6 +211,14 @@ export function TagManager({ onClose }) {
                   >
                     {pickingIconFor === tag.id ? 'Close' : 'Icon'}
                   </button>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setSettingGoalFor((id) => (id === tag.id ? null : tag.id))}
+                    aria-expanded={settingGoalFor === tag.id}
+                  >
+                    {settingGoalFor === tag.id ? 'Close' : tag.goalMinutes ? `${Math.round(tag.goalMinutes / 60)}h/wk` : 'Goal'}
+                  </button>
                   <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
                     {countFor(tag.id)}
                   </span>
@@ -215,6 +256,13 @@ export function TagManager({ onClose }) {
                     value={tag.icon}
                     onPick={(next) => updateTag(tag.id, { icon: next })}
                     label={`Icon for ${tag.name}`}
+                  />
+                )}
+                {settingGoalFor === tag.id && (
+                  <GoalInput
+                    value={tag.goalMinutes}
+                    onChange={(next) => updateTag(tag.id, { goalMinutes: next })}
+                    label={`Weekly hour goal for ${tag.name}`}
                   />
                 )}
               </li>

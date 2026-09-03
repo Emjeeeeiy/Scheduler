@@ -6,7 +6,7 @@
  * mean nothing. All-day items are still counted in the task counts.
  */
 
-import { todayKey } from './date.js'
+import { todayKey, weekdayOf } from './date.js'
 
 /** What counts as a full day, and the reference every load indicator scales
     against — the week header's bar, the month cell's strip, the mini
@@ -100,6 +100,43 @@ export function tagBreakdown(tasks, tags) {
     .sort((a, b) => b.plannedMin - a.plannedMin || b.count - a.count)
 }
 
+/** Total focus-round minutes and round count across a set of day keys — one
+    key for "today," seven for "this week." Callers pass whatever range they
+    mean rather than this taking an opinion on it. */
+export function focusStatsFor(sessions, keys) {
+  const keySet = new Set(keys)
+  let minutes = 0
+  let count = 0
+  for (const session of sessions) {
+    if (!keySet.has(session.date)) continue
+    minutes += session.minutes
+    count += 1
+  }
+  return { minutes, count }
+}
+
+/** Focus minutes grouped by tag, largest first — the same shape and the
+    same "report untagged rather than drop it" stance as tagBreakdown,
+    just over completed focus rounds instead of scheduled tasks. */
+export function focusByTag(sessions, tags) {
+  const buckets = new Map()
+  for (const session of sessions) {
+    const id = session.tagId ?? '__untagged'
+    const bucket = buckets.get(id) ?? { id, minutes: 0, count: 0 }
+    bucket.minutes += session.minutes
+    bucket.count += 1
+    buckets.set(id, bucket)
+  }
+
+  const byId = new Map(tags.map((t) => [t.id, t]))
+  return [...buckets.values()]
+    .map((bucket) => ({
+      ...bucket,
+      tag: byId.get(bucket.id) ?? { id: bucket.id, name: 'Untagged', color: 'var(--color-text-muted)' },
+    }))
+    .sort((a, b) => b.minutes - a.minutes)
+}
+
 /** Open tasks whose day has already passed — the pile that quietly grows.
  *
  * A repeating task never joins that pile. Missing Tuesday's run is not work
@@ -142,6 +179,27 @@ export function openBlockers(task, tasks) {
   if (!task.blockedBy || task.blockedBy.length === 0) return []
   const byId = new Map(tasks.map((t) => [t.id, t]))
   return task.blockedBy.map((id) => byId.get(id)).filter((t) => t && !t.done)
+}
+
+/** Which weekday finishes the largest share of its planned work, aggregated
+    across a range of `rangeStats` rows by the day-of-week each key falls on.
+    Ignores weekdays with too little history to mean anything — the same
+    minimum-count guard weakestTag uses, just over a range that's rarely more
+    than 30 rows, so a single busy Tuesday can't crown itself "best day." */
+export function bestDayOfWeek(rows, minimumCount = 2) {
+  const buckets = new Map()
+  for (const row of rows) {
+    const day = weekdayOf(row.key)
+    const bucket = buckets.get(day) ?? { day, count: 0, doneCount: 0 }
+    bucket.count += row.count
+    bucket.doneCount += row.doneCount
+    buckets.set(day, bucket)
+  }
+  const eligible = [...buckets.values()].filter((b) => b.count >= minimumCount)
+  if (eligible.length === 0) return null
+  return eligible
+    .map((b) => ({ ...b, rate: b.doneCount / b.count }))
+    .sort((a, b) => b.rate - a.rate)[0]
 }
 
 /** The tag with the worst completion rate over a set of tasks, ignoring tags

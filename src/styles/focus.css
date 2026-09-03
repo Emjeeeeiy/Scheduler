@@ -11,6 +11,57 @@
   gap: 12px 16px;
 }
 
+.focus__head-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.focus__autostart {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.focus__autostart input {
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.focus__tag-stats {
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+
+.focus__tag-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-item);
+}
+
+.focus__tag-stats-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tag);
+  flex: none;
+}
+
+.focus__tag-stats-name {
+  flex: 1;
+}
+
+.focus__tag-stats-value {
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
 .focus__task-row {
   display: flex;
   align-items: center;

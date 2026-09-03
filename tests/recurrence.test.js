@@ -7,6 +7,7 @@ import {
   MONTHLY,
   WEEKDAYS,
   WEEKENDS,
+  currentStreak,
   eventOccurrenceOn,
   isLastWeekdayOfMonth,
   normalizeOverrides,
@@ -21,6 +22,7 @@ import {
   recurrenceForPreset,
   recurrenceLabel,
 } from '../src/lib/recurrence.js'
+import { addDays, daysBetween } from '../src/lib/date.js'
 
 // 2026-08-24 is a Monday; the week that follows it is used throughout.
 const MON = '2026-08-24'
@@ -342,6 +344,53 @@ describe('a rule with an end date', () => {
     const rule = normalizeRecurrence({ days: EVERY_DAY }, MON)
     assert.equal(rule.until, null)
     assert.equal(occursOn(rule, '2027-01-01'), true)
+  })
+})
+
+describe('currentStreak', () => {
+  const daily = (overrides = {}) => ({
+    id: 'habit',
+    recurrence: { freq: 'weekly', days: EVERY_DAY, anchor: '2026-08-01' },
+    overrides,
+  })
+
+  it('counts consecutive done days walking back from yesterday', () => {
+    const series = daily({ [MON]: { done: true }, [TUE]: { done: true } })
+    // WED (referenceKey) hasn't happened yet today — not done, but that
+    // doesn't break the streak; it's just excluded.
+    assert.equal(currentStreak(series, WED), 2)
+  })
+
+  it('includes today once today is actually done', () => {
+    const series = daily({ [MON]: { done: true }, [TUE]: { done: true }, [WED]: { done: true } })
+    assert.equal(currentStreak(series, WED), 3)
+  })
+
+  it('stops at the most recent miss, even if an earlier day was done', () => {
+    const series = daily({ [MON]: { done: true } }) // TUE left undone
+    assert.equal(currentStreak(series, WED), 0)
+  })
+
+  it('is zero for a task with no recurrence', () => {
+    assert.equal(currentStreak({ recurrence: null }, WED), 0)
+    assert.equal(currentStreak(null, WED), 0)
+  })
+
+  it('treats a detached day as a miss, not a completion', () => {
+    const series = daily({ [MON]: { detached: true } })
+    assert.equal(currentStreak(series, TUE), 0)
+  })
+
+  it('never walks back past the rule\'s own anchor', () => {
+    const anchor = '2026-08-01'
+    const overrides = {}
+    for (let key = anchor; key <= FRI; key = addDays(key, 1)) {
+      overrides[key] = { done: true }
+    }
+    const series = { id: 'habit', recurrence: { freq: 'weekly', days: EVERY_DAY, anchor }, overrides }
+    // Every day from the anchor through FRI is done — the streak is exactly
+    // that many days, not one more from reaching past the anchor.
+    assert.equal(currentStreak(series, FRI), daysBetween(anchor, FRI) + 1)
   })
 })
 

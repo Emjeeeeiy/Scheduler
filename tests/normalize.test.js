@@ -7,6 +7,7 @@ import {
   TAG_SLOTS,
   TASK_PRIORITIES,
   normalizeEvent,
+  normalizeFocusSession,
   normalizeTag,
   normalizeTask,
   normalizeTemplate,
@@ -202,6 +203,15 @@ describe('normalizeTag', () => {
     assert.equal(tag.icon, null)
     assert.equal(tag.color, `var(--color-tag-${TAG_SLOTS[0]})`)
     assert.equal(tag.order, 0)
+    assert.equal(tag.goalMinutes, null)
+  })
+
+  it('only accepts a positive, capped weekly goal', () => {
+    assert.equal(normalizeTag('tag1', { goalMinutes: 300 }).goalMinutes, 300)
+    assert.equal(normalizeTag('tag1', { goalMinutes: 0 }).goalMinutes, null)
+    assert.equal(normalizeTag('tag1', { goalMinutes: -10 }).goalMinutes, null)
+    assert.equal(normalizeTag('tag1', { goalMinutes: 'lots' }).goalMinutes, null)
+    assert.equal(normalizeTag('tag1', { goalMinutes: 999999 }).goalMinutes, 168 * 60)
   })
 
   it('rejects a slot outside the validated palette', () => {
@@ -245,5 +255,28 @@ describe('normalizeTemplate', () => {
     assert.equal('date' in template, false)
     assert.equal('startMin' in template, false)
     assert.equal('recurrence' in template, false)
+  })
+})
+
+describe('normalizeFocusSession', () => {
+  it('fills in every field from an empty document', () => {
+    assert.deepEqual(normalizeFocusSession('fs1', {}), {
+      id: 'fs1',
+      date: null,
+      taskId: null,
+      tagId: null,
+      minutes: 0,
+      completedAt: 0,
+    })
+  })
+
+  it('rounds and floors minutes at zero', () => {
+    assert.equal(normalizeFocusSession('fs1', { minutes: 24.6 }).minutes, 25)
+    assert.equal(normalizeFocusSession('fs1', { minutes: -5 }).minutes, 0)
+  })
+
+  it('drops a non-string taskId/tagId', () => {
+    assert.equal(normalizeFocusSession('fs1', { taskId: 42 }).taskId, null)
+    assert.equal(normalizeFocusSession('fs1', { tagId: '' }).tagId, null)
   })
 })

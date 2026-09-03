@@ -212,6 +212,12 @@ export function normalizeTag(id, raw) {
     // no component has to know how a slot maps to a colour.
     color: `var(--color-tag-${slot})`,
     order: Number.isFinite(raw?.order) ? raw.order : 0,
+    // null is again a real state — "no weekly goal set" — not a missing
+    // value, so it's what an absent or malformed one normalizes to rather
+    // than some arbitrary default hour count nobody chose.
+    goalMinutes: Number.isFinite(raw?.goalMinutes) && raw.goalMinutes > 0
+      ? Math.min(168 * 60, Math.round(raw.goalMinutes))
+      : null,
   }
 }
 
@@ -231,5 +237,21 @@ export function normalizeTemplate(id, raw) {
       : DEFAULT_DURATION_MIN,
     priority: TASK_PRIORITIES.includes(raw?.priority) ? raw.priority : 'normal',
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
+  }
+}
+
+/** One completed focus round — written once, on completion, never edited.
+    `taskId`/`tagId` are whichever task was selected when the round finished,
+    or null for an untargeted round; both are snapshotted rather than looked
+    up live, so a session's history stays accurate even after the task it
+    was spent on is retitled, retagged, or deleted. */
+export function normalizeFocusSession(id, raw) {
+  return {
+    id,
+    date: isValidKey(raw?.date) ? raw.date : null,
+    taskId: typeof raw?.taskId === 'string' && raw.taskId ? raw.taskId : null,
+    tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
+    minutes: Number.isFinite(raw?.minutes) ? Math.max(0, Math.round(raw.minutes)) : 0,
+    completedAt: Number.isFinite(raw?.completedAt) ? raw.completedAt : 0,
   }
 }

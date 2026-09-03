@@ -21,11 +21,13 @@ import {
   DAY_LONG,
   DAY_SHORT,
   WEEK_STARTS_ON,
+  addDays,
   dayOfMonth,
   daysBetween,
   formatDayLabel,
   fromKey,
   isValidKey,
+  todayKey,
   weekdayOf,
 } from './date.js'
 
@@ -196,6 +198,45 @@ export function occurrenceOn(series, key) {
     done,
     completedAt: done ? override.completedAt ?? null : null,
   }
+}
+
+/** How many CONSECUTIVE occurrences of a recurring task, counting back from
+    today, have been ticked off — the "don't break the chain" count a habit
+    tracker shows. Today itself never breaks a streak just for not being
+    done yet: an occurrence still pending today is skipped rather than
+    counted as a miss, since the day isn't over.
+
+    A day detached into its own document (edited or deleted individually)
+    reads as a miss here even if that document was itself completed — a
+    detached task deliberately severs its link back to the series (see
+    detachOccurrence in ScheduleContext), so there is no reliable way to
+    look its done state back up from the rule alone. */
+export function currentStreak(series, referenceKey = todayKey()) {
+  if (!series?.recurrence) return 0
+  // A safety bound on the walk, not a real limit on how long a streak can
+  // be — the loop already stops at the first miss, so this only matters for
+  // an old anchor with an implausibly long unbroken run.
+  const MAX_LOOKBACK_DAYS = 3650
+
+  let cursor = referenceKey
+  if (occursOn(series.recurrence, cursor) && series.overrides?.[cursor]?.done !== true) {
+    cursor = addDays(cursor, -1)
+  }
+
+  let streak = 0
+  for (let i = 0; i < MAX_LOOKBACK_DAYS && cursor >= series.recurrence.anchor; i++) {
+    if (!occursOn(series.recurrence, cursor)) {
+      cursor = addDays(cursor, -1)
+      continue
+    }
+    if (series.overrides?.[cursor]?.done === true) {
+      streak += 1
+      cursor = addDays(cursor, -1)
+    } else {
+      break
+    }
+  }
+  return streak
 }
 
 /* ----------------------------------------------------------- the label -- */

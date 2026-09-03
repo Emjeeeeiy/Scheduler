@@ -10,19 +10,22 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { addDays, todayKey } from '../../src/lib/date.js'
+import { addDays, monthGrid, todayKey } from '../../src/lib/date.js'
+import { occursOn } from '../../src/lib/recurrence.js'
 import { ToastProvider } from '../../src/state/ToastContext.jsx'
 import { SettingsProvider } from '../../src/state/SettingsContext.jsx'
 import { Dashboard } from '../../src/components/views/Dashboard.jsx'
 import { TodayView } from '../../src/components/views/TodayView.jsx'
 import { WeekGrid } from '../../src/components/views/WeekGrid.jsx'
 import { MonthCalendar } from '../../src/components/views/MonthCalendar.jsx'
+import { ReviewView } from '../../src/components/views/ReviewView.jsx'
 import { TaskEditor } from '../../src/components/editors/TaskEditor.jsx'
 import { EventEditor } from '../../src/components/editors/EventEditor.jsx'
 import { MiniCalendar } from '../../src/components/calendar/MiniCalendar.jsx'
 import { TagManager } from '../../src/components/editors/TagManager.jsx'
 import { ItemManager } from '../../src/components/editors/ItemManager.jsx'
 import { TaskInbox } from '../../src/components/calendar/TaskInbox.jsx'
+import { FocusMode } from '../../src/components/views/FocusMode.jsx'
 import { SignIn } from '../../src/components/auth/SignIn.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
@@ -67,7 +70,9 @@ const cases = [
   ['TodayView', <TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['WeekGrid', <WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['MonthCalendar', <MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />],
+  ['ReviewView', <ReviewView focusKey={KEY} />],
   ['TaskInbox', <TaskInbox focusKey={KEY} onEdit={noop} onCreate={noop} />],
+  ['FocusMode', <FocusMode onEdit={noop} />],
   ['TagManager', <TagManager onClose={noop} />],
   ['ItemManager', <ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
@@ -204,10 +209,16 @@ expect(
 )
 /* And the rule document itself never shows up as an event on its anchor day —
    the same contract repeating tasks have. A month view drawing both the rule
-   and its occurrences would double every repeat. */
+   and its occurrences would double every repeat.
+   Counted against what the rule actually generates rather than a fixed
+   number: the grid is 42 days, so it reaches into the neighbouring months and
+   a monthly rule legitimately lands in it twice in some months and once in
+   others. A hardcoded count only passes on the dates it was written on. */
+const bookClub = mockValue.events.find((e) => e.title === 'Book club')
+const bookClubDays = monthGrid(KEY).filter((day) => occursOn(bookClub.recurrence, day)).length
 expect(
-  'The month shows one Book club, not the rule as well',
-  (html.month.match(/>Book club</g) ?? []).length <= 1,
+  'The month shows one Book club per occurrence, and never the rule as well',
+  (html.month.match(/>Book club</g) ?? []).length === bookClubDays,
 )
 
 /* The item index lists documents, not calendar days — so a repeating task must

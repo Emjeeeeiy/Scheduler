@@ -21,6 +21,7 @@ import { Dashboard } from './components/views/Dashboard.jsx'
 import { TodayView } from './components/views/TodayView.jsx'
 import { WeekGrid } from './components/views/WeekGrid.jsx'
 import { MonthCalendar } from './components/views/MonthCalendar.jsx'
+import { ReviewView } from './components/views/ReviewView.jsx'
 import { FocusMode } from './components/views/FocusMode.jsx'
 import { TaskEditor } from './components/editors/TaskEditor.jsx'
 import { EventEditor } from './components/editors/EventEditor.jsx'
@@ -50,6 +51,7 @@ import {
   ThemeDarkIcon,
   ThemeLightIcon,
   ThemeSystemIcon,
+  TrendIcon,
   WarningIcon,
   WeekIcon,
 } from './components/icons.jsx'
@@ -66,6 +68,7 @@ import './styles/calendar.css'
 import './styles/modals.css'
 import './styles/toggles-responsive.css'
 import './styles/calendar-dnd.css'
+import './styles/review.css'
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
@@ -73,19 +76,23 @@ const NAV_ITEMS = [
   { id: 'focus', label: 'Focus', Icon: FocusIcon },
 ]
 
-/** The schedule page's three sub-views, and the tab shown for each. */
+/** The schedule page's four sub-views, and the tab shown for each. */
 const SCHEDULE_TABS = [
   { id: 'today', label: 'Day', Icon: DayIcon },
   { id: 'week', label: 'Week', Icon: WeekIcon },
   { id: 'month', label: 'Month', Icon: MonthIcon },
+  { id: 'review', label: 'Review', Icon: TrendIcon },
 ]
 const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
 
-/** Which views carry a date cursor, and how far one arrow press moves it. */
+/** Which views carry a date cursor, and how far one arrow press moves it.
+    Review shares Week's own step — a retrospective moves one week at a time,
+    the same cursor Day/Week/Month already share rather than a second one. */
 const DATE_NAV = {
   today: (key, n) => addDays(key, n),
   week: (key, n) => addDays(key, n * 7),
   month: (key, n) => shiftMonth(key, n),
+  review: (key, n) => addDays(key, n * 7),
 }
 
 const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
@@ -291,7 +298,7 @@ function AppShell() {
   }, [modalOpen, paletteOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
 
   const dateLabel = useMemo(() => {
-    if (view === 'week') return formatWeekLabel(focusKey, settings.weekStartsOn)
+    if (view === 'week' || view === 'review') return formatWeekLabel(focusKey, settings.weekStartsOn)
     if (view === 'month') return formatMonthLabel(focusKey)
     return relativeDayLabel(focusKey)
   }, [view, focusKey, settings.weekStartsOn])
@@ -307,6 +314,7 @@ function AppShell() {
       { id: 'view-day', label: 'Go to Day', Icon: DayIcon, onRun: () => setView('today') },
       { id: 'view-week', label: 'Go to Week', Icon: WeekIcon, onRun: () => setView('week') },
       { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => setView('month') },
+      { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => setView('review') },
       { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
       {
         id: 'new-task',
@@ -561,6 +569,7 @@ function AppShell() {
                   onEditEvent={openEditEvent}
                 />
               )}
+              {view === 'review' && <ReviewView focusKey={focusKey} />}
               {/* Always mounted, just hidden off-screen when another view is
                   showing — a running round has to keep counting down while
                   you check the schedule, not restart from 25:00 the moment

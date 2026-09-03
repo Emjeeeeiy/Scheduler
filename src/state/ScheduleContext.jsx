@@ -26,6 +26,7 @@ import {
   TAG_ICONS,
   TAG_SLOTS,
   normalizeEvent,
+  normalizeFocusSession,
   normalizeTag,
   normalizeTask,
   normalizeTemplate,
@@ -65,6 +66,7 @@ export function ScheduleProvider({ children }) {
   const [tags, setTags] = useState([])
   const [events, setEvents] = useState([])
   const [templates, setTemplates] = useState([])
+  const [focusSessions, setFocusSessions] = useState([])
   const [profile, setProfile] = useState(null)
   const [readyUid, setReadyUid] = useState(null)
   const [error, setError] = useState(null)
@@ -184,6 +186,19 @@ export function ScheduleProvider({ children }) {
       collection(db, 'users', uid, 'templates'),
       (snapshot) => setTemplates(snapshot.docs.map((d) => normalizeTemplate(d.id, d.data()))),
       (caught) => console.error('Could not read templates.', caught),
+    )
+  }, [uid])
+
+  /* Same reasoning again: focus-session history feeds Focus Mode's own
+     stats strip and the Dashboard's per-tag focus breakdown, neither of
+     which the rest of the app needs to be "ready" before rendering. */
+  useEffect(() => {
+    if (!uid) return undefined
+    return onSnapshot(
+      collection(db, 'users', uid, 'focusSessions'),
+      (snapshot) =>
+        setFocusSessions(snapshot.docs.map((d) => normalizeFocusSession(d.id, d.data()))),
+      (caught) => console.error('Could not read focus sessions.', caught),
     )
   }, [uid])
 
@@ -410,6 +425,7 @@ export function ScheduleProvider({ children }) {
       inbox,
       profile,
       templates,
+      focusSessions,
       loading,
       error,
 
@@ -654,6 +670,20 @@ export function ScheduleProvider({ children }) {
         return deleteDoc(doc(db, 'users', uid, 'templates', id))
       },
 
+      /** Written once, from FocusMode, the moment a focus round (not a
+          break) completes. Never updated or read back individually — only
+          aggregated, by Focus Mode's own stats strip and the Dashboard's
+          per-tag breakdown. */
+      async addFocusSession({ date, taskId, tagId, minutes }) {
+        return addDoc(collection(db, 'users', uid, 'focusSessions'), {
+          date,
+          taskId: taskId ?? null,
+          tagId: tagId ?? null,
+          minutes,
+          completedAt: now(),
+        })
+      },
+
       /** Wipes every task and event document — including the rule behind
           each repeating series, which stands for every one of its
           occurrences. This is the "delete all" action in the item index;
@@ -755,7 +785,7 @@ export function ScheduleProvider({ children }) {
         return writes.length
       },
     }
-  }, [uid, tasks, tags, events, templates, profile, loading, error])
+  }, [uid, tasks, tags, events, templates, focusSessions, profile, loading, error])
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>
 }

@@ -4,6 +4,7 @@ import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import {
   HEAVY_DAY_MIN,
+  bestDayOfWeek,
   dayStats,
   isSeriesTemplate,
   overdueTasks,
@@ -14,6 +15,7 @@ import {
   weakestTag,
 } from '../../lib/stats.js'
 import {
+  DAY_LONG,
   addDays,
   dayOfMonth,
   durationLabel,
@@ -50,7 +52,10 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const today = tasksOn(now.key)
   const todayTotals = dayStats(today)
 
-  const week = summarize(rangeStats(tasksOn, weekKeys(now.key, settings.weekStartsOn)))
+  const weekKeysList = weekKeys(now.key, settings.weekStartsOn)
+  const week = summarize(rangeStats(tasksOn, weekKeysList))
+  const weekByTag = tagBreakdown(weekKeysList.flatMap(tasksOn), tags)
+  const goalTags = tags.filter((t) => t.goalMinutes)
 
   const overdue = overdueTasks(tasks, now.key)
   /* Stored tasks reach as far ahead as they were scheduled, so they go in
@@ -90,6 +95,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const rangeTasks = rangeKeys.flatMap(tasksOn)
   const rangeByTag = tagBreakdown(rangeTasks, tags)
   const weakest = weakestTag(rangeTasks, tags)
+  const best = bestDayOfWeek(rangeRows)
   const activeDays = rangeRows.filter((row) => row.plannedMin > 0).length
 
   return (
@@ -185,6 +191,34 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
             {pinned.map((task) => (
               <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
             ))}
+          </ul>
+        </section>
+      )}
+
+      {goalTags.length > 0 && (
+        <section aria-label="Weekly goals">
+          <div className="section-head">
+            <h2 className="section-head__title">Weekly goals</h2>
+          </div>
+          <ul className="tag-bars">
+            {goalTags.map((tag) => {
+              const plannedMin = weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0
+              const pct = Math.min(100, Math.round((plannedMin / tag.goalMinutes) * 100))
+              return (
+                <li key={tag.id} className="tag-bars__row">
+                  <span className="tag-bars__name">
+                    <span className="tag-bars__dot" style={{ background: tag.color }} aria-hidden="true" />
+                    {tag.name}
+                  </span>
+                  <span className="tag-bars__track">
+                    <span className="tag-bars__fill" style={{ width: `${pct}%`, background: tag.color }} />
+                  </span>
+                  <span className="tag-bars__value">
+                    {toHours(plannedMin)}h / {toHours(tag.goalMinutes)}h
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}
@@ -315,6 +349,13 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
                 That averages{' '}
                 <strong>{toHours(rangeTotals.plannedMin / activeDays)}h</strong> on the days you
                 planned anything.
+              </li>
+            )}
+            {best && best.rate > 0 && (
+              <li>
+                <strong>{DAY_LONG[best.day]}</strong> is where you follow through most — you tick
+                off {Math.round(best.rate * 100)}% of what lands on it. Worth putting the work you
+                keep postponing there.
               </li>
             )}
             {weakest && (

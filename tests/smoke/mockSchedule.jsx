@@ -250,6 +250,8 @@ export const mockValue = {
   removeTemplate: noop,
   importData: noop,
   profile: null,
+  focusSessions: [],
+  addFocusSession: noop,
 }
 
 export function ScheduleProvider({ children }) {
