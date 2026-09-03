@@ -1,5 +1,5 @@
 import { DAY_LONG, DAY_SHORT, weekdayOrder, weekdayOf } from '../../lib/date.js'
-import { LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../../lib/recurrence.js'
+import { INTERVAL, LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../../lib/recurrence.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 
 const PRESETS = [
@@ -9,6 +9,12 @@ const PRESETS = [
   { id: 'weekends', label: 'Weekends' },
   { id: 'custom', label: 'Pick days' },
   { id: 'monthly', label: 'Monthly' },
+  { id: 'interval', label: 'Every N' },
+]
+
+const INTERVAL_UNITS = [
+  { id: 'day', label: 'days' },
+  { id: 'week', label: 'weeks' },
 ]
 
 const NTHS = [
@@ -99,12 +105,65 @@ export function RepeatPicker({ date, recurrence, onChange, disabled = false, hin
               type="button"
               className={`filter-chip${recurrence.nth === option.id ? ' filter-chip--on' : ''}`}
               aria-pressed={recurrence.nth === option.id}
-              onClick={() => onChange({ freq: MONTHLY, weekday, nth: option.id, anchor: date })}
+              onClick={() =>
+                onChange({ freq: MONTHLY, weekday, nth: option.id, anchor: date, until: recurrence.until })
+              }
             >
               {option.label} {weekday === null ? '' : DAY_SHORT[weekday]}
             </button>
           ))}
         </div>
+      )}
+
+      {preset === 'interval' && (
+        <div className="repeat__interval" role="group" aria-label="Repeat every">
+          <span>Every</span>
+          <input
+            type="number"
+            className="input repeat__interval-n"
+            min="1"
+            max="365"
+            value={recurrence.everyN}
+            onChange={(e) =>
+              onChange({
+                freq: INTERVAL,
+                unit: recurrence.unit,
+                everyN: Math.max(1, Math.min(365, Number(e.target.value) || 1)),
+                anchor: date,
+                until: recurrence.until,
+              })
+            }
+          />
+          <div className="filter-row" role="group" aria-label="Unit">
+            {INTERVAL_UNITS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`filter-chip${recurrence.unit === option.id ? ' filter-chip--on' : ''}`}
+                aria-pressed={recurrence.unit === option.id}
+                onClick={() =>
+                  onChange({ freq: INTERVAL, unit: option.id, everyN: recurrence.everyN, anchor: date, until: recurrence.until })
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {preset !== 'none' && (
+        <label className="field repeat__ends">
+          <span className="field__label">Ends</span>
+          <input
+            type="date"
+            className="input"
+            min={date || undefined}
+            value={recurrence?.until ?? ''}
+            onChange={(e) => onChange({ ...recurrence, until: e.target.value || null })}
+          />
+          <span className="field__hint">Leave empty to repeat with no end date.</span>
+        </label>
       )}
 
       {hint && <span className="field__hint">{hint}</span>}

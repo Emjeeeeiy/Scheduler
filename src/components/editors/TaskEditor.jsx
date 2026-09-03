@@ -1,13 +1,17 @@
 import { useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
-import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../../lib/date.js'
+import { minToLabel, minToTimeValue, relativeDayLabel, timeValueToMin, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { TASK_PRIORITIES } from '../../lib/normalize.js'
+import { suggestSlots } from '../../lib/autoSchedule.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { CloseIcon, PinIcon, RepeatIcon } from '../icons.jsx'
+import { CloseIcon, PinIcon, RepeatIcon, SearchIcon } from '../icons.jsx'
+import { BlockedByPicker } from './BlockedByPicker.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
+import { SubtaskList } from './SubtaskList.jsx'
 import { TagSelect } from './TagSelect.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
@@ -23,8 +27,10 @@ function durationOption(min) {
 /** Create and edit share one form: the fields are identical, and keeping them
     together means a change to the time model can only be made in one place. */
 export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
-  const { addTask, updateTask, removeTask, importData, tags, getSeries } = useSchedule()
-  const { pushError, pushUndo } = useToast()
+  const { addTask, updateTask, removeTask, importData, addTemplate, tags, getSeries, tasksOn, eventsOn } =
+    useSchedule()
+  const { settings } = useSettings()
+  const { pushError, pushSuccess, pushUndo } = useToast()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.task : editor.draft
 
@@ -44,9 +50,14 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const [tagId, setTagId] = useState(source.tagId ?? '')
   const [priority, setPriority] = useState(source.priority ?? 'normal')
   const [pinned, setPinned] = useState(source.pinned ?? false)
+  const [blockedBy, setBlockedBy] = useState(source.blockedBy ?? [])
+  const [subtasks, setSubtasks] = useState(source.subtasks ?? [])
   const [repeat, setRepeat] = useState(isSeries ? source.recurrence : null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [saving, setSaving] = useState(false)
+  // null = not searched yet, [] = searched and found nothing, otherwise the
+  // suggestions themselves — three distinct states the UI reads apart.
+  const [suggestions, setSuggestions] = useState(null)
 
 
   const titleRef = useRef(null)
@@ -74,6 +85,8 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
       tagId: tagId || null,
       priority,
       pinned,
+      blockedBy,
+      subtasks,
     }
 
     if (!isOccurrence) {
@@ -118,6 +131,48 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
     } catch (caught) {
       console.error('Could not delete task.', caught)
       pushError('Could not delete the task. Try again.')
+    }
+  }
+
+  /* Reuses the exact "what's busy" shape TodayView's own free-slot finder
+     builds — tasks plus single-day timed events — so a suggestion here is
+     never a slot the Day view itself wouldn't also call open. The task
+     being edited is excluded from its own day's busy list: rescheduling it
+     shouldn't have it block itself out of the search. */
+  function findSlot() {
+    const excludeId = isEdit ? editor.task.id : null
+    const dayItems = (key) => [
+      ...tasksOn(key).filter((t) => t.id !== excludeId),
+      ...eventsOn(key).filter((e) => Number.isFinite(e.startMin) && e.startDate === e.endDate),
+    ]
+    setSuggestions(
+      suggestSlots({
+        fromKey: date || todayKey(),
+        durationMin,
+        dayItems,
+        workingHours: settings.workingHours,
+      }),
+    )
+  }
+
+  function applySuggestion(suggestion) {
+    setDate(suggestion.date)
+    setTime(minToTimeValue(suggestion.startMin))
+    setSuggestions(null)
+  }
+
+  async function saveAsTemplate() {
+    const trimmed = title.trim()
+    if (!trimmed) {
+      titleRef.current?.focus()
+      return
+    }
+    try {
+      await addTemplate({ title: trimmed, tagId: tagId || null, durationMin, priority })
+      pushSuccess(`Saved "${trimmed}" as a template.`)
+    } catch (caught) {
+      console.error('Could not save the template.', caught)
+      pushError('Could not save the template. Try again.')
     }
   }
 
@@ -229,6 +284,34 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
             </label>
           </div>
 
+          {!isOccurrence && (
+            <div className="field">
+              <button type="button" className="ghost-button ghost-button--sm button--icon-label" onClick={findSlot}>
+                <SearchIcon className="button-icon" />
+                Find a slot
+              </button>
+              {suggestions && suggestions.length === 0 && (
+                <span className="field__hint">
+                  No {durationOption(durationMin)} opening in the next two weeks.
+                </span>
+              )}
+              {suggestions && suggestions.length > 0 && (
+                <div className="filter-row" role="group" aria-label="Suggested slots">
+                  {suggestions.map((s) => (
+                    <button
+                      key={`${s.date}-${s.startMin}`}
+                      type="button"
+                      className="filter-chip"
+                      onClick={() => applySuggestion(s)}
+                    >
+                      {relativeDayLabel(s.date)} · {minToLabel(s.startMin)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="field-row">
             <div className="field">
               <span className="field__label">Priority</span>
@@ -260,6 +343,10 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
               </button>
             </div>
           </div>
+
+          <SubtaskList value={subtasks} onChange={setSubtasks} />
+
+          <BlockedByPicker taskId={isEdit ? editor.task.id : null} value={blockedBy} onChange={setBlockedBy} />
 
           {!isOccurrence && (
             <RepeatPicker
@@ -317,6 +404,11 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
                   Keep it
                 </button>
               </>
+            )}
+            {!isOccurrence && (
+              <button type="button" className="ghost-button ghost-button--sm" onClick={saveAsTemplate}>
+                Save as template
+              </button>
             )}
             <span className="modal__spacer" />
             <button type="button" className="ghost-button" onClick={onClose}>

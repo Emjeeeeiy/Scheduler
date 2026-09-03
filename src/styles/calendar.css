@@ -968,6 +968,11 @@
   color: var(--color-text-muted);
 }
 
+.task-row__blocked {
+  flex: none;
+  color: var(--color-warning);
+}
+
 .task-row__quick-actions {
   display: flex;
   gap: 4px;

@@ -6,9 +6,10 @@ import { CheckIcon, CloseIcon, WarningIcon } from '../icons.jsx'
     happened, not a standing condition, so they float over the content
     instead of pushing it down.
 
-    A toast carrying an action (undo-delete) isn't reporting a failure, so it
-    skips the error banner's critical styling entirely — a neutral surface
-    and a check mark instead of a warning triangle. */
+    Styled off `tone`, not off whether an action is attached — a plain
+    success confirmation ("Saved as a template") isn't reporting a failure
+    either, so it gets the same neutral surface and check mark an undo toast
+    does, just without a button to press. */
 export function ToastStack() {
   const { toasts, dismiss } = useToast()
 
@@ -18,13 +19,14 @@ export function ToastStack() {
     <div className="toast-stack" role="region" aria-label="Alerts">
       {toasts.map((toast) => {
         const hasAction = Boolean(toast.actionLabel && toast.onAction)
+        const isError = toast.tone === 'error'
         return (
           <p
             key={toast.id}
-            className={`toast${hasAction ? ' toast--action' : ' banner banner--error'}`}
-            role={hasAction ? 'status' : 'alert'}
+            className={`toast${isError ? ' banner banner--error' : ' toast--action'}`}
+            role={isError ? 'alert' : 'status'}
           >
-            {hasAction ? <CheckIcon className="banner__icon" /> : <WarningIcon className="banner__icon" />}
+            {isError ? <WarningIcon className="banner__icon" /> : <CheckIcon className="banner__icon" />}
             <span className="toast__message">{toast.message}</span>
             {hasAction && (
               <button

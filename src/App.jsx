@@ -93,7 +93,7 @@ const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: Theme
 
 function AppShell() {
   const { signOut } = useAuth()
-  const { loading, error } = useSchedule()
+  const { loading, error, templates } = useSchedule()
   const { theme, cycleTheme } = useTheme()
   const { settings } = useSettings()
 
@@ -331,8 +331,26 @@ function AppShell() {
       { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => setTagsOpen(true) },
       { id: 'open-items', label: 'Open All items', Icon: ListIcon, onRun: () => setItemsOpen(true) },
       { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => setSettingsOpen(true) },
+      // One entry per saved template (TaskEditor's "Save as template") —
+      // opens the same create form "New task" does, just pre-filled, so a
+      // template is reviewed before it becomes a real task rather than
+      // silently created.
+      ...templates.map((template) => ({
+        id: `template-${template.id}`,
+        label: `New: ${template.title}`,
+        hint: 'template',
+        Icon: PlusIcon,
+        onRun: () =>
+          openCreate({
+            title: template.title,
+            tagId: template.tagId,
+            durationMin: template.durationMin,
+            priority: template.priority,
+            date: SCHEDULE_VIEWS.includes(view) ? focusKey : undefined,
+          }),
+      })),
     ],
-    [view, focusKey, openCreate, openCreateEvent, setFocusKey],
+    [view, focusKey, templates, openCreate, openCreateEvent, setFocusKey],
   )
 
   return (

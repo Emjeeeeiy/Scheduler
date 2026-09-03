@@ -244,6 +244,12 @@ export const mockValue = {
   addTag: noop,
   updateTag: noop,
   removeTag: noop,
+  removeAllItems: noop,
+  templates: [],
+  addTemplate: noop,
+  removeTemplate: noop,
+  importData: noop,
+  profile: null,
 }
 
 export function ScheduleProvider({ children }) {

@@ -133,6 +133,17 @@ export function upcomingTasks(tasks, reference, fromMin, limit = 3) {
     .slice(0, limit)
 }
 
+/** The still-open tasks a task is waiting on, out of the full task list —
+    `[]` when it has none, or once every blocker is done. "Blocked by" is a
+    reminder, not an enforced constraint (see BlockedByPicker), so this is
+    the one place that reminder actually gets computed; TaskRow and
+    ItemDetail both just ask "does this list have anything in it." */
+export function openBlockers(task, tasks) {
+  if (!task.blockedBy || task.blockedBy.length === 0) return []
+  const byId = new Map(tasks.map((t) => [t.id, t]))
+  return task.blockedBy.map((id) => byId.get(id)).filter((t) => t && !t.done)
+}
+
 /** The tag with the worst completion rate over a set of tasks, ignoring tags
     with too little history to mean anything. */
 export function weakestTag(tasks, tags, minimumCount = 3) {

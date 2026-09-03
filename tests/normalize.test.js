@@ -9,6 +9,7 @@ import {
   normalizeEvent,
   normalizeTag,
   normalizeTask,
+  normalizeTemplate,
 } from '../src/lib/normalize.js'
 import { addDays } from '../src/lib/date.js'
 
@@ -28,6 +29,8 @@ describe('normalizeTask', () => {
       completedAt: null,
       priority: 'normal',
       pinned: false,
+      blockedBy: [],
+      subtasks: [],
       recurrence: null,
       overrides: {},
       createdAt: 0,
@@ -88,6 +91,27 @@ describe('normalizeTask', () => {
   it('only treats an exact boolean true as pinned', () => {
     assert.equal(normalizeTask('t1', { pinned: 'yes' }).pinned, false)
     assert.equal(normalizeTask('t1', { pinned: true }).pinned, true)
+  })
+
+  it('keeps only string ids in blockedBy, de-duplicated', () => {
+    assert.deepEqual(normalizeTask('t1', { blockedBy: ['a', 'a', 42, null, 'b'] }).blockedBy, ['a', 'b'])
+    assert.deepEqual(normalizeTask('t1', {}).blockedBy, [])
+    assert.deepEqual(normalizeTask('t1', { blockedBy: 'nope' }).blockedBy, [])
+  })
+
+  it('drops a subtask with a blank title, and keeps the rest', () => {
+    const task = normalizeTask('t1', {
+      subtasks: [{ id: 'a', title: 'Buy milk', done: true }, { title: '   ' }, { title: 'Buy eggs' }],
+    })
+    assert.deepEqual(task.subtasks, [
+      { id: 'a', title: 'Buy milk', done: true },
+      { id: 'sub-2', title: 'Buy eggs', done: false },
+    ])
+  })
+
+  it('caps subtasks at 50', () => {
+    const raw = Array.from({ length: 60 }, (_, i) => ({ title: `Item ${i}` }))
+    assert.equal(normalizeTask('t1', { subtasks: raw }).subtasks.length, 50)
   })
 
   it('keeps overrides only when the task is actually a series', () => {
@@ -188,5 +212,38 @@ describe('normalizeTag', () => {
   it('rejects an icon key that is not in the validated set', () => {
     const tag = normalizeTag('tag1', { icon: 'not-a-real-icon' })
     assert.equal(tag.icon, null)
+  })
+})
+
+describe('normalizeTemplate', () => {
+  it('fills in every field from an empty document', () => {
+    assert.deepEqual(normalizeTemplate('tpl1', {}), {
+      id: 'tpl1',
+      title: 'Untitled template',
+      tagId: null,
+      durationMin: DEFAULT_DURATION_MIN,
+      priority: 'normal',
+      createdAt: 0,
+    })
+  })
+
+  it('trims the title and carries duration/priority/tag through', () => {
+    const template = normalizeTemplate('tpl1', {
+      title: '  Weekly review  ',
+      tagId: 'work',
+      durationMin: 45,
+      priority: 'high',
+    })
+    assert.equal(template.title, 'Weekly review')
+    assert.equal(template.tagId, 'work')
+    assert.equal(template.durationMin, 45)
+    assert.equal(template.priority, 'high')
+  })
+
+  it('carries no date, startMin, or recurrence — a template has no day of its own', () => {
+    const template = normalizeTemplate('tpl1', { date: '2026-08-24', startMin: 540 })
+    assert.equal('date' in template, false)
+    assert.equal('startMin' in template, false)
+    assert.equal('recurrence' in template, false)
   })
 })

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   EVERY_DAY,
+  INTERVAL,
   LAST,
   MONTHLY,
   WEEKDAYS,
@@ -57,6 +58,7 @@ describe('normalizeRecurrence', () => {
       freq: 'weekly',
       days: [1],
       anchor: MON,
+      until: null,
     })
   })
 
@@ -277,6 +279,69 @@ describe('a rule written before monthly existed', () => {
     assert.equal(occursOn(legacy, SAT), false)
     assert.equal(presetOf(legacy), 'weekdays')
     assert.equal(recurrenceLabel(legacy), 'Every weekday')
+  })
+})
+
+describe('an interval rule', () => {
+  it('lands every N days from the anchor', () => {
+    const everyThreeDays = normalizeRecurrence({ freq: 'interval', unit: 'day', everyN: 3 }, MON)
+    assert.equal(occursOn(everyThreeDays, MON), true)
+    assert.equal(occursOn(everyThreeDays, TUE), false)
+    assert.equal(occursOn(everyThreeDays, '2026-08-27'), true) // MON + 3
+    assert.equal(occursOn(everyThreeDays, '2026-08-30'), true) // MON + 6
+    assert.equal(occursOn(everyThreeDays, '2026-08-29'), false) // MON + 5
+  })
+
+  it('lands every N weeks from the anchor', () => {
+    const everyTwoWeeks = normalizeRecurrence({ freq: 'interval', unit: 'week', everyN: 2 }, MON)
+    assert.equal(occursOn(everyTwoWeeks, MON), true)
+    assert.equal(occursOn(everyTwoWeeks, '2026-08-31'), false) // MON + 7
+    assert.equal(occursOn(everyTwoWeeks, '2026-09-07'), true) // MON + 14
+  })
+
+  it('never reaches back before the anchor', () => {
+    const rule = normalizeRecurrence({ freq: 'interval', unit: 'day', everyN: 2 }, WED)
+    assert.equal(occursOn(rule, MON), false)
+    assert.equal(occursOn(rule, WED), true)
+  })
+
+  it('defaults to a 1-day step and caps a runaway value', () => {
+    assert.equal(normalizeRecurrence({ freq: 'interval' }, MON).everyN, 1)
+    assert.equal(normalizeRecurrence({ freq: 'interval', everyN: 99999 }, MON).everyN, 365)
+    assert.equal(normalizeRecurrence({ freq: 'interval', unit: 'nonsense' }, MON).unit, 'day')
+  })
+
+  it('is offered by the interval preset and reads back as words', () => {
+    const rule = recurrenceForPreset('interval', MON)
+    assert.equal(rule.freq, INTERVAL)
+    assert.equal(rule.everyN, 2)
+    assert.equal(presetOf(rule), 'interval')
+    assert.equal(recurrenceLabel(rule), 'Every 2 days')
+    assert.equal(recurrenceLabel({ freq: INTERVAL, unit: 'week', everyN: 1 }), 'Every week')
+  })
+})
+
+describe('a rule with an end date', () => {
+  it('stops landing after `until`', () => {
+    const rule = normalizeRecurrence({ days: EVERY_DAY, until: FRI }, MON)
+    assert.equal(occursOn(rule, FRI), true)
+    assert.equal(occursOn(rule, SAT), false)
+  })
+
+  it('drops an end date that sits before the anchor', () => {
+    const rule = normalizeRecurrence({ days: EVERY_DAY, anchor: FRI, until: MON }, FRI)
+    assert.equal(rule.until, null)
+  })
+
+  it('appends the end date to the label', () => {
+    const rule = normalizeRecurrence({ days: EVERY_DAY, until: FRI }, MON)
+    assert.equal(recurrenceLabel(rule), 'Every day, through Fri, Aug 28')
+  })
+
+  it('a plain rule with no until is unaffected', () => {
+    const rule = normalizeRecurrence({ days: EVERY_DAY }, MON)
+    assert.equal(rule.until, null)
+    assert.equal(occursOn(rule, '2027-01-01'), true)
   })
 })
 

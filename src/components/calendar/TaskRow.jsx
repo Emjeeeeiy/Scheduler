@@ -2,8 +2,8 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { addDays, durationLabel, minToLabel, relativeDayLabel, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
-import { isSeriesTemplate } from '../../lib/stats.js'
-import { PinIcon, RepeatIcon } from '../icons.jsx'
+import { isSeriesTemplate, openBlockers } from '../../lib/stats.js'
+import { PinIcon, RepeatIcon, WarningIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 /** One task as a line item — used by the inbox, the day agenda, the dashboard,
@@ -12,9 +12,10 @@ import { TagGlyph } from '../editors/TagGlyph.jsx'
     since the overdue list is where a fast way out of the pile actually matters;
     every other list this row appears in stays exactly as compact as before. */
 export function TaskRow({ task, onEdit, showDate = false, showTime = true, showQuickActions = false }) {
-  const { toggleDone, scheduleTask, getTag } = useSchedule()
+  const { tasks, toggleDone, scheduleTask, getTag } = useSchedule()
   const { pushError } = useToast()
   const tag = getTag(task.tagId)
+  const blockers = openBlockers(task, tasks)
 
   async function snooze(days) {
     try {
@@ -41,6 +42,15 @@ export function TaskRow({ task, onEdit, showDate = false, showTime = true, showQ
             <span className="task-row__priority" title="High priority" aria-label="High priority" />
           )}
           <span className="task-row__title">{task.title}</span>
+          {blockers.length > 0 && (
+            <WarningIcon
+              className="task-row__blocked"
+              width="12"
+              height="12"
+              aria-label={`Waiting on ${blockers.length} task${blockers.length === 1 ? '' : 's'}`}
+              title={`Waiting on: ${blockers.map((b) => b.title).join(', ')}`}
+            />
+          )}
           {task.pinned && (
             <PinIcon className="task-row__pin" width="12" height="12" aria-label="Pinned" />
           )}

@@ -253,6 +253,14 @@
   font-family: var(--font-mono);
 }
 
+/* The Settings panel's saved-templates list reuses .tag-list's row shape
+   but needs a left-aligned, growing title rather than .tag-list__count's
+   small right-aligned number badge. */
+.template-list__title {
+  flex: 1;
+  font-size: var(--text-item);
+}
+
 .tag-list__confirm {
   display: flex;
   gap: 6px;
@@ -483,6 +491,123 @@
   flex-wrap: wrap;
 }
 
+.repeat__interval {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--text-item);
+}
+
+.repeat__interval-n {
+  width: 56px;
+  text-align: center;
+}
+
+.repeat__ends {
+  margin-top: 4px;
+}
+
+.subtasks__list {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.subtasks__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.subtasks__row input[type='checkbox'] {
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+  flex: none;
+}
+
+.subtasks__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-item);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtasks__title--done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.subtasks__add {
+  display: flex;
+  gap: 6px;
+}
+
+.blocked-by__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.blocked-by__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 4px 3px 9px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  font-size: var(--text-meta);
+}
+
+.blocked-by__chip-title {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blocked-by__chip button {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.blocked-by__chip button:hover {
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+}
+
+.blocked-by__suggestions {
+  margin-top: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.blocked-by__suggestions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--color-surface-1);
+  border: none;
+  font-size: var(--text-item);
+  cursor: pointer;
+}
+
+.blocked-by__suggestions button:hover {
+  background: var(--color-surface-2);
+}
+
 .weekday-picker__day {
   width: 32px;
   height: 32px;
@@ -536,6 +661,21 @@
   min-width: 180px;
   font-size: var(--text-label);
   color: var(--color-text-secondary);
+}
+
+/* The "blocked by" note — a warning, not the neutral fact a repeat-series
+   note states, so it borrows the same critical wash the error banner uses
+   rather than .series-note's neutral surface. */
+.series-note--warning {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.series-note--warning .series-note__mark {
+  color: var(--color-warning);
+}
+
+.series-note--warning .series-note__text {
+  color: var(--color-text-primary);
 }
 
 /* ========================================================= item detail == */

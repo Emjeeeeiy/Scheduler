@@ -3,7 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { todayKey } from '../../lib/date.js'
+import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
 import { CloseIcon, DownloadIcon, UploadIcon } from '../icons.jsx'
 
 const WEEK_START_OPTIONS = [
@@ -43,9 +43,9 @@ function downloadJson(filename, data) {
  * entry point."
  */
 export function SettingsModal({ onClose }) {
-  const { tasks, events, tags, importData } = useSchedule()
+  const { tasks, events, tags, templates, importData, removeTemplate } = useSchedule()
   const { settings, updateSetting } = useSettings()
-  const { pushError } = useToast()
+  const { pushError, pushSuccess } = useToast()
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
 
@@ -74,7 +74,7 @@ export function SettingsModal({ onClose }) {
         events: Array.isArray(parsed.events) ? parsed.events : [],
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       })
-      pushError(`Imported ${count} item${count === 1 ? '' : 's'}.`)
+      pushSuccess(`Imported ${count} item${count === 1 ? '' : 's'}.`)
     } catch (caught) {
       console.error('Could not import data.', caught)
       pushError(
@@ -84,6 +84,15 @@ export function SettingsModal({ onClose }) {
       )
     } finally {
       setImporting(false)
+    }
+  }
+
+  async function onRemoveTemplate(template) {
+    try {
+      await removeTemplate(template.id)
+    } catch (caught) {
+      console.error('Could not delete the template.', caught)
+      pushError('Could not delete the template. Try again.')
     }
   }
 
@@ -155,6 +164,87 @@ export function SettingsModal({ onClose }) {
               ))}
             </div>
           </section>
+
+          <section className="profile__section field">
+            <span className="field__label">Working hours</span>
+            <p className="field__hint">
+              Scopes the Day view's free-slot finder to this window. Leave either side empty to
+              turn it off.
+            </p>
+            <div className="field-row">
+              <label className="field">
+                <span className="field__label">Start</span>
+                <input
+                  type="time"
+                  className="input"
+                  step={900}
+                  value={
+                    Number.isFinite(settings.workingHours?.startMin)
+                      ? minToTimeValue(settings.workingHours.startMin)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const startMin = timeValueToMin(e.target.value)
+                    updateSetting(
+                      'workingHours',
+                      startMin === null
+                        ? null
+                        : { startMin, endMin: settings.workingHours?.endMin ?? null },
+                    )
+                  }}
+                />
+              </label>
+              <label className="field">
+                <span className="field__label">End</span>
+                <input
+                  type="time"
+                  className="input"
+                  step={900}
+                  value={
+                    Number.isFinite(settings.workingHours?.endMin)
+                      ? minToTimeValue(settings.workingHours.endMin)
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const endMin = timeValueToMin(e.target.value)
+                    updateSetting(
+                      'workingHours',
+                      endMin === null
+                        ? null
+                        : { startMin: settings.workingHours?.startMin ?? null, endMin },
+                    )
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+
+          {templates.length > 0 && (
+            <section className="profile__section field">
+              <span className="field__label">Templates</span>
+              <p className="field__hint">
+                Saved from the task editor's "Save as template" — reachable from anywhere with the
+                command palette (Cmd/Ctrl+K), as "New: &lt;title&gt;".
+              </p>
+              <ul className="tag-list">
+                {templates.map((template) => (
+                  <li key={template.id} className="tag-list__item">
+                    <span className="template-list__title">
+                      {template.title} · {durationLabel(template.durationMin)}
+                    </span>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => onRemoveTemplate(template)}
+                      aria-label={`Delete template "${template.title}"`}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="profile__section field">
             <span className="field__label">Your data</span>

@@ -16,6 +16,12 @@ export const DEFAULT_SETTINGS = {
   weekStartsOn: 1, // 0 = Sunday, 1 = Monday — see date.js's WEEK_STARTS_ON
   landingView: 'dashboard',
   notificationLeadMin: 60, // see notifications.js's SOON_WINDOW_MIN
+  // null means "no restriction" — the Day view's free-slot finder already
+  // scopes itself to whatever the grid's own visible window is, and that
+  // stays the entire behaviour unless someone opts in here. Not a Trends
+  // reference like the other three: there is no prior hardcoded working-hours
+  // concept in this app to mirror, so "off" is the only safe default.
+  workingHours: null, // { startMin, endMin } once set
 }
 
 export function SettingsProvider({ children }) {

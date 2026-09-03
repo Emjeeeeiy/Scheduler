@@ -25,10 +25,10 @@ import {
   DEFAULT_EVENT_DURATION_MIN,
   TAG_ICONS,
   TAG_SLOTS,
-  TASK_PRIORITIES,
   normalizeEvent,
   normalizeTag,
   normalizeTask,
+  normalizeTemplate,
 } from '../lib/normalize.js'
 
 const ScheduleContext = createContext(null)
@@ -64,6 +64,7 @@ export function ScheduleProvider({ children }) {
   const [tasks, setTasks] = useState([])
   const [tags, setTags] = useState([])
   const [events, setEvents] = useState([])
+  const [templates, setTemplates] = useState([])
   const [profile, setProfile] = useState(null)
   const [readyUid, setReadyUid] = useState(null)
   const [error, setError] = useState(null)
@@ -171,6 +172,18 @@ export function ScheduleProvider({ children }) {
       doc(db, 'users', uid),
       (snap) => setProfile(snap.exists() ? snap.data() : null),
       (caught) => console.error('Could not read the profile doc.', caught),
+    )
+  }, [uid])
+
+  /* Also its own effect, same reasoning as profile above: saved templates
+     are a convenience for the "new task" flow, not core scheduling data —
+     nothing should sit on "Loading your schedule…" waiting for them. */
+  useEffect(() => {
+    if (!uid) return undefined
+    return onSnapshot(
+      collection(db, 'users', uid, 'templates'),
+      (snapshot) => setTemplates(snapshot.docs.map((d) => normalizeTemplate(d.id, d.data()))),
+      (caught) => console.error('Could not read templates.', caught),
     )
   }, [uid])
 
@@ -396,6 +409,7 @@ export function ScheduleProvider({ children }) {
       tagById,
       inbox,
       profile,
+      templates,
       loading,
       error,
 
@@ -418,23 +432,23 @@ export function ScheduleProvider({ children }) {
       getEvent: (id) => visibleEvents.find((e) => e.id === id) ?? null,
       getEventSeries: (id) => eventSeriesById.get(id) ?? null,
 
+      /* Built from normalizeTask itself rather than re-deriving each field's
+         validation by hand a second time — that duplication is exactly how
+         a task created through addTask and the same task re-read off
+         Firestore a moment later could end up validated two different ways.
+         done/completedAt/overrides/timestamps still get this call's own
+         fresh-task values, applied after the spread so they always win: a
+         new task is never created already done, with exceptions, or on
+         someone else's clock. */
       async addTask(draft) {
         const stamp = now()
         const date = isValidKey(draft.date) ? draft.date : null
+        const { id: _id, done: _done, completedAt: _completedAt, overrides: _overrides, createdAt: _createdAt, updatedAt: _updatedAt, ...fields } =
+          normalizeTask('new', { ...draft, date })
         return addDoc(tasksCol(), {
-          title: (draft.title ?? '').trim() || 'Untitled task',
-          notes: draft.notes ?? '',
-          date,
-          startMin: date && Number.isFinite(draft.startMin) ? clampMin(draft.startMin) : null,
-          durationMin: Number.isFinite(draft.durationMin)
-            ? draft.durationMin
-            : DEFAULT_DURATION_MIN,
-          tagId: draft.tagId ?? null,
+          ...fields,
           done: false,
           completedAt: null,
-          priority: TASK_PRIORITIES.includes(draft.priority) ? draft.priority : 'normal',
-          pinned: draft.pinned === true,
-          recurrence: normalizeRecurrence(draft.recurrence, date),
           overrides: {},
           createdAt: stamp,
           updatedAt: stamp,
@@ -623,6 +637,23 @@ export function ScheduleProvider({ children }) {
         return deleteDoc(tagDoc(id))
       },
 
+      /** A saved "new task" starting point — see normalizeTemplate. Used
+          from TaskEditor's "Save as template" and consumed by the command
+          palette's per-template "New: <title>" entries. */
+      async addTemplate(draft) {
+        return addDoc(collection(db, 'users', uid, 'templates'), {
+          title: (draft.title ?? '').trim() || 'Untitled template',
+          tagId: draft.tagId ?? null,
+          durationMin: Number.isFinite(draft.durationMin) ? draft.durationMin : DEFAULT_DURATION_MIN,
+          priority: draft.priority ?? 'normal',
+          createdAt: now(),
+        })
+      },
+
+      async removeTemplate(id) {
+        return deleteDoc(doc(db, 'users', uid, 'templates', id))
+      },
+
       /** Wipes every task and event document — including the rule behind
           each repeating series, which stands for every one of its
           occurrences. This is the "delete all" action in the item index;
@@ -724,7 +755,7 @@ export function ScheduleProvider({ children }) {
         return writes.length
       },
     }
-  }, [uid, tasks, tags, events, profile, loading, error])
+  }, [uid, tasks, tags, events, templates, profile, loading, error])
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>
 }

@@ -83,6 +83,22 @@ export const TAG_ICONS = [
 
 export const TASK_PRIORITIES = ['low', 'normal', 'high']
 
+/** A checklist item is dropped rather than kept-but-blank when its title is
+    empty — an untitled subtask isn't a smaller task, it's nothing. The
+    fallback id is positional, not random: normalizeTask runs on every
+    snapshot, and a random id would hand a different React key to the same
+    row on every read, for a case (a subtask written with no id at all) that
+    should never happen from this app's own editor anyway. */
+function normalizeSubtask(raw, index) {
+  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
+  if (!title) return null
+  return {
+    id: typeof raw?.id === 'string' && raw.id ? raw.id : `sub-${index}`,
+    title,
+    done: raw?.done === true,
+  }
+}
+
 export function normalizeTask(id, raw) {
   const date = isValidKey(raw?.date) ? raw.date : null
   // A start time without a date is meaningless — such a task belongs in the
@@ -107,6 +123,16 @@ export function normalizeTask(id, raw) {
     // Pinning is a deliberate, one-off choice — never inferred, so an
     // absent or malformed value reads as "not pinned" rather than guessed.
     pinned: raw?.pinned === true,
+    // Task ids this one is waiting on — a soft reminder surfaced in the UI,
+    // never an enforced block on scheduling or completing it. De-duplicated
+    // since the picker that writes this can only ever add an id once, but a
+    // hand-edited document might not.
+    blockedBy: Array.isArray(raw?.blockedBy)
+      ? [...new Set(raw.blockedBy.filter((v) => typeof v === 'string' && v))]
+      : [],
+    subtasks: Array.isArray(raw?.subtasks)
+      ? raw.subtasks.map(normalizeSubtask).filter(Boolean).slice(0, 50)
+      : [],
     recurrence,
     overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
@@ -186,5 +212,24 @@ export function normalizeTag(id, raw) {
     // no component has to know how a slot maps to a colour.
     color: `var(--color-tag-${slot})`,
     order: Number.isFinite(raw?.order) ? raw.order : 0,
+  }
+}
+
+/** A saved "new task" starting point — title/tag/duration/priority, the
+    "what and how" of a task. Deliberately carries no date/startMin (a
+    template has no day of its own) and no recurrence (a rule needs an
+    anchor date, which a template doesn't have until it's actually used to
+    start a real task). */
+export function normalizeTemplate(id, raw) {
+  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
+  return {
+    id,
+    title: title || 'Untitled template',
+    tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
+    durationMin: Number.isFinite(raw?.durationMin)
+      ? Math.min(24 * 60, Math.max(5, Math.round(raw.durationMin)))
+      : DEFAULT_DURATION_MIN,
+    priority: TASK_PRIORITIES.includes(raw?.priority) ? raw.priority : 'normal',
+    createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
   }
 }

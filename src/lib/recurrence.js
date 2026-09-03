@@ -17,7 +17,17 @@
  * here", never "did something from another day get moved onto you".
  */
 
-import { DAY_LONG, DAY_SHORT, WEEK_STARTS_ON, dayOfMonth, fromKey, isValidKey, weekdayOf } from './date.js'
+import {
+  DAY_LONG,
+  DAY_SHORT,
+  WEEK_STARTS_ON,
+  dayOfMonth,
+  daysBetween,
+  formatDayLabel,
+  fromKey,
+  isValidKey,
+  weekdayOf,
+} from './date.js'
 
 export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6]
 export const WEEKDAYS = [1, 2, 3, 4, 5]
@@ -38,6 +48,9 @@ export const WEEKENDS = [0, 6]
    repeating task already in Firestore is one of those. */
 export const WEEKLY = 'weekly'
 export const MONTHLY = 'monthly'
+/** Every N days, or every N weeks — the one shape weekly/monthly can't
+    express (every 3 days lands on a different weekday each time). */
+export const INTERVAL = 'interval'
 export const LAST = -1
 
 /** A Firestore auto-id is 20 alphanumerics, so '~' can never occur inside one
@@ -85,6 +98,10 @@ export function normalizeRecurrence(raw, date) {
   // the inbox is never a series — scheduling it is what can make it one.
   if (!raw || !isValidKey(date)) return null
   const anchor = isValidKey(raw.anchor) ? raw.anchor : date
+  // An end date before the rule even starts would exclude every occurrence
+  // outright — not a valid "never" so much as a mistake, so it is dropped
+  // rather than kept as a rule that silently never fires.
+  const until = isValidKey(raw.until) && raw.until >= anchor ? raw.until : null
 
   if (raw.freq === MONTHLY) {
     const weekday = Number.isInteger(raw.weekday) && raw.weekday >= 0 && raw.weekday <= 6
@@ -95,7 +112,18 @@ export function normalizeRecurrence(raw, date) {
     const nth = raw.nth === LAST || (Number.isInteger(raw.nth) && raw.nth >= 1 && raw.nth <= 4)
       ? raw.nth
       : LAST
-    return { freq: MONTHLY, weekday, nth, anchor }
+    return { freq: MONTHLY, weekday, nth, anchor, until }
+  }
+
+  if (raw.freq === INTERVAL) {
+    const unit = raw.unit === 'week' ? 'week' : 'day'
+    // Capped, not just floored at 1 — the month grid's lane packer and the
+    // occurrence-expansion callers all walk a bounded window, but an
+    // unbounded everyN sitting in a stored document is still worth capping
+    // at the same "this is a guard against corrupt data" edge every other
+    // numeric field here gets.
+    const everyN = Number.isInteger(raw.everyN) && raw.everyN >= 1 ? Math.min(raw.everyN, 365) : 1
+    return { freq: INTERVAL, unit, everyN, anchor, until }
   }
 
   const days = Array.isArray(raw.days)
@@ -104,7 +132,7 @@ export function normalizeRecurrence(raw, date) {
   if (days.length === 0) return null
   // Written explicitly from here on, but read tolerantly: see the note on
   // WEEKLY above for why a stored rule may not have one.
-  return { freq: WEEKLY, days, anchor }
+  return { freq: WEEKLY, days, anchor, until }
 }
 
 /** Per-day exceptions, keyed by day key: a day the user ticked off, or one
@@ -128,12 +156,22 @@ export function occursOn(recurrence, key) {
   // Day keys sort correctly as strings, which is the whole reason they are
   // strings — no Date is built to answer "is this before the anchor".
   if (key < recurrence.anchor) return false
+  // Same string comparison for the other end. Checked once here, ahead of
+  // every freq branch, rather than duplicated into each of them.
+  if (recurrence.until && key > recurrence.until) return false
 
   if (recurrence.freq === MONTHLY) {
     if (weekdayOf(key) !== recurrence.weekday) return false
     return recurrence.nth === LAST
       ? isLastWeekdayOfMonth(key)
       : nthWeekdayOfMonth(key) === recurrence.nth
+  }
+
+  if (recurrence.freq === INTERVAL) {
+    const stepDays = recurrence.unit === 'week' ? recurrence.everyN * 7 : recurrence.everyN
+    // key >= anchor is already guaranteed by the check above, so this is
+    // never negative.
+    return daysBetween(recurrence.anchor, key) % stepDays === 0
   }
 
   // No freq means a rule written before monthly existed — weekly.
@@ -168,6 +206,7 @@ const sameSet = (a, b) => a.length === b.length && b.every((d) => a.includes(d))
 export function presetOf(recurrence) {
   if (!recurrence) return 'none'
   if (recurrence.freq === MONTHLY) return 'monthly'
+  if (recurrence.freq === INTERVAL) return 'interval'
   const days = recurrence.days ?? []
   if (days.length === 7) return 'daily'
   if (sameSet(days, WEEKDAYS)) return 'weekdays'
@@ -175,7 +214,11 @@ export function presetOf(recurrence) {
   return 'custom'
 }
 
-/** The rule a preset chip produces for a given day, or null for "Never". */
+/** The rule a preset chip produces for a given day, or null for "Never".
+    Deliberately drops any `until` the previous rule had — switching the
+    pattern itself (daily to weekdays, weekly to monthly, ...) already
+    resets everything else about the rule, and an end date is one click to
+    set again if it's still wanted. */
 export function recurrenceForPreset(preset, date) {
   const anchor = isValidKey(date) ? date : null
   if (!anchor) return null
@@ -184,6 +227,9 @@ export function recurrenceForPreset(preset, date) {
   if (preset === 'weekdays') return weekly(WEEKDAYS)
   if (preset === 'weekends') return weekly(WEEKENDS)
   if (preset === 'custom') return weekly([weekdayOf(anchor)])
+  // A sensible, editable starting point — "every 2 days" — rather than
+  // "every 1", which would just duplicate the Daily preset.
+  if (preset === 'interval') return { freq: INTERVAL, unit: 'day', everyN: 2, anchor }
   if (preset === 'monthly') {
     /* Seeded from the day in the form, so picking "Monthly" on the 2nd
        Saturday means exactly that rather than a default the user has to
@@ -201,20 +247,31 @@ export function recurrenceForPreset(preset, date) {
 
 const ORDINAL = { 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', [LAST]: 'last' }
 
-/** 'Every day' · 'Every weekend' · 'Every Mon, Wed & Fri' · 'Every second Saturday of the month' */
+/** 'Every day' · 'Every weekend' · 'Every Mon, Wed & Fri' · 'Every second
+    Saturday of the month' · 'Every 3 days' — each with ', through Oct 12'
+    appended when the rule has an end date. */
 export function recurrenceLabel(recurrence) {
   if (!recurrence) return 'Does not repeat'
-  if (recurrence.freq === MONTHLY) {
-    return `Every ${ORDINAL[recurrence.nth] ?? 'last'} ${DAY_LONG[recurrence.weekday]} of the month`
-  }
-  const days = recurrence.days ?? []
-  const preset = presetOf(recurrence)
-  if (preset === 'daily') return 'Every day'
-  if (preset === 'weekdays') return 'Every weekday'
-  if (preset === 'weekends') return 'Every weekend'
-  const names = orderedDays(days).map((day) => DAY_SHORT[day])
-  if (names.length === 1) return `Every ${DAY_LONG[days[0]]}`
-  return `Every ${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
+
+  const base = (() => {
+    if (recurrence.freq === MONTHLY) {
+      return `Every ${ORDINAL[recurrence.nth] ?? 'last'} ${DAY_LONG[recurrence.weekday]} of the month`
+    }
+    if (recurrence.freq === INTERVAL) {
+      const { unit, everyN } = recurrence
+      return everyN === 1 ? `Every ${unit}` : `Every ${everyN} ${unit}s`
+    }
+    const days = recurrence.days ?? []
+    const preset = presetOf(recurrence)
+    if (preset === 'daily') return 'Every day'
+    if (preset === 'weekdays') return 'Every weekday'
+    if (preset === 'weekends') return 'Every weekend'
+    const names = orderedDays(days).map((day) => DAY_SHORT[day])
+    if (names.length === 1) return `Every ${DAY_LONG[days[0]]}`
+    return `Every ${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
+  })()
+
+  return recurrence.until ? `${base}, through ${formatDayLabel(recurrence.until)}` : base
 }
 
 /* --------------------------------------------------------- events -------- */

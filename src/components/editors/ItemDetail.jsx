@@ -3,9 +3,9 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { addDays, durationLabel, formatDayLabel, minToLabel, relativeDayLabel, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
-import { isSeriesTemplate } from '../../lib/stats.js'
+import { isSeriesTemplate, openBlockers } from '../../lib/stats.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { CheckIcon, CloseIcon, DayIcon, PinIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
+import { CheckIcon, CloseIcon, DayIcon, PinIcon, RepeatIcon, SpanIcon, WarningIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 
 function taskFields(task) {
@@ -73,7 +73,7 @@ function eventFields(event) {
     a task/event pair — unlike the editors, there is no per-field state or
     submit logic here to keep apart, just which handful of rows to show. */
 export function ItemDetail({ editor, onClose, onEdit }) {
-  const { getTag, updateTask, scheduleTask } = useSchedule()
+  const { tasks, getTag, updateTask, scheduleTask } = useSchedule()
   const { pushError } = useToast()
   const isEvent = editor.kind === 'event'
   const source = isEvent ? editor.event : editor.task
@@ -81,6 +81,9 @@ export function ItemDetail({ editor, onClose, onEdit }) {
   const tag = getTag(source.tagId)
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
+  const blockers = isEvent ? [] : openBlockers(source, tasks)
+  const subtaskCount = !isEvent && source.subtasks ? source.subtasks.length : 0
+  const subtaskDone = !isEvent && source.subtasks ? source.subtasks.filter((s) => s.done).length : 0
 
   const KindIcon = isEvent ? SpanIcon : DayIcon
   const kindLabel = isEvent ? 'Event' : 'Task'
@@ -151,6 +154,22 @@ export function ItemDetail({ editor, onClose, onEdit }) {
           <p className={`detail-status${source.done ? ' detail-status--done' : ''}`}>
             {source.done && <CheckIcon />}
             {source.done ? 'Done' : 'Not done'}
+          </p>
+        )}
+
+        {blockers.length > 0 && (
+          <div className="series-note series-note--warning">
+            <WarningIcon className="series-note__mark" />
+            <span className="series-note__text">
+              Waiting on {blockers.length} task{blockers.length === 1 ? '' : 's'}:{' '}
+              {blockers.map((b) => b.title).join(', ')}
+            </span>
+          </div>
+        )}
+
+        {subtaskCount > 0 && (
+          <p className="field__hint">
+            Checklist: {subtaskDone}/{subtaskCount} done
           </p>
         )}
 

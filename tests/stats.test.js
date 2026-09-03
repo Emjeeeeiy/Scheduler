@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 import {
   dayStats,
   isSeriesTemplate,
+  openBlockers,
   overdueTasks,
   rangeStats,
   summarize,
@@ -170,5 +171,29 @@ describe('upcomingTasks', () => {
       2,
     )
     assert.equal(out.length, 2)
+  })
+})
+
+describe('openBlockers', () => {
+  const all = [
+    timed('a', '2026-08-24', 540, 60, false),
+    timed('b', '2026-08-24', 600, 60, true),
+  ]
+
+  it('is empty when a task has no blockers', () => {
+    assert.deepEqual(openBlockers({ blockedBy: [] }, all), [])
+    assert.deepEqual(openBlockers({}, all), [])
+  })
+
+  it('only reports blockers that still exist and are not done', () => {
+    const blocked = openBlockers({ blockedBy: ['a', 'b', 'missing'] }, all)
+    assert.deepEqual(
+      blocked.map((t) => t.id),
+      ['a'],
+    )
+  })
+
+  it('is empty once every blocker is done', () => {
+    assert.deepEqual(openBlockers({ blockedBy: ['b'] }, all), [])
   })
 })

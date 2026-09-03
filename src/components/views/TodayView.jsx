@@ -1,4 +1,5 @@
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { hourMarks, visibleWindow } from '../../lib/layout.js'
@@ -44,6 +45,7 @@ function taskHappeningNow(tasks, nowMin) {
 
 export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEvent }) {
   const { tasksOn, eventsOn, getTag } = useSchedule()
+  const { settings } = useSettings()
   const now = useNow()
   const [mode, setMode] = usePersistentState('cadence-app:day-mode', 'grid')
 
@@ -63,8 +65,20 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
 
   /* What is actually still open. Events count as busy here even though they
      never count as planned work — you cannot schedule over a meeting just
-     because it is not a task. */
-  const gaps = freeSlots([...timed, ...gridEvents], windowStart, windowEnd, MIN_SLOT_MIN)
+     because it is not a task.
+
+     Working hours (Settings) narrows the window this searches rather than
+     replacing it — intersected with the grid's own visible window so a
+     working-hours end past the last scheduled item never *widens* the
+     search past what the grid actually shows. */
+  const workingHours = settings.workingHours
+  const hasWorkingHours =
+    Number.isFinite(workingHours?.startMin) &&
+    Number.isFinite(workingHours?.endMin) &&
+    workingHours.endMin > workingHours.startMin
+  const slotWindowStart = hasWorkingHours ? Math.max(windowStart, workingHours.startMin) : windowStart
+  const slotWindowEnd = hasWorkingHours ? Math.min(windowEnd, workingHours.endMin) : windowEnd
+  const gaps = freeSlots([...timed, ...gridEvents], slotWindowStart, slotWindowEnd, MIN_SLOT_MIN)
 
   /* "Right now" only means something on today's own page — a day you've
      navigated to isn't happening, so the callout is Focus's identity for
