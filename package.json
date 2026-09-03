@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "icons": "node scripts/makeIcons.mjs",
     "test": "node --test",
     "test:dom": "vitest run",
     "test:render": "vite build --config tests/smoke/vite.config.js && node node_modules/.smoke/entry.js",

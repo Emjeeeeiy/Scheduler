@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { DEFAULT_SHORTCUTS, SHORTCUT_ACTIONS, useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
+import { useInstallPrompt } from '../../lib/useInstallPrompt.js'
 import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { toCsv, toIcs } from '../../lib/exportFormats.js'
@@ -68,6 +69,7 @@ export function SettingsModal({ onClose }) {
   const { tasks, events, tags, templates, importData, removeTemplate } = useSchedule()
   const { settings, updateSetting } = useSettings()
   const { pushError, pushSuccess } = useToast()
+  const { canInstall, installed, promptInstall } = useInstallPrompt()
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
 
@@ -283,6 +285,35 @@ export function SettingsModal({ onClose }) {
               </label>
             </div>
           </section>
+
+          {(canInstall || installed) && (
+            <section className="profile__section field">
+              <span className="field__label">Install</span>
+              {installed ? (
+                <p className="field__hint">
+                  Cadence is installed. Your schedule is readable and editable offline — changes
+                  sync the next time you're connected.
+                </p>
+              ) : (
+                <>
+                  <p className="field__hint">
+                    Runs in its own window, off the home screen or dock, and opens without a
+                    connection.
+                  </p>
+                  <div className="tag-list__confirm">
+                    <button
+                      type="button"
+                      className="ghost-button ghost-button--sm button--icon-label"
+                      onClick={promptInstall}
+                    >
+                      <DownloadIcon className="button-icon" />
+                      Install Cadence
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           <section className="profile__section field">
             <span className="field__label">Keyboard shortcuts</span>

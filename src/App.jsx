@@ -91,6 +91,31 @@ const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
     faster than reading further down a list. */
 const SEARCH_LIMIT = 6
 
+/* How the app was launched, read once at import.
+ *
+ * The manifest's home-screen shortcuts (see public/manifest.webmanifest)
+ * land on a URL — `/?new=task` — rather than in the app's own state. These
+ * are launch parameters in the strictest sense: they cannot change without
+ * a fresh load, which is exactly why this is read here and used to seed
+ * useState directly rather than applied from an effect. An effect would
+ * render once with the wrong view and then correct itself, and would have
+ * to guard against re-running.
+ *
+ * The query string is cleared immediately, so a reload — or reopening a
+ * closed tab — does not fire the same shortcut a second time. */
+const launch = (() => {
+  if (typeof window === 'undefined') return {}
+  const params = new URLSearchParams(window.location.search)
+  const wants = params.get('new')
+  const view = params.get('view')
+  if (!wants && !view) return {}
+  window.history.replaceState({}, '', window.location.pathname)
+  return {
+    create: wants === 'task' || wants === 'event' ? wants : null,
+    view: view === 'dashboard' || view === 'focus' || SCHEDULE_VIEWS.includes(view) ? view : null,
+  }
+})()
+
 /** Which views carry a date cursor, and how far one arrow press moves it.
     Review shares Week's own step — a retrospective moves one week at a time,
     the same cursor Day/Week/Month already share rather than a second one. */
@@ -115,7 +140,7 @@ function AppShell() {
   // fresh mount of the app shell — starts back on the configured landing
   // view (Settings → default: Dashboard) rather than wherever you left off
   // last time you switched views.
-  const [view, setView] = useState(settings.landingView)
+  const [view, setView] = useState(launch.view ?? settings.landingView)
   /* Keeping your place across a refresh is useful; being dropped on yesterday
      when you open the app the next morning is not. So a cursor restored from a
      previous session snaps forward — but that correction belongs to the
@@ -131,7 +156,20 @@ function AppShell() {
   const [focusKey, setFocusKey] = usePersistentState('cadence-app:focus', todayKey, (stored) =>
     isValidKey(stored) && stored >= todayKey() ? stored : todayKey(),
   )
-  const [editor, setEditor] = useState(null)
+  /* Seeded straight from the launch parameters when the app was opened
+     through a "New task"/"New event" shortcut — the same shape openCreate
+     and openCreateEvent build below. */
+  const [editor, setEditor] = useState(() => {
+    if (launch.create === 'task') return { mode: 'create', kind: 'task', draft: { date: todayKey() } }
+    if (launch.create === 'event') {
+      return {
+        mode: 'create',
+        kind: 'event',
+        draft: { startDate: todayKey(), endDate: todayKey() },
+      }
+    }
+    return null
+  })
   const [tagsOpen, setTagsOpen] = useState(false)
   const [itemsOpen, setItemsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
