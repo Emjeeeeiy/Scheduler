@@ -74,7 +74,7 @@ export function SignIn() {
             <span className="auth-hero__vline auth-hero__vline--r" aria-hidden="true" />
 
             <div className="auth-hero__row">
-              <h1 className="auth-hero__title">Plan your day in blocks.</h1>
+              <h1 className="auth-hero__title">Plan your rhythm. Find your flow.</h1>
             </div>
 
             <div className="auth-hero__row">
@@ -86,7 +86,7 @@ export function SignIn() {
 
             <div className="auth-hero__row auth-hero__preview-row">
               <div className="auth-hero__preview">
-                <p className="auth-hero__preview-text">Tasks &amp; time blocks, one calendar</p>
+                <p className="auth-hero__preview-text">Your time, in rhythm.</p>
                 <img
                   src="/black-calendar.jpg"
                   alt="A physical desk calendar, open to January"

@@ -45,6 +45,7 @@ import {
   LogOutIcon,
   MonthIcon,
   PlusIcon,
+  RepeatIcon,
   SettingsIcon,
   SpanIcon,
   TagIcon,
@@ -85,6 +86,11 @@ const SCHEDULE_TABS = [
 ]
 const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
 
+/** How many matching tasks (and, separately, events) the palette's search
+    offers. A cap rather than a scroll: past a handful, refining the query is
+    faster than reading further down a list. */
+const SEARCH_LIMIT = 6
+
 /** Which views carry a date cursor, and how far one arrow press moves it.
     Review shares Week's own step — a retrospective moves one week at a time,
     the same cursor Day/Week/Month already share rather than a second one. */
@@ -100,9 +106,10 @@ const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: Theme
 
 function AppShell() {
   const { signOut } = useAuth()
-  const { loading, error, templates } = useSchedule()
+  const { loading, error, templates, tasks, events } = useSchedule()
   const { theme, cycleTheme } = useTheme()
   const { settings } = useSettings()
+  const shortcuts = settings.shortcuts
 
   // Not persisted across navigation on purpose: every sign-in — and every
   // fresh mount of the app shell — starts back on the configured landing
@@ -272,30 +279,40 @@ function AppShell() {
 
       const onDatedView = view === 'today' || view === 'week' || view === 'month'
 
-      if (event.key === 'n') {
+      /* Matched against the bindings rather than hardcoded keys. Compared
+         case-insensitively for single letters so a rebind to a capital
+         still fires from an unshifted press — the arrow keys, whose names
+         are multi-character, are unaffected by lowercasing. */
+      const pressed = event.key.length === 1 ? event.key.toLowerCase() : event.key
+      const bound = (id) => {
+        const key = shortcuts[id]
+        return key && (key.length === 1 ? key.toLowerCase() : key) === pressed
+      }
+
+      if (bound('newTask')) {
         event.preventDefault()
         openCreate(onDatedView ? { date: focusKey } : {})
-      } else if (event.key === 'e') {
+      } else if (bound('newEvent')) {
         event.preventDefault()
         openCreateEvent(
           onDatedView
             ? { startDate: focusKey, endDate: focusKey }
             : { startDate: todayKey(), endDate: todayKey() },
         )
-      } else if (event.key === 't') {
+      } else if (bound('jumpToday')) {
         event.preventDefault()
         setFocusKey(todayKey())
-      } else if (event.key === 'ArrowLeft' && step) {
+      } else if (bound('prevDate') && step) {
         event.preventDefault()
         setFocusKey(step(focusKey, -1))
-      } else if (event.key === 'ArrowRight' && step) {
+      } else if (bound('nextDate') && step) {
         event.preventDefault()
         setFocusKey(step(focusKey, 1))
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [modalOpen, paletteOpen, view, focusKey, step, openCreate, openCreateEvent, setFocusKey])
+  }, [modalOpen, paletteOpen, view, focusKey, step, shortcuts, openCreate, openCreateEvent, setFocusKey])
 
   const dateLabel = useMemo(() => {
     if (view === 'week' || view === 'review') return formatWeekLabel(focusKey, settings.weekStartsOn)
@@ -319,14 +336,14 @@ function AppShell() {
       {
         id: 'new-task',
         label: 'New task',
-        hint: 'n',
+        hint: shortcuts.newTask,
         Icon: PlusIcon,
         onRun: () => openCreate(SCHEDULE_VIEWS.includes(view) ? { date: focusKey } : {}),
       },
       {
         id: 'new-event',
         label: 'New event',
-        hint: 'e',
+        hint: shortcuts.newEvent,
         Icon: SpanIcon,
         onRun: () =>
           openCreateEvent(
@@ -335,7 +352,7 @@ function AppShell() {
               : { startDate: todayKey(), endDate: todayKey() },
           ),
       },
-      { id: 'jump-today', label: 'Jump to today', hint: 't', Icon: ClockIcon, onRun: () => setFocusKey(todayKey()) },
+      { id: 'jump-today', label: 'Jump to today', hint: shortcuts.jumpToday, Icon: ClockIcon, onRun: () => setFocusKey(todayKey()) },
       { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => setTagsOpen(true) },
       { id: 'open-items', label: 'Open All items', Icon: ListIcon, onRun: () => setItemsOpen(true) },
       { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => setSettingsOpen(true) },
@@ -358,7 +375,47 @@ function AppShell() {
           }),
       })),
     ],
-    [view, focusKey, templates, openCreate, openCreateEvent, setFocusKey],
+    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, setFocusKey],
+  )
+
+  /* Global search, folded into the palette rather than given a surface of
+     its own: "find that thing" and "go do that thing" are the same reflex,
+     and every task and event is already in memory — this is a filter over
+     what ScheduleContext holds, not a query.
+
+     Called only once the query is worth acting on. A single character
+     matches most of an account and would bury the fixed actions above under
+     a wall of rows the moment anyone starts typing. */
+  const searchItems = useCallback(
+    (query) => {
+      const needle = query.trim().toLowerCase()
+      if (needle.length < 2) return []
+      const found = []
+      for (const task of tasks) {
+        if (found.length >= SEARCH_LIMIT) break
+        if (!task.title.toLowerCase().includes(needle)) continue
+        found.push({
+          id: `search-task-${task.id}`,
+          label: task.title,
+          hint: task.recurrence ? 'repeats' : (task.date ?? 'inbox'),
+          Icon: task.recurrence ? RepeatIcon : DayIcon,
+          onRun: () => openEdit(task),
+        })
+      }
+      for (const item of events) {
+        if (found.length >= SEARCH_LIMIT * 2) break
+        if (!item.title.toLowerCase().includes(needle)) continue
+        found.push({
+          id: `search-event-${item.id}`,
+          label: item.title,
+          hint: item.recurrence ? 'repeats' : item.startDate,
+          Icon: SpanIcon,
+          onRun: () => openEditEvent(item),
+        })
+      }
+      return found
+    },
+    [tasks, events, openEdit, openEditEvent],
   )
 
   return (
@@ -617,7 +674,11 @@ function AppShell() {
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {paletteOpen && (
-        <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />
+        <CommandPalette
+          actions={paletteActions}
+          searchItems={searchItems}
+          onClose={() => setPaletteOpen(false)}
+        />
       )}
     </div>
   )

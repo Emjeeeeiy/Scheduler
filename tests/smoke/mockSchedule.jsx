@@ -252,6 +252,11 @@ export const mockValue = {
   profile: null,
   focusSessions: [],
   addFocusSession: noop,
+  trashedTasks: [],
+  trashedEvents: [],
+  restoreItem: noop,
+  purgeItem: noop,
+  emptyTrash: noop,
 }
 
 export function ScheduleProvider({ children }) {

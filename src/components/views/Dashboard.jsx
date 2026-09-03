@@ -9,6 +9,7 @@ import {
   isSeriesTemplate,
   overdueTasks,
   rangeStats,
+  rollUpTags,
   summarize,
   tagBreakdown,
   upcomingTasks,
@@ -93,7 +94,11 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   }))
   const rangeTotals = summarize(rangeRows)
   const rangeTasks = rangeKeys.flatMap(tasksOn)
-  const rangeByTag = tagBreakdown(rangeTasks, tags)
+  /* Rolled up to top-level tags: a nested tag's hours belong to the thing it
+     files under, and charting both would draw the same time twice. The
+     weekly-goal bars above deliberately don't roll up — a goal is set on one
+     specific tag, so it is measured against that tag's own hours. */
+  const rangeByTag = rollUpTags(tagBreakdown(rangeTasks, tags), tags)
   const weakest = weakestTag(rangeTasks, tags)
   const best = bestDayOfWeek(rangeRows)
   const activeDays = rangeRows.filter((row) => row.plannedMin > 0).length

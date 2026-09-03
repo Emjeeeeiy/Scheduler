@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
-import { useSettings } from '../../state/SettingsContext.jsx'
+import { DEFAULT_SHORTCUTS, SHORTCUT_ACTIONS, useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
+import { recurrenceLabel } from '../../lib/recurrence.js'
+import { toCsv, toIcs } from '../../lib/exportFormats.js'
 import { CloseIcon, DownloadIcon, UploadIcon } from '../icons.jsx'
 
 const WEEK_START_OPTIONS = [
@@ -21,8 +23,8 @@ const LANDING_VIEW_OPTIONS = [
 
 const LEAD_TIME_OPTIONS = [15, 30, 60, 120]
 
-function downloadJson(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+function download(filename, text, type) {
+  const blob = new Blob([text], { type })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -31,6 +33,26 @@ function downloadJson(filename, data) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+/** A key press as something worth storing and showing. Modifiers are refused
+    rather than encoded: this is a map of single keys, and the window listener
+    that reads it bails out on a modified press anyway (see App.jsx), so
+    accepting Ctrl+P here would bind a shortcut that could never fire. */
+function bindableKey(event) {
+  if (event.key === 'Escape' || event.key === 'Tab') return null
+  if (event.metaKey || event.ctrlKey || event.altKey) return null
+  if (event.key === ' ') return null
+  // A modifier pressed on its own reports itself as the key; waiting for a
+  // real one is better than binding "Shift".
+  if (['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) return null
+  return event.key
+}
+
+/** Arrow keys read as symbols; everything else is a literal key. */
+function keyLabel(key) {
+  const arrows = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' }
+  return arrows[key] ?? key
 }
 
 /**
@@ -50,15 +72,58 @@ export function SettingsModal({ onClose }) {
   useModalA11y(panelRef, { onClose })
 
   const [importing, setImporting] = useState(false)
+  const [capturing, setCapturing] = useState(null)
   const fileInputRef = useRef(null)
 
+  /* Rebinding listens on the button itself rather than the window: only one
+     row can be capturing at a time, and the button already holds focus from
+     the click that started it. */
+  function onCaptureKey(actionId, event) {
+    /* Tab passes straight through, unhandled: swallowing it would trap focus
+       on a button that is waiting for a key it will never accept. Moving
+       focus away cancels the capture via onBlur, which is the right outcome. */
+    if (event.key === 'Tab') return
+    event.preventDefault()
+    /* Kept from reaching useModalA11y's window-level listener: while
+       capturing, Escape means "stop capturing," and letting it through would
+       close the whole Settings dialog on the way past. */
+    event.stopPropagation()
+    if (event.key === 'Escape') {
+      setCapturing(null)
+      return
+    }
+    const key = bindableKey(event)
+    if (!key) return
+    /* A key already spoken for is swapped, not duplicated — two actions on
+       one key would leave the second permanently unreachable, since the
+       listener runs the first match and stops. */
+    const taken = Object.entries(settings.shortcuts).find(
+      ([id, bound]) => id !== actionId && bound === key,
+    )
+    const next = { ...settings.shortcuts, [actionId]: key }
+    if (taken) next[taken[0]] = settings.shortcuts[actionId]
+    updateSetting('shortcuts', next)
+    setCapturing(null)
+  }
+
   function onExport() {
-    downloadJson(`cadence-export-${todayKey()}.json`, {
-      exportedAt: new Date().toISOString(),
-      tasks,
-      events,
-      tags,
-    })
+    download(
+      `cadence-export-${todayKey()}.json`,
+      JSON.stringify({ exportedAt: new Date().toISOString(), tasks, events, tags }, null, 2),
+      'application/json',
+    )
+  }
+
+  function onExportCsv() {
+    download(
+      `cadence-${todayKey()}.csv`,
+      toCsv({ tasks, events, tags }, recurrenceLabel),
+      'text/csv;charset=utf-8',
+    )
+  }
+
+  function onExportIcs() {
+    download(`cadence-${todayKey()}.ics`, toIcs({ tasks, events, tags }), 'text/calendar;charset=utf-8')
   }
 
   async function onImportFile(event) {
@@ -219,6 +284,38 @@ export function SettingsModal({ onClose }) {
             </div>
           </section>
 
+          <section className="profile__section field">
+            <span className="field__label">Keyboard shortcuts</span>
+            <p className="field__hint">
+              Single keys, active when you're not typing in a field. Click one and press the key
+              you want; Escape cancels. Binding a key another action already uses swaps the two.
+            </p>
+            <ul className="shortcut-list">
+              {SHORTCUT_ACTIONS.map((action) => (
+                <li key={action.id} className="shortcut-list__row">
+                  <span className="shortcut-list__label">{action.label}</span>
+                  <button
+                    type="button"
+                    className={`shortcut-list__key${capturing === action.id ? ' shortcut-list__key--capturing' : ''}`}
+                    onClick={() => setCapturing(action.id)}
+                    onBlur={() => setCapturing((id) => (id === action.id ? null : id))}
+                    onKeyDown={(e) => capturing === action.id && onCaptureKey(action.id, e)}
+                    aria-label={`${action.label} shortcut: ${keyLabel(settings.shortcuts[action.id])}. Click to rebind.`}
+                  >
+                    {capturing === action.id ? 'Press a key…' : keyLabel(settings.shortcuts[action.id])}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="ghost-button ghost-button--sm"
+              onClick={() => updateSetting('shortcuts', { ...DEFAULT_SHORTCUTS })}
+            >
+              Reset to defaults
+            </button>
+          </section>
+
           {templates.length > 0 && (
             <section className="profile__section field">
               <span className="field__label">Templates</span>
@@ -277,6 +374,37 @@ export function SettingsModal({ onClose }) {
             </div>
             <p className="field__hint">
               Importing adds to what's already here — it never replaces or removes anything.
+            </p>
+          </section>
+
+          <section className="profile__section field">
+            <span className="field__label">Export for other tools</span>
+            <p className="field__hint">
+              A spreadsheet table, or a calendar file to import into Google Calendar, Apple
+              Calendar, or Outlook. Both are one-way — only the JSON export above can be imported
+              back into Cadence.
+            </p>
+            <div className="tag-list__confirm">
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm button--icon-label"
+                onClick={onExportCsv}
+              >
+                <DownloadIcon className="button-icon" />
+                CSV
+              </button>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm button--icon-label"
+                onClick={onExportIcs}
+              >
+                <DownloadIcon className="button-icon" />
+                Calendar (.ics)
+              </button>
+            </div>
+            <p className="field__hint">
+              A repeating item exports as its rule, not as one row per day. Tasks with no date are
+              left out of the calendar file, since an entry has to land somewhere.
             </p>
           </section>
         </div>

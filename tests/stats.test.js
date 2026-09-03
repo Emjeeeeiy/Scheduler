@@ -9,6 +9,7 @@ import {
   openBlockers,
   overdueTasks,
   rangeStats,
+  rollUpTags,
   summarize,
   tagBreakdown,
   upcomingTasks,
@@ -234,6 +235,87 @@ describe('openBlockers', () => {
 
   it('is empty once every blocker is done', () => {
     assert.deepEqual(openBlockers({ blockedBy: ['b'] }, all), [])
+  })
+})
+
+describe('rollUpTags', () => {
+  const TAGS = [
+    { id: 'work', name: 'Work', parentId: null },
+    { id: 'deep', name: 'Deep work', parentId: 'work' },
+    { id: 'deeper', name: 'Deeper still', parentId: 'deep' },
+    { id: 'home', name: 'Home', parentId: null },
+  ]
+
+  it('folds a child into its parent instead of listing both', () => {
+    const rows = tagBreakdown(
+      [
+        timed('a', '2026-08-24', 540, 60, false, 'work'),
+        timed('b', '2026-08-24', 600, 30, false, 'deep'),
+      ],
+      TAGS,
+    )
+    const rolled = rollUpTags(rows, TAGS)
+    assert.equal(rolled.length, 1)
+    assert.equal(rolled[0].tag.name, 'Work')
+    assert.equal(rolled[0].plannedMin, 90)
+    assert.equal(rolled[0].count, 2)
+  })
+
+  it('climbs the whole chain, not just one level', () => {
+    const rows = tagBreakdown([timed('a', '2026-08-24', 540, 45, false, 'deeper')], TAGS)
+    const rolled = rollUpTags(rows, TAGS)
+    assert.equal(rolled[0].id, 'work')
+    assert.equal(rolled[0].plannedMin, 45)
+  })
+
+  it('leaves a top-level tag and untagged work alone', () => {
+    const rows = tagBreakdown(
+      [timed('a', '2026-08-24', 540, 60, false, 'home'), timed('b', '2026-08-24', 600, 30)],
+      TAGS,
+    )
+    const rolled = rollUpTags(rows, TAGS)
+    assert.deepEqual(
+      rolled.map((r) => r.tag.name).sort(),
+      ['Home', 'Untagged'],
+    )
+  })
+
+  it('sums completed minutes alongside planned', () => {
+    const rows = tagBreakdown(
+      [
+        timed('a', '2026-08-24', 540, 60, true, 'work'),
+        timed('b', '2026-08-24', 600, 60, false, 'deep'),
+      ],
+      TAGS,
+    )
+    assert.equal(rollUpTags(rows, TAGS)[0].completedMin, 60)
+  })
+
+  it('terminates on a cycle rather than climbing forever', () => {
+    // ScheduleContext already breaks loops before anything gets here, but a
+    // pure module callable on any list should not hang on bad input.
+    const looped = [
+      { id: 'a', name: 'A', parentId: 'b' },
+      { id: 'b', name: 'B', parentId: 'a' },
+    ]
+    const rows = tagBreakdown([timed('t', '2026-08-24', 540, 30, false, 'a')], looped)
+    const rolled = rollUpTags(rows, looped)
+    assert.equal(rolled.length, 1)
+    assert.equal(rolled[0].plannedMin, 30)
+  })
+
+  it('is sorted largest first, like tagBreakdown itself', () => {
+    const rows = tagBreakdown(
+      [
+        timed('a', '2026-08-24', 540, 15, false, 'work'),
+        timed('b', '2026-08-24', 600, 120, false, 'home'),
+      ],
+      TAGS,
+    )
+    assert.deepEqual(
+      rollUpTags(rows, TAGS).map((r) => r.tag.name),
+      ['Home', 'Work'],
+    )
   })
 })
 

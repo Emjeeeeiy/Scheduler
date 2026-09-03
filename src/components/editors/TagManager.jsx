@@ -61,34 +61,61 @@ function IconPicker({ value, onPick, label }) {
   )
 }
 
-/** A weekly-hours goal for a tag, edited as whole hours since a minute-level
-    goal isn't a thing anyone actually sets. `null` (no goal) is reachable via
-    Clear, kept distinct from `0` — a goal of zero hours would just be "no
-    goal" wearing a number. */
-function GoalInput({ value, onChange, label }) {
-  const hours = value ? Math.round(value / 60) : ''
+/** The two per-tag settings that need more room than a row affords: which
+    tag this one files under, and how many hours a week it's meant to get.
+    Behind one disclosure rather than two — they are both "the rest of what
+    a tag is," and a row with four toggle buttons on it stops reading as a
+    row at all.
+
+    The goal is edited in whole hours, since a minute-level weekly target
+    isn't a thing anyone sets. `null` (no goal) is reachable via Clear and
+    stays distinct from `0`, which would just be "no goal" wearing a number. */
+function TagOptions({ tag, tags, onChange, descendantIds }) {
+  const hours = tag.goalMinutes ? Math.round(tag.goalMinutes / 60) : ''
   return (
-    <div className="tag-goal" role="group" aria-label={label}>
-      <input
-        className="input input--sm"
-        type="number"
-        min="1"
-        max="168"
-        step="1"
-        value={hours}
-        onChange={(e) => {
-          const n = Number(e.target.value)
-          onChange(Number.isFinite(n) && n > 0 ? n * 60 : null)
-        }}
-        placeholder="Hours"
-        aria-label={label}
-      />
-      <span className="field__hint">hrs / week</span>
-      {value !== null && (
-        <button type="button" className="ghost-button ghost-button--sm" onClick={() => onChange(null)}>
-          Clear
-        </button>
-      )}
+    <div className="tag-options" role="group" aria-label={`Options for ${tag.name}`}>
+      <label className="field tag-options__field">
+        <span className="field__label">Nest under</span>
+        <select
+          className="input"
+          value={tag.parentId ?? ''}
+          onChange={(e) => onChange({ parentId: e.target.value || null })}
+        >
+          <option value="">Top level</option>
+          {tags
+            /* A tag can't file under itself, nor under anything already
+               filed under it — either would make a loop, and the read side
+               would then have to quietly break one of the links to render
+               the list at all. Better to not offer the choice. */
+            .filter((other) => other.id !== tag.id && !descendantIds.has(other.id))
+            .map((other) => (
+              <option key={other.id} value={other.id}>
+                {'— '.repeat(other.depth ?? 0)}
+                {other.name}
+              </option>
+            ))}
+        </select>
+      </label>
+
+      <label className="field tag-options__field">
+        <span className="field__label">Weekly goal</span>
+        <span className="tag-options__goal">
+          <input
+            className="input input--sm"
+            type="number"
+            min="1"
+            max="168"
+            step="1"
+            value={hours}
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              onChange({ goalMinutes: Number.isFinite(n) && n > 0 ? n * 60 : null })
+            }}
+            placeholder="—"
+          />
+          <span className="field__hint">hours a week</span>
+        </span>
+      </label>
     </div>
   )
 }
@@ -100,7 +127,7 @@ export function TagManager({ onClose }) {
   const [slot, setSlot] = useState(null)
   const [icon, setIcon] = useState(null)
   const [pickingIconFor, setPickingIconFor] = useState(null)
-  const [settingGoalFor, setSettingGoalFor] = useState(null)
+  const [openOptionsFor, setOpenOptionsFor] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -110,6 +137,23 @@ export function TagManager({ onClose }) {
   // The next unused slot, so the palette is consumed in its validated order.
   const suggested = TAG_SLOTS.find((s) => !tags.some((t) => t.slot === s)) ?? TAG_SLOTS[0]
   const activeSlot = slot ?? suggested
+
+  /** Everything filed under a tag, at any depth — the set the "Nest under"
+      picker has to exclude so a tag can't be reparented beneath itself. */
+  const descendantsOf = (id) => {
+    const out = new Set()
+    const queue = [id]
+    while (queue.length > 0) {
+      const current = queue.pop()
+      for (const tag of tags) {
+        if (tag.parentId === current && !out.has(tag.id)) {
+          out.add(tag.id)
+          queue.push(tag.id)
+        }
+      }
+    }
+    return out
+  }
 
   const countFor = (id) => tasks.filter((t) => t.tagId === id).length
 
@@ -188,7 +232,14 @@ export function TagManager({ onClose }) {
         ) : (
           <ul className="tag-list">
             {tags.map((tag) => (
-              <li key={tag.id} className="tag-list__group">
+              <li
+                key={tag.id}
+                className="tag-list__group"
+                /* Indented by nesting depth rather than drawn with connector
+                   lines: the list is short and shallow, and the offset alone
+                   already says "this one files under the one above." */
+                style={tag.depth ? { paddingLeft: `${tag.depth * 18}px` } : undefined}
+              >
                 <div className="tag-list__item">
                   <TagGlyph tag={tag} variant="swatch" className="tag-swatch" />
                   <input
@@ -214,10 +265,14 @@ export function TagManager({ onClose }) {
                   <button
                     type="button"
                     className="ghost-button ghost-button--sm"
-                    onClick={() => setSettingGoalFor((id) => (id === tag.id ? null : tag.id))}
-                    aria-expanded={settingGoalFor === tag.id}
+                    onClick={() => setOpenOptionsFor((id) => (id === tag.id ? null : tag.id))}
+                    aria-expanded={openOptionsFor === tag.id}
                   >
-                    {settingGoalFor === tag.id ? 'Close' : tag.goalMinutes ? `${Math.round(tag.goalMinutes / 60)}h/wk` : 'Goal'}
+                    {openOptionsFor === tag.id
+                      ? 'Close'
+                      : tag.goalMinutes
+                        ? `${Math.round(tag.goalMinutes / 60)}h/wk`
+                        : 'Options'}
                   </button>
                   <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
                     {countFor(tag.id)}
@@ -258,11 +313,12 @@ export function TagManager({ onClose }) {
                     label={`Icon for ${tag.name}`}
                   />
                 )}
-                {settingGoalFor === tag.id && (
-                  <GoalInput
-                    value={tag.goalMinutes}
-                    onChange={(next) => updateTag(tag.id, { goalMinutes: next })}
-                    label={`Weekly hour goal for ${tag.name}`}
+                {openOptionsFor === tag.id && (
+                  <TagOptions
+                    tag={tag}
+                    tags={tags}
+                    descendantIds={descendantsOf(tag.id)}
+                    onChange={(patch) => updateTag(tag.id, patch)}
                   />
                 )}
               </li>

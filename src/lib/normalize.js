@@ -133,6 +133,7 @@ export function normalizeTask(id, raw) {
     subtasks: Array.isArray(raw?.subtasks)
       ? raw.subtasks.map(normalizeSubtask).filter(Boolean).slice(0, 50)
       : [],
+    deletedAt: Number.isFinite(raw?.deletedAt) ? raw.deletedAt : null,
     recurrence,
     overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
     createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
@@ -188,6 +189,7 @@ export function normalizeEvent(id, raw) {
           ? endMin - startMin
           : DEFAULT_EVENT_DURATION_MIN,
     tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
+    deletedAt: Number.isFinite(raw?.deletedAt) ? raw.deletedAt : null,
     recurrence,
     // Events have no done state, so the only exception a day can carry is
     // `detached` — normalizeOverrides drops everything else anyway.
@@ -212,6 +214,16 @@ export function normalizeTag(id, raw) {
     // no component has to know how a slot maps to a colour.
     color: `var(--color-tag-${slot})`,
     order: Number.isFinite(raw?.order) ? raw.order : 0,
+    /* The tag this one files under — "Work / Deep work" as two documents
+       rather than one string with a separator in it. Only the id is stored;
+       whether that id resolves, and whether the chain it starts loops back on
+       itself, is settled in ScheduleContext where the whole set is in hand.
+       A tag can never parent itself, which is the one cycle checkable from
+       inside a single document. */
+    parentId:
+      typeof raw?.parentId === 'string' && raw.parentId && raw.parentId !== id
+        ? raw.parentId
+        : null,
     // null is again a real state — "no weekly goal set" — not a missing
     // value, so it's what an absent or malformed one normalizes to rather
     // than some arbitrary default hour count nobody chose.

@@ -11,6 +11,7 @@ const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'events', label: 'Events' },
+  { id: 'trash', label: 'Trash' },
 ]
 
 /* Used only as a tie-breaker after createdAt: dated items still outrank
@@ -94,17 +95,36 @@ function matchesDate(row, key) {
  * belong on the occurrence, in the views that draw one.
  */
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
-  const { tasks, events, tags, getTag, removeTask, removeEvent, removeAllItems, importData, toggleDone } =
-    useSchedule()
-  const { pushError, pushUndo } = useToast()
+  const {
+    tasks,
+    events,
+    tags,
+    getTag,
+    removeTask,
+    removeEvent,
+    removeAllItems,
+    trashedTasks,
+    trashedEvents,
+    restoreItem,
+    purgeItem,
+    emptyTrash,
+    toggleDone,
+  } = useSchedule()
+  const { pushError, pushSuccess, pushUndo } = useToast()
   const [filter, setFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(null)
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
   const [confirmingAll, setConfirmingAll] = useState(false)
+  const [confirmingEmpty, setConfirmingEmpty] = useState(false)
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
+
+  const trash = useMemo(
+    () => [...trashedTasks.map(taskRow), ...trashedEvents.map(eventRow)],
+    [trashedTasks, trashedEvents],
+  )
 
   const rows = useMemo(() => {
     const all = [...tasks.map(taskRow), ...events.map(eventRow)]
@@ -127,7 +147,9 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     all: rows.length,
     tasks: tasks.length,
     events: events.length,
+    trash: trash.length,
   }
+  const inTrash = filter === 'trash'
 
   const untaggedCount = rows.filter((row) => !row.tagId).length
   const tagCounts = useMemo(() => {
@@ -139,7 +161,11 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     return map
   }, [rows])
   const needle = query.trim().toLowerCase()
-  const visible = rows.filter((row) => {
+  /* Trash is a different set of rows, not a filter over the same ones —
+     everything below it is already gone from `rows`. The tag and date
+     filters still apply, since the question "which of the things I deleted
+     was the Work one" is the same question here as anywhere else. */
+  const visible = (inTrash ? trash : rows).filter((row) => {
     if (filter === 'tasks' && row.kind !== 'task') return false
     if (filter === 'events' && row.kind !== 'event') return false
     if (tagFilter === 'none' && row.tagId) return false
@@ -155,27 +181,25 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     else onEdit(row.source)
   }
 
-  async function undoRestore(snapshotTasks, snapshotEvents) {
+  /* Undo puts the document back rather than writing a copy of it. Deleting
+     is a stamp now (see removeTask), so the original is still sitting in
+     Firestore — re-importing the snapshot would leave the account holding
+     two of everything anyone ever un-deleted. */
+  async function restore(kind, id) {
     try {
-      await importData({ tasks: snapshotTasks, events: snapshotEvents })
+      await restoreItem(kind, id)
     } catch (caught) {
       console.error('Could not restore.', caught)
-      pushError('Could not restore. The deletion still went through.')
+      pushError('Could not restore that. It is still in the Trash.')
     }
   }
 
   async function remove(row) {
-    // Every row here is a real document — a repeating task or event's
-    // series doc included, never one detached day of it (see the file
-    // comment above) — so a snapshot always has enough to fully restore.
-    const snapshot = row.source
     try {
       if (row.kind === 'event') await removeEvent(row.id)
       else await removeTask(row.id)
       setConfirming(null)
-      pushUndo(`Deleted "${row.title}".`, () =>
-        undoRestore(row.kind === 'event' ? [] : [snapshot], row.kind === 'event' ? [snapshot] : []),
-      )
+      pushUndo(`Deleted "${row.title}".`, () => restore(row.kind, row.id))
     } catch (caught) {
       console.error('Could not delete item.', caught)
       pushError(`Could not delete "${row.title}". Try again.`)
@@ -183,18 +207,40 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
   }
 
   async function removeAll() {
-    const snapshotTasks = tasks
-    const snapshotEvents = events
-    const count = snapshotTasks.length + snapshotEvents.length
+    const snapshot = [...tasks.map((t) => ['task', t.id]), ...events.map((e) => ['event', e.id])]
     try {
       await removeAllItems()
       setConfirmingAll(false)
-      pushUndo(`Deleted ${count} item${count === 1 ? '' : 's'}.`, () =>
-        undoRestore(snapshotTasks, snapshotEvents),
-      )
+      pushUndo(`Deleted ${snapshot.length} item${snapshot.length === 1 ? '' : 's'}.`, async () => {
+        for (const [kind, id] of snapshot) await restore(kind, id)
+      })
     } catch (caught) {
       console.error('Could not delete all items.', caught)
       pushError('Could not delete everything. Some items may remain — try again.')
+    }
+  }
+
+  /* The one delete with no undo behind it — the document is gone from
+     Firestore afterwards, which is exactly what the Trash exists to defer
+     until someone asks for it explicitly. */
+  async function purge(row) {
+    try {
+      await purgeItem(row.kind, row.id)
+      setConfirming(null)
+    } catch (caught) {
+      console.error('Could not permanently delete item.', caught)
+      pushError(`Could not permanently delete "${row.title}". Try again.`)
+    }
+  }
+
+  async function onEmptyTrash() {
+    try {
+      const count = await emptyTrash()
+      setConfirmingEmpty(false)
+      pushSuccess(`Deleted ${count} item${count === 1 ? '' : 's'} for good.`)
+    } catch (caught) {
+      console.error('Could not empty the trash.', caught)
+      pushError('Could not empty the Trash. Some items may remain — try again.')
     }
   }
 
@@ -210,24 +256,56 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
         <div className="modal__head">
           <h2 className="modal__title">All items</h2>
           <div className="modal__head-actions">
-            {rows.length > 0 && (
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={() => setConfirmingAll(true)}
-              >
-                Delete all
-              </button>
-            )}
+            {inTrash
+              ? trash.length > 0 && (
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setConfirmingEmpty(true)}
+                  >
+                    Empty trash
+                  </button>
+                )
+              : rows.length > 0 && (
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setConfirmingAll(true)}
+                  >
+                    Delete all
+                  </button>
+                )}
             <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
               <CloseIcon />
             </button>
           </div>
         </div>
 
+        {confirmingEmpty && (
+          <p className="banner banner--error item-manager__confirm-all">
+            Permanently delete all {trash.length} items in the Trash? This cannot be undone.
+            <span className="item-manager__confirm-all-actions">
+              <button
+                type="button"
+                className="danger-button danger-button--sm"
+                onClick={onEmptyTrash}
+              >
+                Delete for good
+              </button>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => setConfirmingEmpty(false)}
+              >
+                Cancel
+              </button>
+            </span>
+          </p>
+        )}
+
         {confirmingAll && (
           <p className="banner banner--error item-manager__confirm-all">
-            Delete all {rows.length} tasks and events? This cannot be undone.
+            Move all {rows.length} tasks and events to the Trash?
             <span className="item-manager__confirm-all-actions">
               <button type="button" className="danger-button danger-button--sm" onClick={removeAll}>
                 Delete all
@@ -325,7 +403,13 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
 
         {visible.length === 0 ? (
           <p className="empty empty--sm">
-            {rows.length === 0 ? 'Nothing here yet.' : 'No items match that.'}
+            {inTrash
+              ? trash.length === 0
+                ? 'The Trash is empty.'
+                : 'No deleted items match that.'
+              : rows.length === 0
+                ? 'Nothing here yet.'
+                : 'No items match that.'}
           </p>
         ) : (
           <ul className="item-list">
@@ -338,13 +422,15 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                       type="checkbox"
                       className="item-list__check"
                       checked={row.done}
-                      disabled={row.repeating}
+                      disabled={row.repeating || inTrash}
                       onChange={() => toggleDone(row.id)}
                       aria-label={`Mark "${row.title}" ${row.done ? 'not done' : 'done'}`}
                       title={
-                        row.repeating
-                          ? 'A repeating task is checked off day by day, in the Day, Week, or Month view.'
-                          : undefined
+                        inTrash
+                          ? 'Restore this task to tick it off.'
+                          : row.repeating
+                            ? 'A repeating task is checked off day by day, in the Day, Week, or Month view.'
+                            : undefined
                       }
                     />
                   ) : (
@@ -389,9 +475,9 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                       <button
                         type="button"
                         className="danger-button danger-button--sm"
-                        onClick={() => remove(row)}
+                        onClick={() => (inTrash ? purge(row) : remove(row))}
                       >
-                        Delete
+                        {inTrash ? 'Delete for good' : 'Delete'}
                       </button>
                       <button
                         type="button"
@@ -406,15 +492,17 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                       <button
                         type="button"
                         className="ghost-button ghost-button--sm"
-                        onClick={() => edit(row)}
+                        onClick={() => (inTrash ? restore(row.kind, row.id) : edit(row))}
                       >
-                        Edit
+                        {inTrash ? 'Restore' : 'Edit'}
                       </button>
                       <button
                         type="button"
                         className="icon-button"
                         onClick={() => setConfirming(row.id)}
-                        aria-label={`Delete ${row.title}`}
+                        aria-label={
+                          inTrash ? `Permanently delete ${row.title}` : `Delete ${row.title}`
+                        }
                       >
                         <CloseIcon />
                       </button>
@@ -434,8 +522,9 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
         )}
 
         <p className="field__hint">
-          A repeating task or event appears once here, as the rule itself. Skipping a single day
-          of one is done on that day, in the Day, Week, or Month view.
+          {inTrash
+            ? 'Deleted items stay here until you remove them for good — there is no expiry, so nothing disappears on its own.'
+            : 'A repeating task or event appears once here, as the rule itself. Skipping a single day of one is done on that day, in the Day, Week, or Month view. Deleted items go to the Trash.'}
         </p>
       </div>
     </div>

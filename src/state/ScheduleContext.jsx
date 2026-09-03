@@ -211,11 +211,67 @@ export function ScheduleProvider({ children }) {
 
     // Until this user's own snapshots have landed, show nothing rather than
     // whatever the last account left in state.
-    const visibleTasks = loading ? [] : tasks
-    const visibleTags = loading ? [] : tags
-    const visibleEvents = loading ? [] : events
+    const liveTasks = loading ? [] : tasks
+    const liveTags = loading ? [] : tags
+    const liveEvents = loading ? [] : events
 
-    const tagById = new Map(visibleTags.map((t) => [t.id, t]))
+    /* Deleting is a stamp, not a deleteDoc (see removeTask): the document
+       stays put with a `deletedAt` on it and drops out here, once, ahead of
+       every bucket, cache, and lookup built below. That is the whole point of
+       filtering at this single seam — nothing downstream has to remember that
+       trash exists, and no future caller can forget to exclude it. */
+    const visibleTasks = liveTasks.filter((t) => t.deletedAt === null)
+    const visibleEvents = liveEvents.filter((e) => e.deletedAt === null)
+    const trashedTasks = liveTasks.filter((t) => t.deletedAt !== null)
+    const trashedEvents = liveEvents.filter((e) => e.deletedAt !== null)
+
+    /* A tag files under another tag by id, and nothing stops a stored pair of
+       documents from pointing at each other. Resolved once here, where the
+       whole set is in hand: a parent that does not exist, or one whose chain
+       leads back to the tag itself, is treated as no parent at all rather
+       than left to hang every consumer that walks upward. */
+    const rawTagById = new Map(liveTags.map((t) => [t.id, t]))
+    const parentOf = (tag) => {
+      const seen = new Set([tag.id])
+      let parentId = tag.parentId
+      while (parentId) {
+        if (seen.has(parentId)) return null
+        const parent = rawTagById.get(parentId)
+        if (!parent) return null
+        if (parent.id === tag.id) return null
+        seen.add(parentId)
+        // Walking the rest of the chain is what proves this link is safe to
+        // keep — a cycle three tags up still invalidates the first hop.
+        parentId = parent.parentId
+      }
+      return tag.parentId
+    }
+    const visibleTags = liveTags.map((tag) => ({ ...tag, parentId: parentOf(tag) }))
+
+    /* Flattened depth-first, so a child sits directly under its own parent
+       rather than wherever its `order` alone would have put it, and each tag
+       carries the `depth` the lists and pickers indent by. Every tag is
+       reachable exactly once: parentOf already rewrote any unresolvable or
+       looping parent to null, so nothing can be stranded under a missing
+       root and this walk always terminates. */
+    const byOrder = (a, b) => a.order - b.order || a.name.localeCompare(b.name)
+    const childrenOf = new Map()
+    for (const tag of visibleTags) {
+      const bucket = childrenOf.get(tag.parentId)
+      if (bucket) bucket.push(tag)
+      else childrenOf.set(tag.parentId, [tag])
+    }
+    for (const bucket of childrenOf.values()) bucket.sort(byOrder)
+    const sortedTags = []
+    const walkTags = (parentId, depth) => {
+      for (const tag of childrenOf.get(parentId) ?? []) {
+        sortedTags.push({ ...tag, depth })
+        walkTags(tag.id, depth + 1)
+      }
+    }
+    walkTags(null, 0)
+
+    const tagById = new Map(sortedTags.map((t) => [t.id, t]))
 
     // All-day items (no startMin) sort ahead of timed blocks; ties by creation
     // so a day's order never shuffles between renders.
@@ -273,10 +329,6 @@ export function ScheduleProvider({ children }) {
       dayCache.set(key, merged)
       return merged
     }
-
-    const sortedTags = [...visibleTags].sort(
-      (a, b) => a.order - b.order || a.name.localeCompare(b.name),
-    )
 
     /* Repeating events are held aside exactly as repeating tasks are: the
        document is a rule, not a thing on the calendar, so it is never placed
@@ -423,6 +475,11 @@ export function ScheduleProvider({ children }) {
       tags: sortedTags,
       tagById,
       inbox,
+      /* Deleted, not gone — the Trash section of the item index. Newest
+         first, since the thing you want back is almost always the thing you
+         just deleted. */
+      trashedTasks: [...trashedTasks].sort((a, b) => b.deletedAt - a.deletedAt),
+      trashedEvents: [...trashedEvents].sort((a, b) => b.deletedAt - a.deletedAt),
       profile,
       templates,
       focusSessions,
@@ -503,7 +560,14 @@ export function ScheduleProvider({ children }) {
       },
 
       /** Deleting one day of a series skips that day; deleting the series
-          document takes every occurrence with it. */
+          document takes every occurrence with it.
+          A document delete is a `deletedAt` stamp, not a deleteDoc: the row
+          leaves every view at once (the filter sits at the top of this memo)
+          but stays recoverable from the Trash indefinitely, rather than for
+          the six seconds an undo toast is on screen. Skipping one day of a
+          series is NOT a document delete and gets no trash entry — there is
+          no document to restore, only an override to clear, which is what
+          un-skipping that day already does. */
       async removeTask(id) {
         const occurrence = resolveOccurrence(id)
         if (occurrence) {
@@ -515,7 +579,7 @@ export function ScheduleProvider({ children }) {
             now(),
           )
         }
-        return deleteDoc(taskDoc(id))
+        return updateDoc(taskDoc(id), { deletedAt: now(), updatedAt: now() })
       },
 
       /** Drop a task into a slot — the one write the week grid and the inbox
@@ -573,8 +637,7 @@ export function ScheduleProvider({ children }) {
         return updateDoc(eventDoc(id), { ...patch, updatedAt: now() })
       },
 
-      /** Deleting one day of a series skips that day; deleting the series
-          document takes every occurrence with it. */
+      /** The event twin of removeTask, soft-delete included. */
       async removeEvent(id) {
         const occurrence = resolveEventOccurrence(id)
         if (occurrence) {
@@ -586,7 +649,7 @@ export function ScheduleProvider({ children }) {
             now(),
           )
         }
-        return deleteDoc(eventDoc(id))
+        return updateDoc(eventDoc(id), { deletedAt: now(), updatedAt: now() })
       },
 
       /** Move a whole event to a new day, keeping its span. `grabOffsetDays`
@@ -638,9 +701,13 @@ export function ScheduleProvider({ children }) {
           from under an event would otherwise leave it painting from a token
           that no longer resolves. */
       async removeTag(id) {
+        /* Swept from the live documents rather than the visible ones: a
+           trashed task still wears its tag, and restoring it later to a tag
+           that no longer exists would leave it painting from a token that
+           resolves to nothing. */
         const affected = [
-          ...visibleTasks.filter((t) => t.tagId === id).map((t) => taskDoc(t.id)),
-          ...sortedEvents.filter((e) => e.tagId === id).map((e) => eventDoc(e.id)),
+          ...liveTasks.filter((t) => t.tagId === id).map((t) => taskDoc(t.id)),
+          ...liveEvents.filter((e) => e.tagId === id).map((e) => eventDoc(e.id)),
         ]
         // writeBatch caps at 500 operations, so chunk rather than assume.
         for (let i = 0; i < affected.length; i += 400) {
@@ -648,6 +715,18 @@ export function ScheduleProvider({ children }) {
           for (const ref of affected.slice(i, i + 400)) {
             batch.update(ref, { tagId: null, updatedAt: now() })
           }
+          await batch.commit()
+        }
+        /* Children are lifted to the top level rather than left pointing at a
+           document that no longer exists. Reading already treats an
+           unresolvable parent as none (see parentOf), so this only keeps the
+           stored data honest — but a stale id that reads as null is exactly
+           the kind of thing that survives an export and confuses the next
+           reader of the file. */
+        const orphans = liveTags.filter((t) => t.parentId === id)
+        if (orphans.length > 0) {
+          const batch = writeBatch(db)
+          for (const child of orphans) batch.update(tagDoc(child.id), { parentId: null })
           await batch.commit()
         }
         return deleteDoc(tagDoc(id))
@@ -684,11 +763,12 @@ export function ScheduleProvider({ children }) {
         })
       },
 
-      /** Wipes every task and event document — including the rule behind
+      /** Sends every task and event to the Trash — including the rule behind
           each repeating series, which stands for every one of its
-          occurrences. This is the "delete all" action in the item index;
-          irreversible, so the caller is expected to confirm first. */
+          occurrences. This is the "delete all" action in the item index; it
+          is recoverable, item by item or all at once, from the Trash. */
       async removeAllItems() {
+        const stamp = now()
         const refs = [
           ...visibleTasks.map((t) => taskDoc(t.id)),
           ...fixedEvents.map((e) => eventDoc(e.id)),
@@ -697,9 +777,41 @@ export function ScheduleProvider({ children }) {
         // writeBatch caps at 500 operations, so chunk rather than assume.
         for (let i = 0; i < refs.length; i += 400) {
           const batch = writeBatch(db)
+          for (const ref of refs.slice(i, i + 400)) {
+            batch.update(ref, { deletedAt: stamp, updatedAt: stamp })
+          }
+          await batch.commit()
+        }
+      },
+
+      /** Puts a trashed task or event back exactly where it was — clearing
+          the stamp is the whole restore, because a soft delete never took
+          anything off the document in the first place. */
+      async restoreItem(kind, id) {
+        const ref = kind === 'event' ? eventDoc(id) : taskDoc(id)
+        return updateDoc(ref, { deletedAt: null, updatedAt: now() })
+      },
+
+      /** The delete a soft delete deferred. Irreversible — the caller is
+          expected to confirm first. */
+      async purgeItem(kind, id) {
+        return deleteDoc(kind === 'event' ? eventDoc(id) : taskDoc(id))
+      },
+
+      /** Empties the Trash for good. Reads the trashed lists rather than
+          re-querying: a document is only in them because a snapshot already
+          reported it with a stamp on. */
+      async emptyTrash() {
+        const refs = [
+          ...trashedTasks.map((t) => taskDoc(t.id)),
+          ...trashedEvents.map((e) => eventDoc(e.id)),
+        ]
+        for (let i = 0; i < refs.length; i += 400) {
+          const batch = writeBatch(db)
           for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
           await batch.commit()
         }
+        return refs.length
       },
 
       /** A file picked for the profile photo arrives already resized to a

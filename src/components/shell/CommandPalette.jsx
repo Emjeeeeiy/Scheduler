@@ -27,18 +27,31 @@ function matches(query, label) {
  * does — App.jsx builds that list from the same handlers the sidebar and
  * keyboard shortcuts already call, so a palette entry can never drift from
  * what its equivalent button does.
+ *
+ * `searchItems(query)` is the same contract one step further out: it returns
+ * more actions, in the same shape, for whatever is typed. That is what makes
+ * this the app's global search too — finding a task and opening it are the
+ * same gesture, so they are the same list. Passing a function rather than
+ * pre-built actions is what keeps every task in the account out of the
+ * palette when the box is empty.
  */
-export function CommandPalette({ onClose, actions }) {
+export function CommandPalette({ onClose, actions, searchItems }) {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const panelRef = useRef(null)
   const inputRef = useRef(null)
   useModalA11y(panelRef, { onClose, initialFocusRef: inputRef })
 
+  const found = useMemo(() => searchItems?.(query) ?? [], [searchItems, query])
+  /* Commands first, then what the query found. Commands are a fixed, known
+     list someone learns the position of; results are a variable tail. Sorting
+     the two together by relevance would move "New task" around under the
+     cursor depending on what else happened to match. */
   const filtered = useMemo(
-    () => actions.filter((action) => matches(query, action.label)),
-    [actions, query],
+    () => [...actions.filter((action) => matches(query, action.label)), ...found],
+    [actions, query, found],
   )
+  const commandCount = filtered.length - found.length
   // Clamped rather than reset to 0 on every filter change: losing the
   // selection on each keystroke would make arrowing down right after typing
   // land somewhere unpredictable.
@@ -89,7 +102,7 @@ export function CommandPalette({ onClose, actions }) {
               setActiveIndex(0)
             }}
             onKeyDown={onInputKeyDown}
-            placeholder="Jump to a view, or create something…"
+            placeholder="Search tasks and events, or jump to a view…"
             aria-label="Command palette search"
             autoComplete="off"
           />
@@ -99,6 +112,14 @@ export function CommandPalette({ onClose, actions }) {
           {filtered.length === 0 && <li className="palette__empty">No matches.</li>}
           {filtered.map((action, index) => (
             <li key={action.id}>
+              {/* A heading only where the two groups actually meet, so the
+                  list stays a plain run of rows until there is a boundary
+                  worth naming. */}
+              {index === commandCount && found.length > 0 && (
+                <p className="palette__group" role="presentation">
+                  {commandCount > 0 ? 'Your items' : 'Matching items'}
+                </p>
+              )}
               <button
                 type="button"
                 className={`palette__item${index === boundedIndex ? ' palette__item--active' : ''}`}

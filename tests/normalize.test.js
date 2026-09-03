@@ -32,6 +32,7 @@ describe('normalizeTask', () => {
       pinned: false,
       blockedBy: [],
       subtasks: [],
+      deletedAt: null,
       recurrence: null,
       overrides: {},
       createdAt: 0,
@@ -115,6 +116,16 @@ describe('normalizeTask', () => {
     assert.equal(normalizeTask('t1', { subtasks: raw }).subtasks.length, 50)
   })
 
+  it('only accepts a numeric deletedAt stamp', () => {
+    // Soft delete is the presence of a real timestamp; anything else reads as
+    // "not deleted" rather than as a truthy marker, so a stray string can
+    // never make a task vanish from every view at once.
+    assert.equal(normalizeTask('t1', { deletedAt: 1699999999999 }).deletedAt, 1699999999999)
+    assert.equal(normalizeTask('t1', { deletedAt: 'yes' }).deletedAt, null)
+    assert.equal(normalizeTask('t1', { deletedAt: true }).deletedAt, null)
+    assert.equal(normalizeEvent('e1', { deletedAt: 42 }).deletedAt, 42)
+  })
+
   it('keeps overrides only when the task is actually a series', () => {
     const notRecurring = normalizeTask('t1', {
       date: DAY,
@@ -144,6 +155,7 @@ describe('normalizeEvent', () => {
       endMin: null,
       durationMin: null,
       tagId: null,
+      deletedAt: null,
       recurrence: null,
       overrides: {},
       createdAt: 0,
@@ -204,6 +216,16 @@ describe('normalizeTag', () => {
     assert.equal(tag.color, `var(--color-tag-${TAG_SLOTS[0]})`)
     assert.equal(tag.order, 0)
     assert.equal(tag.goalMinutes, null)
+    assert.equal(tag.parentId, null)
+  })
+
+  it('refuses to let a tag parent itself', () => {
+    // The one cycle visible from inside a single document. Longer loops need
+    // the whole set in hand and are broken in ScheduleContext instead.
+    assert.equal(normalizeTag('tag1', { parentId: 'tag1' }).parentId, null)
+    assert.equal(normalizeTag('tag1', { parentId: 'tag2' }).parentId, 'tag2')
+    assert.equal(normalizeTag('tag1', { parentId: 42 }).parentId, null)
+    assert.equal(normalizeTag('tag1', { parentId: '' }).parentId, null)
   })
 
   it('only accepts a positive, capped weekly goal', () => {

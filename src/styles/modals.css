@@ -335,18 +335,65 @@
   background: var(--color-surface-2);
 }
 
-.tag-goal {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.tag-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
   margin: 6px 0 10px;
   padding-top: 8px;
   border-top: 1px solid var(--color-border);
 }
 
+.tag-options__field {
+  min-width: 0;
+}
+
+.tag-options__goal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .input--sm {
   width: 64px;
   flex: none;
+}
+
+.shortcut-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.shortcut-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+.shortcut-list__key {
+  flex: none;
+  min-width: 88px;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  color: var(--color-text-primary);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.shortcut-list__key:hover {
+  background: var(--color-surface-2);
+}
+
+.shortcut-list__key--capturing {
+  border-color: var(--color-text-primary);
+  color: var(--color-text-muted);
 }
 
 .tag-add {
@@ -825,6 +872,14 @@
   text-align: center;
   color: var(--color-text-muted);
   font-size: var(--text-item);
+}
+
+.palette__group {
+  padding: 10px 14px 4px;
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
 }
 
 .palette__item {

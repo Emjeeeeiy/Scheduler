@@ -27,7 +27,7 @@ function durationOption(min) {
 /** Create and edit share one form: the fields are identical, and keeping them
     together means a change to the time model can only be made in one place. */
 export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
-  const { addTask, updateTask, removeTask, importData, addTemplate, tags, getSeries, tasksOn, eventsOn } =
+  const { addTask, updateTask, removeTask, restoreItem, addTemplate, tags, getSeries, tasksOn, eventsOn } =
     useSchedule()
   const { settings } = useSettings()
   const { pushError, pushSuccess, pushUndo } = useToast()
@@ -110,21 +110,23 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   }
 
   async function onDelete() {
-    // "Skip this day" (isOccurrence) detaches a day from a rule rather than
-    // removing a document — restoring that through importData would create
-    // a duplicate task, not undo the skip, so only an ordinary task or a
-    // whole series (both real document deletes) offer Undo.
-    const snapshot = !isOccurrence ? editor.task : null
+    /* "Skip this day" (isOccurrence) detaches a day from a rule rather than
+       removing a document, so there is nothing to restore and no Undo — only
+       an ordinary task or a whole series is a real document delete.
+       Those go to the Trash rather than being erased (see removeTask), so
+       Undo clears the stamp on the document that is still there; writing the
+       snapshot back would leave the account holding two of it. */
+    const deleted = !isOccurrence ? editor.task : null
     try {
       await removeTask(editor.task.id)
       onClose()
-      if (snapshot) {
-        pushUndo(`Deleted "${snapshot.title}".`, async () => {
+      if (deleted) {
+        pushUndo(`Deleted "${deleted.title}".`, async () => {
           try {
-            await importData({ tasks: [snapshot] })
+            await restoreItem('task', deleted.id)
           } catch (caught) {
             console.error('Could not restore the task.', caught)
-            pushError('Could not restore the task.')
+            pushError('Could not restore the task. It is still in the Trash.')
           }
         })
       }

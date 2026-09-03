@@ -100,6 +100,51 @@ export function tagBreakdown(tasks, tags) {
     .sort((a, b) => b.plannedMin - a.plannedMin || b.count - a.count)
 }
 
+/** Folds a tagBreakdown so a nested tag's time counts toward the tag it
+    files under: "Work / Deep work" reports as Work. Child rows are merged
+    away rather than kept alongside their parent — a chart showing both would
+    draw the same hours twice, once under each name.
+ *
+ * The `seen` guard is not redundant with the cycle check ScheduleContext
+ * already does: this is a pure module, tested and callable on any list of
+ * tags, and a chart is not the place to discover a loop by hanging.
+ */
+export function rollUpTags(rows, tags) {
+  const parentById = new Map(tags.map((t) => [t.id, t.parentId ?? null]))
+  const rootOf = (id) => {
+    let current = id
+    const seen = new Set([id])
+    let parent = parentById.get(current)
+    while (parent && !seen.has(parent)) {
+      seen.add(parent)
+      current = parent
+      parent = parentById.get(current)
+    }
+    return current
+  }
+
+  const byId = new Map(tags.map((t) => [t.id, t]))
+  const buckets = new Map()
+  for (const row of rows) {
+    const id = rootOf(row.id)
+    const bucket = buckets.get(id) ?? {
+      id,
+      plannedMin: 0,
+      completedMin: 0,
+      count: 0,
+      // The root's own tag when it resolves; otherwise this row is already
+      // standing in for something unnamed (untagged), so it keeps its own.
+      tag: byId.get(id) ?? row.tag,
+    }
+    bucket.plannedMin += row.plannedMin
+    bucket.completedMin += row.completedMin
+    bucket.count += row.count
+    buckets.set(id, bucket)
+  }
+
+  return [...buckets.values()].sort((a, b) => b.plannedMin - a.plannedMin || b.count - a.count)
+}
+
 /** Total focus-round minutes and round count across a set of day keys — one
     key for "today," seven for "this week." Callers pass whatever range they
     mean rather than this taking an opinion on it. */
