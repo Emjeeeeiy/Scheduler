@@ -123,6 +123,7 @@ export function FocusMode({ onEdit }) {
   const [secondsLeft, setSecondsLeft] = useState(() => durationFor('focus', settings))
   const [alarmRinging, setAlarmRinging] = useState(false)
   const alarmRef = useRef(null)
+  const wakeLockRef = useRef(null)
 
   // A safety net, not the normal path (Stop and Escape already pause it) —
   // this only matters if FocusMode itself ever unmounts mid-ring, e.g. on
@@ -187,6 +188,53 @@ export function FocusMode({ onEdit }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [alarmRinging])
+
+  useEffect(() => {
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen')
+        }
+      } catch {
+        /* Not supported or denied */
+      }
+    }
+    function releaseWakeLock() {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {})
+        wakeLockRef.current = null
+      }
+    }
+
+    if (running) {
+      requestWakeLock()
+    } else {
+      releaseWakeLock()
+    }
+
+    function handleVisibilityChange() {
+      if (running && document.visibilityState === 'visible') {
+        requestWakeLock()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      releaseWakeLock()
+    }
+  }, [running])
+
+  useEffect(() => {
+    if (running) {
+      document.title = `${formatClock(secondsLeft)} - Focus`
+    } else {
+      document.title = 'Cadence'
+    }
+    return () => {
+      document.title = 'Cadence'
+    }
+  }, [running, secondsLeft])
 
   const total = durationFor(phase, settings)
   const pct = total > 0 ? Math.round(((total - secondsLeft) / total) * 100) : 0
