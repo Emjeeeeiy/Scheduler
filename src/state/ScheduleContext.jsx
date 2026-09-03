@@ -80,6 +80,16 @@ export const TAG_ICONS = [
   'graduationCap',
   'leaf',
   'moon',
+  'laptop',
+  'person',
+  'church',
+  'gift',
+  'mapPin',
+  'umbrella',
+  'pawPrint',
+  'trophy',
+  'wrench',
+  'scissors',
 ]
 
 /* Deterministic ids, so seeding is idempotent: two tabs (or a retry after an

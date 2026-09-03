@@ -8,6 +8,43 @@ export const DEFAULT_DURATION_MIN = 30
 
 export const TAG_SLOTS = ['blue', 'orange', 'aqua', 'yellow', 'magenta', 'green', 'violet', 'red']
 
+export const TAG_ICONS = [
+  'briefcase',
+  'home',
+  'book',
+  'heart',
+  'wallet',
+  'plane',
+  'users',
+  'coffee',
+  'bulb',
+  'flag',
+  'star',
+  'dumbbell',
+  'pill',
+  'musicNote',
+  'cart',
+  'utensils',
+  'car',
+  'phone',
+  'mail',
+  'gameController',
+  'palette',
+  'graduationCap',
+  'leaf',
+  'moon',
+  'laptop',
+  'person',
+  'church',
+  'gift',
+  'mapPin',
+  'umbrella',
+  'pawPrint',
+  'trophy',
+  'wrench',
+  'scissors',
+]
+
 const TODAY = todayKey()
 
 const tag = (id, name, slot) => ({ id, name, slot, color: `var(--tag-${slot})`, order: 0 })

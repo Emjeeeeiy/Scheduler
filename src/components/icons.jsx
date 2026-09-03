@@ -351,7 +351,7 @@ export function ResetIcon(props) {
 }
 
 /* ------------------------------------------------------------ tag icons -- */
-/* A curated set a tag can wear instead of a plain colour dot — the same 12
+/* A curated set a tag can wear instead of a plain colour dot — the same set
    used everywhere a tag paints itself (see TagGlyph.jsx). Deliberately
    simple shapes: at the sizes a tag actually renders at (12–14px, next to a
    line of text) anything busier stops reading as a picture. */
@@ -581,6 +581,117 @@ export function MoonIcon(props) {
   return (
     <Icon {...props}>
       <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+export function LaptopIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="16" height="10" rx="1.5" />
+      <path d="M2 18.5h20l-1.6 2.1a1 1 0 0 1-.8.4H4.4a1 1 0 0 1-.8-.4L2 18.5Z" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+/** A single person — a solo meeting, a personal errand, "just me" as distinct
+    from UsersIcon's pair. Reuses UserIcon's own shape (see AccountMenu) since
+    it's already the app's one drawing of "a person"; a second, slightly
+    different silhouette would only read as a mistake next to it. */
+export function PersonIcon(props) {
+  return <UserIcon {...props} />
+}
+
+export function ChurchIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 2.5v3M10.5 4h3" />
+      <path d="M5 21V10.5L12 6l7 4.5V21" strokeLinejoin="round" />
+      <path d="M9 21v-5a3 3 0 0 1 6 0v5" />
+      <path d="M3.5 21h17" />
+    </Icon>
+  )
+}
+
+/* Adapted from Feather Icons' "gift" (MIT), which already draws in this same
+   24x24 / stroke-2 / round-join grammar. */
+export function GiftIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M20 12v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9" />
+      <rect x="2" y="7.5" width="20" height="5" rx="0.5" />
+      <path d="M12 22V7.5" />
+      <path d="M12 7.5H7.8a2.5 2.5 0 0 1 0-5C11 2.5 12 7.5 12 7.5Z" strokeLinejoin="round" />
+      <path d="M12 7.5h4.2a2.5 2.5 0 0 0 0-5C13 2.5 12 7.5 12 7.5Z" strokeLinejoin="round" />
+    </Icon>
+  )
+}
+
+/* Feather Icons' "map-pin" (MIT), unchanged — already this exact grammar. */
+export function MapPinIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z" strokeLinejoin="round" />
+      <circle cx="12" cy="10" r="3" />
+    </Icon>
+  )
+}
+
+export function UmbrellaIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12a9 9 0 0 1 18 0Z" strokeLinejoin="round" />
+      <path d="M12 3v1.5" />
+      <path d="M12 12v7.5a2 2 0 0 1-3.2 1.6" />
+    </Icon>
+  )
+}
+
+export function PawPrintIcon(props) {
+  return (
+    <Icon {...props}>
+      <ellipse cx="12" cy="16" rx="4.5" ry="3.3" />
+      <circle cx="6" cy="10" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="6.5" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="6.5" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="10" r="1.8" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function TrophyIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M7 3.5h10v4.5a5 5 0 0 1-10 0V3.5Z" strokeLinejoin="round" />
+      <path d="M7 4.5H4.5A2.5 2.5 0 0 0 7 9M17 4.5h2.5A2.5 2.5 0 0 1 17 9" />
+      <path d="M12 13v3.5" />
+      <path d="M9 17h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+      <path d="M8.5 20.5h7" />
+    </Icon>
+  )
+}
+
+/* Feather Icons' "tool" (MIT), unchanged — the classic wrench glyph. */
+export function WrenchIcon(props) {
+  return (
+    <Icon {...props}>
+      <path
+        d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
+        strokeLinejoin="round"
+      />
+    </Icon>
+  )
+}
+
+/* Feather Icons' "scissors" (MIT), unchanged. */
+export function ScissorsIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M20 4L8.12 15.88" />
+      <path d="M14.47 14.48L20 20" />
+      <path d="M8.12 8.12L12 12" />
     </Icon>
   )
 }

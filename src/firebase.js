@@ -22,6 +22,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   runTransaction,
+  setDoc,
 } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -68,9 +69,20 @@ export { auth, db }
 
 const provider = new GoogleAuthProvider()
 
+/* The `users/{uid}` doc otherwise stays empty for a Google account until its
+   first photo upload, which makes one impossible to pick out of the
+   Firestore console — every row is just a bare uid. Writing the Google
+   email (and name, for the same reason) here means every sign-in keeps it
+   current, and merge:true means it never clobbers photoBase64 or anything
+   else already on the doc. */
 export async function signInWithGoogle() {
-  if (!auth) throw new Error('Firebase is not configured.')
-  await signInWithPopup(auth, provider)
+  if (!auth || !db) throw new Error('Firebase is not configured.')
+  const credential = await signInWithPopup(auth, provider)
+  await setDoc(
+    doc(db, 'users', credential.user.uid),
+    { email: credential.user.email, displayName: credential.user.displayName ?? null },
+    { merge: true },
+  )
 }
 
 export async function logout() {
