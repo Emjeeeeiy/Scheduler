@@ -574,6 +574,15 @@ function AppShell() {
             <ListIcon className="sidebar__icon" />
             <span className="sidebar__label">All items</span>
           </button>
+          <button
+            type="button"
+            className="sidebar__link"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <SettingsIcon className="sidebar__icon" />
+            <span className="sidebar__label">Settings</span>
+          </button>
         </div>
 
         <div className="sidebar__spacer" />
@@ -606,7 +615,7 @@ function AppShell() {
           >
             <ThemeIcon />
           </button>
-          <AccountMenu onOpenSettings={() => setSettingsOpen(true)} />
+          <AccountMenu />
         </div>
       </aside>
 

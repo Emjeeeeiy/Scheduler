@@ -30,6 +30,43 @@ function focusableElements(panel) {
  * `<div className="modal__panel" role="dialog" aria-modal="true">` shape, so
  * one hook can own the whole contract for all of them.
  */
+/* Scroll lock state, shared across every dialog rather than held per hook.
+ *
+ * Counted rather than a boolean because dialogs do stack — the item index
+ * opens an editor over itself, the account menu opens a profile modal — and
+ * the second one closing must not unlock the page while the first is still
+ * up. Only the outermost lock restores.
+ */
+let scrollLocks = 0
+let restoreBodyStyle = null
+
+function lockBodyScroll() {
+  scrollLocks += 1
+  if (scrollLocks > 1) return
+
+  const { body } = document
+  restoreBodyStyle = { overflow: body.style.overflow, paddingRight: body.style.paddingRight }
+  /* Removing the page's scrollbar makes the viewport wider, which shifts
+     everything behind the dimmed backdrop sideways at the exact moment a
+     dialog appears over it. Replacing its width with padding keeps the page
+     still. Zero on overlay-scrollbar platforms, where there was nothing
+     taking up space to begin with. */
+  const scrollbar = window.innerWidth - document.documentElement.clientWidth
+  if (scrollbar > 0) {
+    const current = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0
+    body.style.paddingRight = `${current + scrollbar}px`
+  }
+  body.style.overflow = 'hidden'
+}
+
+function unlockBodyScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1)
+  if (scrollLocks > 0 || !restoreBodyStyle) return
+  document.body.style.overflow = restoreBodyStyle.overflow
+  document.body.style.paddingRight = restoreBodyStyle.paddingRight
+  restoreBodyStyle = null
+}
+
 export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisabled = false } = {}) {
   const previouslyFocused = useRef(null)
 
@@ -57,6 +94,13 @@ export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisable
     // may already have been detached.
     const panel = panelRef.current
     previouslyFocused.current = document.activeElement
+
+    /* The page behind a dialog stays put while it is open. Without this,
+       scrolling a long panel to its end hands the rest of the gesture to the
+       page underneath, which slides around behind the dim — and a wheel over
+       the backdrop scrolls it directly. Both make the app look like the
+       dialog is drifting. */
+    lockBodyScroll()
 
     // Direct, not deferred: useEffect already runs after the DOM has
     // committed and painted (unlike useLayoutEffect), so the panel and
@@ -88,6 +132,7 @@ export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisable
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
+      unlockBodyScroll()
       /* Unconditional, deliberately: removing the panel's DOM node is what
          triggers this cleanup to run, and a browser blurs a focused element
          the instant it's detached — so by the time this runs,
