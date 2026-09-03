@@ -9,12 +9,26 @@ import { CloseIcon, PlusIcon } from '../icons.jsx'
 export function SubtaskList({ value, onChange }) {
   const [draft, setDraft] = useState('')
 
-  function add(event) {
-    event.preventDefault()
+  // Not a <form>: this list already lives inside TaskEditor's own <form>,
+  // and HTML doesn't allow a form nested inside another one — the browser
+  // silently drops the inner <form> tag and hands its submit button to the
+  // *outer* form instead, so clicking "Add" here was actually submitting
+  // (and closing) the whole task editor. A plain click handler plus an
+  // explicit Enter-key handler on the input gets the same "press Enter or
+  // click Add" behaviour without ever being a form.
+  function add() {
     const title = draft.trim()
     if (!title) return
     onChange([...value, { id: `sub-${Date.now()}-${value.length}`, title, done: false }])
     setDraft('')
+  }
+
+  function onInputKeyDown(event) {
+    if (event.key !== 'Enter') return
+    // Otherwise Enter bubbles up to TaskEditor's own form and submits that
+    // instead — the very bug this component exists to not have anymore.
+    event.preventDefault()
+    add()
   }
 
   function toggle(id) {
@@ -59,20 +73,21 @@ export function SubtaskList({ value, onChange }) {
         </ul>
       )}
 
-      <form className="subtasks__add" onSubmit={add}>
+      <div className="subtasks__add">
         <input
           className="input"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onInputKeyDown}
           placeholder="Add a checklist item…"
           aria-label="New checklist item"
           maxLength={200}
         />
-        <button type="submit" className="ghost-button ghost-button--sm">
+        <button type="button" className="ghost-button ghost-button--sm" onClick={add}>
           <PlusIcon className="button-icon" />
           Add
         </button>
-      </form>
+      </div>
     </div>
   )
 }

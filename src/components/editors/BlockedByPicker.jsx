@@ -72,6 +72,11 @@ export function BlockedByPicker({ taskId, value, onChange }) {
         className="input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        // This picker lives inside TaskEditor's own <form>, and this is a
+        // plain search field with no form of its own — without this, Enter
+        // here submits (and closes) the whole task editor instead of just
+        // doing nothing, the same bug the checklist's Add button had.
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
         placeholder="Search a task to add…"
         aria-label="Search a task to block on"
       />
