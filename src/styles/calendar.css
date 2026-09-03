@@ -1,0 +1,987 @@
+/* ============================================================ time grids == */
+
+/* The frame for the whole Day view: the grid and the inbox share it rather
+   than each carrying its own box, split by one hairline — the same device
+   as the Auth Shell's hero/panel column. */
+.day-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+}
+
+/* `:not(.frame-tick)` + the general-sibling combinator, not `:first-child` +
+   `+`: `<FrameTicks />` is a Fragment, so its four spans are real DOM
+   children ahead of day-panel and the inbox, not something a wrapper would
+   let `.day-layout`'s own first/second-child math skip past. */
+.day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 1px solid var(--color-border);
+  padding-left: 16px;
+}
+
+.grid-scroll {
+  overflow-x: auto;
+}
+
+.week__inner {
+  min-width: 720px;
+}
+
+/* The calendar surfaces are where the type scale re-pins to px, and the
+   reason is geometry rather than taste: every one of them is dimensioned in
+   real units that text has to fit inside.
+
+   - The time grid: an hour is 52px (a JS constant in WeekGrid/TodayView) and
+     blocks are positioned as a percentage of it, so a 30-minute block is 26px
+     tall — a box that cannot grow.
+   - The month: bars sit in 15px lane rows on a 17px stride, and the chip
+     budget below them is counted against a fixed row height.
+
+   Letting a label scale with the reader's font-size preference inside a box
+   that cannot scale with it only clips the label — strictly worse than not
+   scaling at all. Redefining the tokens on the container re-pins every role
+   inside at once, rather than un-tokenising two dozen declarations one by one.
+
+   Everything outside the calendar — cards, lists, dialogs, stats, the sidebar,
+   the whole rest of the app — still scales. Making the calendar itself scale
+   means moving that JS constant and the percentage and lane math to rem, which
+   is a layout change, not a typographic one. */
+.grid-body,
+.week__allday,
+.month__week {
+  --text-item: 14px;
+  --text-label: 13px;
+  --text-meta: 12px;
+  --text-micro: 11px;
+  --text-nano: 10px;
+}
+
+.grid-body {
+  display: flex;
+  align-items: stretch;
+}
+
+.gutter,
+.gutter-spacer {
+  position: relative;
+  width: 60px;
+  flex: none;
+}
+
+.gutter__mark {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.grid-columns {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-top: 1px solid var(--color-gridline);
+  border-bottom: 1px solid var(--color-gridline);
+}
+
+.grid-body--single .grid-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.day-column {
+  position: relative;
+  border-left: 1px solid var(--color-gridline);
+  min-width: 0;
+}
+
+.day-column:first-child {
+  border-left: none;
+}
+
+.day-column__rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-gridline);
+  pointer-events: none;
+}
+
+.day-column__surface {
+  position: absolute;
+  inset: 0;
+  cursor: copy;
+}
+
+.day-column__hover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-text-primary);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.day-column__hover span {
+  position: absolute;
+  top: -9px;
+  left: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--text-nano);
+  font-weight: var(--font-weight-title);
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border-radius: 2px;
+  padding: 0 4px;
+}
+
+.day-column__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-now-line);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.day-column__now::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-now-line);
+}
+
+.block {
+  position: absolute;
+  overflow: hidden;
+  text-align: left;
+  padding: 3px 6px;
+  border: none;
+  border-left: 3px solid var(--tag);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  z-index: 2;
+}
+
+.block:active {
+  cursor: grabbing;
+}
+
+.block--split {
+  padding: 2px 4px;
+}
+
+.block--done {
+  opacity: 0.55;
+}
+
+/* Below 45 min (see DayColumn's isCompact), the block's own title and time
+   line together don't fit its height at the app's type sizes — drop the
+   time line and let the title alone use the space, centered rather than
+   pinned to a top edge with dead space below it. The full time still
+   reaches an assistive user or a mouse via the button's own title attr. */
+.block--compact {
+  justify-content: center;
+}
+
+.block--compact .block__time {
+  display: none;
+}
+
+.block--done .block__title {
+  text-decoration: line-through;
+}
+
+.block__title {
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-item);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block__time {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.block__repeat {
+  width: 11px;
+  height: 11px;
+  vertical-align: -2px;
+}
+
+/* day panel ------------------------------------------------------------ */
+
+.now-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  margin-bottom: 14px;
+  font-size: var(--text-label);
+}
+
+.now-next__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  flex: none;
+}
+
+.now-next__label {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-item);
+  flex: none;
+}
+
+.now-next__task {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-next__task:hover {
+  text-decoration: underline;
+}
+
+.now-next__time {
+  flex: none;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.day-panel__foot {
+  margin-top: 12px;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+.all-day {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.all-day__label {
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-top: 6px;
+  flex: none;
+}
+
+.all-day__list {
+  flex: 1;
+}
+
+/* week ----------------------------------------------------------------- */
+
+.week__summary {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.week__summary-heavy {
+  color: var(--color-critical-text);
+  font-weight: var(--font-weight-item);
+}
+
+.week__head {
+  display: flex;
+}
+
+.week__head .gutter-spacer {
+  width: 60px;
+}
+
+.week__head > .week__day {
+  flex: 1;
+  min-width: 0;
+}
+
+.week__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px 10px;
+  gap: 1px;
+  /* A button now — the header zooms into that day — but it keeps the same
+     chrome-free look at rest; the feedback is the usual surface step. */
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.week__day:hover {
+  background: var(--color-surface-2);
+}
+
+.week__dow {
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.week__date {
+  font-family: var(--font-mono);
+  font-size: var(--text-subtitle);
+  font-weight: var(--font-weight-title);
+  line-height: 1.1;
+}
+
+.week__load {
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.week__load-track {
+  display: block;
+  width: 28px;
+  height: 3px;
+  margin-top: 3px;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.week__load-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-text-primary);
+  border-radius: inherit;
+}
+
+.week__load-fill--heavy {
+  background: var(--color-critical);
+}
+
+.week__day--today .week__date {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border-radius: 999px;
+  min-width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: var(--text-item);
+}
+
+.week__allday {
+  display: flex;
+  border-top: 1px solid var(--color-border);
+  padding: 6px 0;
+}
+
+/* Holds the spanning bars and the per-day cells in one stack, so both align to
+   the same seven tracks the grid below uses. */
+.week__allday-track {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.week__spans {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 17px;
+  row-gap: 2px;
+}
+
+.week__span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0 3px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  text-align: left;
+  cursor: grab;
+}
+
+.week__span:hover {
+  background: color-mix(in srgb, var(--tag) 26%, var(--color-surface-1));
+}
+
+.week__span-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week__span-carry {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.week__allday-cells {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.week__allday-cell {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 0 3px;
+  align-content: start;
+  /* A drop target has to keep a little height even when empty, or there is
+     nothing to aim at when returning the last item to a day. */
+  min-height: 20px;
+  border-radius: var(--radius-sm);
+}
+
+.week__allday-cell--drop {
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.week__events {
+  color: var(--color-text-muted);
+}
+
+.week__hint {
+  margin-top: 12px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface-2);
+  border: none;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: var(--text-micro);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  overflow: hidden;
+}
+
+.chip:hover {
+  background: var(--color-surface-sunken);
+}
+
+.chip--done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.chip--dot {
+  background: transparent;
+  padding: 1px 3px;
+}
+
+.chip--dot:hover {
+  background: var(--color-surface-2);
+}
+
+.chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tag);
+  flex: none;
+}
+
+.chip__time {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  flex: none;
+}
+
+.chip__title {
+  font-weight: var(--font-weight-item);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ================================================================= month == */
+
+.month__head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin-bottom: 6px;
+}
+
+.month__dow {
+  text-align: center;
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Six week rows rather than one flat run of 42 cells: an event bar has to
+   cross cell boundaries, so it cannot live inside a cell, and a row is the
+   furthest a bar can ever reach — it cannot span a line break. */
+.month__grid {
+  display: grid;
+  border-top: 1px solid var(--color-gridline);
+  border-left: 1px solid var(--color-gridline);
+}
+
+.month__week {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(96px, auto);
+}
+
+/* The bars sit in their own layer over the same seven tracks the cells use,
+   which is what makes a bar line up exactly with the days it covers — no
+   percentage arithmetic and nothing to measure, so it is identical under SSR.
+   pointer-events off here and back on per bar keeps the cells underneath
+   droppable; this app runs on drag and drop, and an overlay that swallowed
+   drops would break the month outright. */
+.month__lanes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 26px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 15px;
+  row-gap: 2px;
+  padding: 0 5px;
+  pointer-events: none;
+}
+
+.month__bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--radius-tight);
+  /* The same fill recipe as a time-grid block, so an event reads as the same
+     material — but with no left border, which stays reserved for the block and
+     would in any case imply "starts here" on a bar that may be clipped. */
+  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
+  color: var(--color-text-primary);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  text-align: left;
+  cursor: grab;
+}
+
+.month__bar:hover {
+  background: color-mix(in srgb, var(--tag) 26%, var(--color-surface-1));
+}
+
+.month__bar-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month__bar-carry {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+/* Reserves exactly the height the row's lanes take, so chips begin below the
+   bars instead of underneath them. --lanes is set on the row by the packer. */
+.month__lane-spacer {
+  height: calc(var(--lanes, 0) * 17px);
+  flex: none;
+}
+
+.month__cell {
+  position: relative;
+  border-right: 1px solid var(--color-gridline);
+  border-bottom: 1px solid var(--color-gridline);
+  padding: 4px 5px 6px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Days from the neighbouring months: recessed, and hatched so they read as
+   "not this month" at a glance rather than only on a surface step. The step
+   alone was carrying it, and in dark that step is now Sunken (#0a0a0a) against
+   a page-flat card (#050505) — a difference too small to see. The hatch is
+   drawn in --color-gridline, the same ink the grid lines use, so it reads as more of
+   the calendar's own structure rather than a new decorative texture.
+
+   background-color and background-image are set separately on purpose: the
+   --drop rule below uses the `background` shorthand, which resets the image,
+   so dragging onto one of these days shows a clean violet tint with no hatch
+   under it. That is the state reading clearly, not an accident. */
+.month__cell--outside {
+  background-color: var(--color-surface-sunken);
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--color-gridline) 0 1px,
+    transparent 1px 8px
+  );
+}
+
+.month__cell--outside .month__daynum {
+  color: var(--color-text-muted);
+}
+
+.month__cell--today {
+  box-shadow: inset 0 0 0 2px var(--color-text-primary);
+}
+
+.month__cell--drop {
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+}
+
+.month__load-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-gridline);
+}
+
+.month__load-strip-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-text-primary);
+}
+
+.month__load-strip-fill--heavy {
+  background: var(--color-critical);
+}
+
+.month__cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.month__daynum {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.month__daynum:hover {
+  background: var(--color-surface-2);
+}
+
+.month__load {
+  font-size: var(--text-nano);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.month__chips {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The bare <li> each chip sits in is a grid item too, so it needs the same
+   min-width: 0 the list and the chip already carry — one link left at auto
+   anywhere in the chain is enough to widen the cell. */
+.month__chips > li {
+  min-width: 0;
+}
+
+.month__more {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-micro);
+  cursor: pointer;
+  padding: 1px 3px;
+  text-align: left;
+}
+
+.month__more:hover {
+  color: var(--color-text-primary);
+}
+
+.month__add {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.month__add svg {
+  width: 13px;
+  height: 13px;
+}
+
+.month__cell:hover .month__add,
+.month__add:focus-visible {
+  opacity: 1;
+  background: var(--color-surface-2);
+}
+
+/* ======================================================= inbox & task rows */
+
+/* min-width: 0 keeps the column inside its 320px track. A grid item defaults
+   to min-width: auto, so a single long task title would otherwise widen the
+   whole inbox past the track and push the page into horizontal scroll. */
+.inbox {
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 16px;
+  min-width: 0;
+}
+
+/* The Ink Invert drop-target idiom, same as `.day-column__draft`: a dashed
+   ink border rather than a filled colour. `margin: -1px` keeps the outer
+   edge from shifting when the border switches on — it briefly outranks
+   `.day-layout`'s own hairline divider, which is exactly the point: this is
+   the one moment the inbox reads as a target, not a quiet column. */
+.inbox--drop {
+  border: 1px dashed var(--color-text-primary);
+  margin: -1px;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-1));
+}
+
+.quick-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quick-add .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox__list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inbox__hint {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* Every level from the inbox column down to the title needs min-width: 0 —
+   a flex or grid item defaults to min-width: auto, and one link left at auto
+   anywhere in the chain lets a long title widen the whole column. */
+.inbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  min-width: 0;
+}
+
+.inbox-item:hover {
+  background: var(--color-surface-2);
+}
+
+.inbox-item:active {
+  cursor: grabbing;
+}
+
+.inbox-item--done .inbox-item__title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.inbox-item__body {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+/* min-width: 0 is what makes the ellipsis actually fire. A flex item defaults
+   to min-width: auto — its content width — so without this the title refuses
+   to shrink, pushes the row wider than the inbox, and clips at the page edge
+   instead of truncating. `overflow: hidden` alone cannot do it. */
+.inbox-item__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-item);
+}
+
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.task-row:last-child {
+  border-bottom: none;
+}
+
+.task-row:hover {
+  background: var(--color-surface-2);
+}
+
+.task-row__check {
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+  flex: none;
+}
+
+.task-row__body {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.task-row__title {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-row--done .task-row__title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.task-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.task-row__when {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.tag-chip__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* A glyph doesn't read at dot size, so a tag wearing one claims a bit more
+   room here than the plain dot it replaces. */
+.tag-chip__dot--icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* Shared by every place TagGlyph renders an icon instead of a dot — just
+   baseline alignment next to the text it sits beside. */
+.tag-glyph-icon {
+  flex: none;
+  vertical-align: -2px;
+}
+

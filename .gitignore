@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Manual visual-QA screenshots (tests/smoke/qa.mjs) — local output, not fixtures
+tests/smoke/.qa-screenshots
+
 # Local Firebase config — never commit real project credentials
 .env
 .env.local

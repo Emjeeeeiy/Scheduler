@@ -1,0 +1,503 @@
+/* ================================================== events & new gestures == */
+
+/* The range being dragged out on the grid, previewed live. A neutral wash
+   with a dashed ink border rather than a filled colour — it is a proposal,
+   not a thing that exists yet. */
+.day-column__draft {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  border-radius: var(--radius-tight);
+  background: var(--color-surface-2);
+  border: 1px dashed var(--color-text-primary);
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 4px;
+}
+
+.day-column__draft span {
+  font-family: var(--font-mono);
+  font-size: var(--text-nano);
+  font-weight: var(--font-weight-nano);
+  color: var(--color-text-primary);
+}
+
+/* Siblings of the block, not children: the block is `draggable`, and a native
+   dragstart fires on press-and-move regardless of pointer capture, so a handle
+   nested inside it would race the drag every time. */
+.block__handle {
+  position: absolute;
+  height: 8px;
+  z-index: 4;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* Invisible at rest: the cursor is the affordance, and a visible grip on every
+   block would clutter a full day. */
+.block__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.block-slot:hover .block__handle::after,
+.block__handle:hover::after {
+  opacity: 0.75;
+}
+
+.block--resizing {
+  cursor: ns-resize;
+}
+
+/* An event in the grid: the same material as a task block, but without the tag
+   stripe and with nothing to tick off, so it reads as a different kind of
+   thing without reaching for a second colour. */
+.block--event {
+  border-left: none;
+  background: color-mix(in srgb, var(--tag) 22%, var(--color-surface-1));
+  border-top: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+  cursor: pointer;
+}
+
+.day-peek {
+  z-index: 40;
+  overflow-y: auto;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+}
+
+.day-peek__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 8px;
+}
+
+/* The name of a thing, so it takes the item weight the block, chip, row, and
+   notification all use — not its own heavier one. */
+.day-peek__title {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-item);
+}
+
+.day-peek__list {
+  display: grid;
+  gap: 2px;
+}
+
+.day-peek__item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--text-label);
+}
+
+.day-peek__item:hover {
+  background: var(--color-surface-2);
+}
+
+.day-peek__item--event {
+  background: color-mix(in srgb, var(--tag) 10%, transparent);
+}
+
+.day-peek__item--done .day-peek__label {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.day-peek__when {
+  flex: none;
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  min-width: 52px;
+}
+
+.day-peek__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-peek__note {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+}
+
+.event-rail {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.event-rail__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tag) 14%, var(--color-surface-1));
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+}
+
+.event-rail__item:hover {
+  background: color-mix(in srgb, var(--tag) 24%, var(--color-surface-1));
+}
+
+.event-rail__mark {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.event-rail__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-rail__meta {
+  flex: none;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
+}
+
+.free-slots {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.free-slots__label {
+  flex: none;
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.free-slots__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.free-slots__slot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-meta);
+}
+
+.free-slots__slot:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.free-slots__when {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.free-slots__len {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+}
+
+.agenda {
+  display: grid;
+  gap: 2px;
+}
+
+.agenda__row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agenda__row:hover {
+  background: var(--color-surface-2);
+}
+
+.agenda__row--event {
+  background: color-mix(in srgb, var(--tag) 9%, transparent);
+}
+
+.agenda__row--done .agenda__title {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.agenda__when {
+  flex: none;
+  min-width: 68px;
+  font-size: var(--text-meta);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.agenda__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda__meta {
+  flex: none;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.day-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* The hero keeps the flexible column because one big number reflows happily;
+   the calendar takes a fixed one so seven day columns stay on a predictable
+   grid — the same split .day-layout already makes with its inbox. */
+.dashboard__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  align-items: stretch;
+}
+
+.mini-cal {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+}
+
+.mini-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mini-cal__label {
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-title);
+  color: inherit;
+  cursor: pointer;
+}
+
+.mini-cal__label:hover {
+  background: var(--color-surface-2);
+}
+
+.mini-cal__nav {
+  display: flex;
+  gap: 2px;
+}
+
+.icon-button--sm {
+  width: 24px;
+  height: 24px;
+}
+
+.mini-cal__dow,
+.mini-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.mini-cal__dow span {
+  text-align: center;
+  font-size: var(--text-nano);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.mini-cal__day {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-meta);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.mini-cal__day:hover {
+  background: var(--color-surface-2);
+}
+
+.mini-cal__day--outside .mini-cal__num {
+  color: var(--color-text-muted);
+}
+
+.mini-cal__num {
+  line-height: 1;
+}
+
+/* A day carrying an event fills its numeral — a shape change rather than a
+   second colour, so it stacks with the load dots instead of competing. */
+.mini-cal__day--event .mini-cal__num,
+.mini-cal__day--today .mini-cal__num {
+  border-radius: 999px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-weight: var(--font-weight-title);
+}
+
+.mini-cal__day--event .mini-cal__num {
+  background: var(--color-surface-2);
+}
+
+.mini-cal__day--today .mini-cal__num {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+}
+
+.mini-cal__dots {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  height: 3px;
+}
+
+.mini-cal__dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+}
+
+.mini-cal__day--heavy .mini-cal__dot {
+  background: var(--color-critical);
+}
+
+.editor-kind__options {
+  display: flex;
+  gap: 6px;
+}
+
+/* Matches .sidebar__new-task's box exactly — without display:flex the icon
+   sits on the text baseline and pushes the button taller than the primary one
+   above it, which reads as a mistake rather than a hierarchy. */
+.sidebar__new-event {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-weight: var(--font-weight-label);
+}
+
+.modal__note {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+
+@media (max-width: 900px) {
+  /* Month is its own view; the glance calendar is hidden on a phone so the
+     hero is the whole top of the dashboard. */
+  .dashboard__top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Month lives in the Month view; on a phone the glance calendar under the
+     hero is a second map of the same days and costs a full screen of scroll. */
+  .dashboard__top .mini-cal {
+    display: none;
+  }
+
+  /* Sits beside the primary button in the top bar rather than stretching
+     across it — full width is a sidebar shape, not a toolbar one. This has to
+     live here, after the base rule above: the sidebar's other ≤900px
+     overrides sit earlier in the file, and at equal specificity the later
+     declaration wins regardless of the media query. */
+  .sidebar__new-event {
+    width: auto;
+    margin-bottom: 0;
+  }
+}

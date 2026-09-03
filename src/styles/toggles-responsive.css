@@ -1,0 +1,336 @@
+/* ========================================================== filter/toggle == */
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.filter-chip:hover:not(:disabled) {
+  background: var(--color-surface-2);
+}
+
+.filter-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.filter-chip--on {
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-page);
+  font-weight: var(--font-weight-item);
+}
+
+.notes-list {
+  display: grid;
+  gap: 10px;
+  font-size: var(--text-item);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.notes-list strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
+}
+
+/* ============================================================ responsive == */
+
+@media (max-width: 900px) {
+  .day-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The column divider becomes a stacked one: a horizontal hairline above
+     the inbox instead of a vertical one beside it. */
+  .day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--color-border);
+    padding-top: 18px;
+    margin-top: 18px;
+  }
+
+  .inbox {
+    position: static;
+  }
+
+  /* The sidebar splits into the two bars a phone actually navigates with: the
+     column becomes a sticky TOP bar carrying identity and the things you reach
+     for occasionally (brand, create, managers, sign-out, bell, theme), and the
+     view nav leaves the flow entirely for a fixed BOTTOM tab bar, in thumb
+     reach where switching between Dashboard/Day/Week/Month belongs.
+
+     Still one DOM tree and no JS branch — the nav is `position: fixed` out of
+     its parent's flow rather than a duplicated mobile component, so the two
+     bars can never drift out of sync with the desktop rail.
+
+     One row, never a wrap: wrapping stacked create buttons under the brand and
+     made the chrome two (sometimes three) taps taller than the content. Every
+     control goes icon-only; labels stay in the accessibility tree. */
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 10px;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .sidebar__brand {
+    padding: 0;
+    margin-right: auto;
+    gap: 0;
+    position: relative;
+    flex: none;
+  }
+
+  .brand__name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidebar__new-task,
+  .sidebar__new-event {
+    width: auto;
+    min-width: 44px;
+    min-height: 44px;
+    margin-bottom: 0;
+    padding: 10px;
+    flex: none;
+    position: relative;
+  }
+
+  .sidebar__new-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidebar__link {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  /* --- the bottom tab bar --- */
+
+  .sidebar__nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    gap: 0;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: var(--color-page);
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Equal columns from `1 1 0` rather than content width, so the four tabs
+     stay on a fixed grid a thumb can learn instead of shifting with label
+     length. */
+  .sidebar__nav .sidebar__link {
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px 2px;
+    text-align: center;
+  }
+
+  .sidebar__nav .sidebar__icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .sidebar__nav .sidebar__label {
+    font-size: var(--text-nano);
+    font-weight: var(--font-weight-item);
+  }
+
+  /* --- occasional controls, icon-only in the top bar --- */
+
+  .sidebar__tools {
+    flex-direction: row;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    border-top: none;
+  }
+
+  .sidebar__tools .sidebar__link,
+  .sidebar__signout {
+    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-bottom: 0;
+    justify-content: center;
+  }
+
+  .sidebar__tools .sidebar__label,
+  .sidebar__signout .sidebar__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidebar__spacer {
+    display: none;
+  }
+
+  .sidebar__footer {
+    margin: 0;
+    padding: 0;
+    border-top: none;
+    gap: 2px;
+    flex: none;
+  }
+
+  .sidebar__footer .icon-button,
+  .sidebar__footer .notif__trigger {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .app-content {
+    max-width: none;
+    margin: 0;
+    /* Clear of the fixed tab bar, plus the home indicator under it. */
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+
+  /* Dashboard's header is only the word "Today" — the hero already says
+     that. Drop the extra row so the first tap is the page, not chrome. */
+  .app__header:has(.date-nav--static) {
+    display: none;
+  }
+
+  .app-content:has(.date-nav--static) .app__main {
+    margin-top: 8px;
+  }
+
+  .date-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .date-nav .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .date-nav__label {
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* The three-column grid only works with room either side of the date
+     label; below 900px it collapses to two stacked full-width rows. */
+  .app__header--schedule {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .view-tabs {
+    justify-content: center;
+  }
+
+  .view-tabs__tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__pixel-caret {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Keeps the tab-bar clearance the 900px block set — a padding shorthand
+     here would quietly drop it and let the last card hide behind the bar. */
+  .app-content {
+    padding: 14px 12px calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .app__header {
+    justify-content: stretch;
+    padding-bottom: 12px;
+  }
+
+  .account__trigger {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hero__value {
+    font-size: var(--text-hero-sm);
+  }
+
+  .hero__unit {
+    font-size: var(--text-hero-unit-sm);
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  /* Moved with grid-auto-rows itself, which now lives on the week row. */
+  .month__week {
+    grid-auto-rows: minmax(74px, auto);
+  }
+}
+

@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - run: npm ci
+
+      # Cheapest, fastest-failing check first.
+      - run: npm run lint
+
+      # Pure-logic tests (date, layout, recurrence, stats, normalize) — no
+      # Firebase project needed, since these never touch the network.
+      - run: npm test
+
+      # SSR-renders every view against mock data. Needs no live Firebase
+      # project either — ScheduleContext/AuthContext are aliased to fixtures
+      # for this build (see tests/smoke/vite.config.js).
+      - run: npm run test:render
+
+      # Proves the app actually bundles. VITE_FIREBASE_* env vars are not
+      # needed at build time — firebaseReady only gates initializeApp() at
+      # runtime in the browser — so this runs with no secrets configured.
+      - run: npm run build

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 /* Only DRAG_TASK is ever named here, and that is the whole guard: an event
    dragged over the inbox matches nothing, shows no drop affordance, and can
    never reach unscheduleTask — which would write to a task document that does
@@ -16,6 +17,7 @@ import { TagGlyph } from '../editors/TagGlyph.jsx'
  */
 export function TaskInbox({ focusKey, onEdit, onCreate }) {
   const { inbox, addTask, toggleDone, unscheduleTask, scheduleTask, getTag } = useSchedule()
+  const { pushError } = useToast()
   const [title, setTitle] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [dropActive, setDropActive] = useState(false)
@@ -33,6 +35,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
       await addTask({ title: trimmed })
     } catch (caught) {
       console.error('Could not add task.', caught)
+      pushError('Could not add the task. Try again.')
       setTitle(trimmed)
     }
   }
@@ -47,6 +50,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
       await unscheduleTask(payload.id)
     } catch (caught) {
       console.error('Could not return task to the inbox.', caught)
+      pushError('Could not move the task back to the inbox. Try again.')
     }
   }
 

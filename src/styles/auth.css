@@ -1,0 +1,529 @@
+/* =========================================================== setup/login == */
+
+.setup {
+  max-width: 520px;
+  text-align: left;
+}
+
+.setup__title {
+  font-size: var(--text-headline);
+  font-weight: var(--font-weight-figure);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.setup__lead {
+  color: var(--color-text-secondary);
+  margin-bottom: 18px;
+}
+
+.setup__steps {
+  list-style: decimal;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-item);
+}
+
+.setup__steps li {
+  padding-left: 4px;
+}
+
+.setup__missing {
+  margin-top: 16px;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.setup__note {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-label);
+  color: var(--color-text-muted);
+}
+
+code {
+  background: var(--color-surface-sunken);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.9em;
+  font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+}
+
+/* ============================================================ auth shell == */
+
+/* Theme-reactive, built from the same neutral tokens as every other surface —
+   this used to be a fixed, always-dark exception with a violet-to-black
+   gradient hero; that palette is gone. What marks this screen as its own
+   moment is line, not fill: a topbar rule, one hairline column divider, and
+   the corner-tick frame below — no panel ever carries a background color of
+   its own, so nothing here reads as a card. */
+
+.auth-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--color-page);
+}
+
+.auth-topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: var(--font-weight-title);
+  font-size: var(--text-title);
+  color: var(--color-text-primary);
+}
+
+.auth-hero__mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+/* The bounded frame below the topbar — hero and form as two plain columns
+   split by one hairline, corner ticks marking the frame itself rather than
+   either column. */
+.auth-body {
+  position: relative;
+  flex: 1;
+  display: flex;
+  padding: 28px;
+}
+
+/* The hero takes whatever the panel doesn't: the form is a fixed-ish column
+   sized to its own 360px content plus a gutter, not a percentage that keeps
+   growing past anything the form has to put in it. */
+.auth-hero {
+  flex: 1;
+  position: relative;
+  display: flex;
+  color: var(--color-text-primary);
+  border-right: 1px solid var(--color-border);
+}
+
+/* A small drawn cross at each corner of a content frame — originally the
+   Auth Shell's own motif, now the corner mark for every unboxed `.frame`
+   in the app (see Cards & Frames below): standing in for the accent color
+   the system no longer carries. Two hairline strokes per corner, inset off
+   the edge so the frame and the tick read as one deliberate drawing. */
+.frame-tick {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+}
+
+.frame-tick::before,
+.frame-tick::after {
+  content: '';
+  position: absolute;
+  background: var(--color-baseline);
+}
+
+.frame-tick::before {
+  top: 4px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+
+.frame-tick::after {
+  left: 4px;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+
+.frame-tick--tl {
+  top: 12px;
+  left: 12px;
+}
+
+.frame-tick--tr {
+  top: 12px;
+  right: 12px;
+}
+
+.frame-tick--bl {
+  bottom: 12px;
+  left: 12px;
+}
+
+.frame-tick--br {
+  bottom: 12px;
+  right: 12px;
+}
+
+/* The full-bleed blueprint grid: two hairline verticals run the entire
+   height of the hero column, and each row rules itself off from the next
+   with a border-bottom that spans edge-to-edge between them — no boxed
+   card, just lines crossing the whole pane the way the reference site's
+   grid does. Content is left-aligned inside the bounded column instead of
+   centered, matching that reference rather than the rest of this screen. */
+.auth-hero__grid {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 48px;
+  text-align: left;
+}
+
+.auth-hero__vline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  pointer-events: none;
+}
+
+.auth-hero__vline--l {
+  left: 48px;
+}
+
+.auth-hero__vline--r {
+  right: 48px;
+}
+
+/* The margin outside each vertical rule — reuses the exact diagonal-hatch
+   technique .month__cell--outside already draws for "outside the active
+   month", just relocated: 45°, 1px lines on an 8px pitch, in --color-gridline. */
+.auth-hero__hatch {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  background-image: repeating-linear-gradient(45deg, var(--color-gridline) 0 1px, transparent 1px 8px);
+  pointer-events: none;
+}
+
+.auth-hero__hatch--l {
+  left: 0;
+}
+
+.auth-hero__hatch--r {
+  right: 0;
+}
+
+.auth-hero__row {
+  padding: 22px 40px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Vertical padding moves off the row and onto each `.auth-hero__stat`
+   below, the same connected-grid trade `.stack`/`.divided-row` make for the
+   Dashboard: with the row itself unpadded on top, a stat's own border-left
+   stretches (grid's default align-items) all the way to this row's own top
+   edge — which is exactly where the preview row's border-bottom already
+   sits — so the column dividers touch that hairline instead of floating
+   22px below it. */
+.auth-hero__row--last {
+  padding-top: 0;
+  border-bottom: none;
+}
+
+.auth-hero__title {
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.auth-hero__lead {
+  font-size: var(--text-icon);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* The one photographic exception on this screen — a real object standing in
+   for the "one calendar" the badge/lead promise. Framed the way the
+   reference site frames its own preview panels: a dotted field around a
+   bordered, shadowed image, rather than the photo running edge-to-edge. The
+   caption sits over the dots on the left, plain text with no border of its
+   own; the image is a fixed flex item on the right so its size never depends
+   on how much text sits beside it. */
+.auth-hero__preview-row {
+  padding-top: 0;
+}
+
+.auth-hero__preview {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  background-image: radial-gradient(var(--color-baseline) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.auth-hero__preview-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-subtitle);
+  font-weight: var(--font-weight-title);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.auth-hero__preview-img {
+  flex: 0 0 34%;
+  width: 34%;
+  min-width: 160px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+/* How the product works, in three beats — echoing the lead paragraph's own
+   three clauses so the row reads as a summary, not new information. A grid
+   of three equal columns with hairline rules between them, rather than a
+   loosely-spaced row, so the beats read as divided cells the way the
+   reference site's own feature grid does. */
+.auth-hero__stats {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.auth-hero__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 22px 20px 0;
+  border-left: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.auth-hero__stat:first-child {
+  padding-left: 0;
+  border-left: none;
+}
+
+.auth-hero__stat-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.auth-hero__stat-term {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+}
+
+.auth-hero__stat-detail {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.auth-panel {
+  flex: 0 0 clamp(480px, 50%, 700px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+/* 380px rather than 360: register's password and confirm sit side by side,
+   and each now gives up 36px of its width to the reveal toggle. */
+.auth-panel__inner {
+  width: 100%;
+  max-width: 380px;
+}
+
+.auth-panel__head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-panel__title {
+  font-size: var(--text-headline);
+  font-weight: var(--font-weight-figure);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.auth-panel__lead {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+.auth-panel__note {
+  margin-top: 16px;
+  font-size: var(--text-label);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* The one deliberate exception to the app's monochrome rule: Google's own
+   mark and button convention, kept as its real brand renders rather than
+   folded into the icon grammar. Bordered in both themes so a white button
+   still reads against a near-white light-mode page. */
+.google-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.google-button:hover {
+  background: #ececec;
+}
+
+/* The panel holds half the viewport now, so just above the 860px breakpoint
+   the hero is the narrower of the two columns — give its 380px pitch back the
+   room 48px of side padding was taking, rather than let it wrap to four-word
+   lines in the one band where space is tightest. */
+@media (max-width: 1080px) {
+  .auth-topbar {
+    padding: 16px 20px;
+  }
+
+  .auth-body {
+    padding: 20px;
+  }
+
+  .auth-hero__grid {
+    padding: 0 24px;
+  }
+
+  .auth-hero__vline--l {
+    left: 24px;
+  }
+
+  .auth-hero__vline--r {
+    right: 24px;
+  }
+
+  .auth-hero__hatch {
+    width: 24px;
+  }
+
+  .auth-hero__row {
+    padding: 18px 22px;
+  }
+
+  .auth-hero__row--last {
+    padding-top: 0;
+  }
+
+  .auth-hero__stat {
+    padding-top: 18px;
+  }
+}
+
+@media (max-width: 860px) {
+  /* Hero and its divider are gone below this width, so the frame drops back
+     to edge-to-edge — corner ticks and inset padding on a single column
+     would eat into a phone's already-tight width for no reason. */
+  .auth-body {
+    padding: 0;
+  }
+
+  .auth-hero {
+    display: none;
+  }
+
+  .auth-body .frame-tick {
+    display: none;
+  }
+
+  /* Sole occupant now, so it drops the fixed column width. It already
+     stretches to fill .auth-body's height via flex's default align-items:
+     stretch — no explicit height needed. */
+  .auth-panel {
+    flex: 1 1 auto;
+  }
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.auth-form {
+  text-align: left;
+}
+
+.auth-form .primary-button--lg {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.auth-form__switch {
+  margin-top: 14px;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.link-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-item);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Sits between the password field and the submit button, so it reads as
+   "one more thing about this field" rather than competing with Log in for
+   attention — smaller, secondary-coloured, and pulled up out of the field's
+   own bottom margin instead of adding a full line of its own. */
+.link-button.auth-form__forgot {
+  display: block;
+  margin: -6px 0 14px auto;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+

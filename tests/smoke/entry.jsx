@@ -11,6 +11,7 @@
 
 import { renderToString } from 'react-dom/server'
 import { addDays, todayKey } from '../../src/lib/date.js'
+import { ToastProvider } from '../../src/state/ToastContext.jsx'
 import { Dashboard } from '../../src/components/views/Dashboard.jsx'
 import { TodayView } from '../../src/components/views/TodayView.jsx'
 import { WeekGrid } from '../../src/components/views/WeekGrid.jsx'
@@ -30,6 +31,17 @@ import { mockValue } from './mockSchedule.jsx'
 
 const KEY = todayKey()
 const noop = () => {}
+
+/* ScheduleContext/AuthContext are aliased to fixtures by
+   tests/smoke/vite.config.js because they'd otherwise reach for Firebase.
+   ToastContext has no such dependency, so rather than a third mock it is
+   just mounted for real — several components (TaskEditor, EventEditor,
+   TagManager, ItemManager, TaskInbox, DayColumn, WeekGrid, MonthCalendar)
+   call useToast() to report a failed write, and this is the one place their
+   real component tree is exercised end to end. */
+function render(element) {
+  return renderToString(<ToastProvider>{element}</ToastProvider>)
+}
 
 const cases = [
   ['SetupNotice', <SetupNotice missing={['VITE_FIREBASE_API_KEY']} />],
@@ -55,7 +67,7 @@ let failed = 0
 
 for (const [name, element] of cases) {
   try {
-    const html = renderToString(element)
+    const html = render(element)
     if (!html || html.length < 20) throw new Error(`rendered only ${html.length} chars`)
     console.log(`  PASS  ${name.padEnd(22)} ${html.length} chars`)
   } catch (error) {
@@ -69,10 +81,10 @@ for (const [name, element] of cases) {
    while silently dropping the thing it exists to show. */
 const checks = []
 const html = {
-  today: renderToString(<TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />),
-  week: renderToString(<WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />),
-  month: renderToString(<MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />),
-  dashboard: renderToString(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
+  today: render(<TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />),
+  week: render(<WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />),
+  month: render(<MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />),
+  dashboard: render(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
 }
 
 const expect = (name, condition) => checks.push([name, Boolean(condition)])
@@ -93,10 +105,10 @@ expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)
 expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))
 expect('Dashboard trends compute a completion rate', html.dashboard.includes('Completion rate'))
 
-const signIn = renderToString(<SignIn />)
+const signIn = render(<SignIn />)
 expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))
 expect('Sign-in screen defaults to the login form', signIn.includes('Username or email'))
-const register = renderToString(<RegisterForm onSwitchToLogin={noop} />)
+const register = render(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))
 
@@ -105,7 +117,7 @@ expect('Register form asks for an email (Firebase Auth requires one)', register.
 // — a stable, time-independent thing to assert on. The "now"/"soon" fixture
 // tasks sit at fixed clock times and would make the badge count flaky
 // depending on the hour the suite runs, so those are left to notifications.test.js.
-const bell = renderToString(<NotificationBell onEdit={noop} />)
+const bell = render(<NotificationBell onEdit={noop} />)
 expect('Notification bell shows a badge when something needs attention', bell.includes('notif__badge'))
 
 /* Events. The fixtures deliberately include a bar that straddles a week
@@ -134,7 +146,7 @@ expect(
   'Events stay out of the planned-hours total',
   html.dashboard.includes('hero__value'),
 )
-const eventCreate = renderToString(
+const eventCreate = render(
   <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />,
 )
 expect('Event editor asks for an end date', eventCreate.includes('Ends'))
@@ -149,7 +161,7 @@ expect(
 /* The one thing still not built: a span cannot repeat. An occurrence would
    have to carry its own length, and "which day of which occurrence did you
    grab" becomes a real question for the lane packer and every drag path. */
-const eventSpan = renderToString(
+const eventSpan = render(
   <EventEditor
     editor={{ mode: 'create', draft: { startDate: KEY, endDate: addDays(KEY, 3) } }}
     onClose={noop}
@@ -185,7 +197,7 @@ expect(
    appear exactly once, as its rule, however many days the grids expand it
    into. The fixture's "Standing sync" repeats every weekday from a week ago,
    which is dozens of occurrences by any horizon the views draw. */
-const items = renderToString(<ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />)
+const items = render(<ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />)
 expect('Item index lists tasks and events together', items.includes('item-list__row'))
 expect('Item index carries an unscheduled task', items.includes('Unscheduled'))
 // Matched as a title text node, not a bare substring: the delete button's

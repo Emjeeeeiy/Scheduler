@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { packSpans } from '../../lib/spans.js'
@@ -48,10 +49,19 @@ function MonthWeek({
   dropKey,
   setDropKey,
 }) {
-  const rowEvents = eventsInRange(rowKeys[0], rowKeys[rowKeys.length - 1])
-  const { lanesUsed, segments, overflowByDay, chipBudget } = packSpans(rowKeys, rowEvents, {
-    contentBudget: CONTENT_BUDGET,
-  })
+  // Same reasoning as WeekGrid's rowEvents/spans: eventsInRange has no cache
+  // of its own, so memoizing on `rowKeys` (stable across a dropKey-only
+  // re-render — see MonthCalendar's own `rows` memo below) and eventsInRange's
+  // identity is what stops packSpans from re-running the lane packer on every
+  // cell the pointer drags over.
+  const rowEvents = useMemo(
+    () => eventsInRange(rowKeys[0], rowKeys[rowKeys.length - 1]),
+    [rowKeys, eventsInRange],
+  )
+  const { lanesUsed, segments, overflowByDay, chipBudget } = useMemo(
+    () => packSpans(rowKeys, rowEvents, { contentBudget: CONTENT_BUDGET }),
+    [rowKeys, rowEvents],
+  )
 
   return (
     <div className="month__week" style={{ '--lanes': lanesUsed }}>
@@ -79,7 +89,7 @@ function MonthWeek({
             onDragOver={(dragEvent) => {
               if (!hasDrag(dragEvent, DRAG_TASK) && !hasDrag(dragEvent, DRAG_EVENT)) return
               dragEvent.preventDefault()
-              setDropKey(key)
+              setDropKey((current) => (current === key ? current : key))
             }}
             onDragLeave={() => setDropKey((current) => (current === key ? null : current))}
             onDrop={(dragEvent) => {
@@ -259,16 +269,23 @@ function MonthWeek({
 
 export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEvent }) {
   const { tasksOn, eventsInRange, getTag, updateTask, moveEvent } = useSchedule()
+  const { pushError } = useToast()
   const now = useNow()
   const [dropKey, setDropKey] = useState(null)
 
-  const keys = monthGrid(focusKey)
   const month = monthOf(focusKey)
 
   // Six rows of seven. A bar cannot cross a line break, so packing happens per
-  // row and each row owns its own lanes.
-  const rows = []
-  for (let i = 0; i < keys.length; i += 7) rows.push(keys.slice(i, i + 7))
+  // row and each row owns its own lanes. Memoized on `focusKey` alone so
+  // these arrays' identity survives a dropKey-only re-render (the pointer
+  // crossing cells during a drag) — that's what lets each MonthWeek's own
+  // eventsInRange/packSpans memoization above actually skip real work.
+  const rows = useMemo(() => {
+    const keys = monthGrid(focusKey)
+    const out = []
+    for (let i = 0; i < keys.length; i += 7) out.push(keys.slice(i, i + 7))
+    return out
+  }, [focusKey])
 
   async function onDropTask(event, key) {
     if (!hasDrag(event, DRAG_TASK)) return
@@ -282,6 +299,7 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
       await updateTask(payload.id, { date: key })
     } catch (caught) {
       console.error('Could not move task.', caught)
+      pushError('Could not move the task. Try again.')
     }
   }
 
@@ -295,6 +313,7 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
       await moveEvent(payload.id, key, payload.grabOffsetDays ?? 0)
     } catch (caught) {
       console.error('Could not move event.', caught)
+      pushError('Could not move the event. Try again.')
     }
   }
 

@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { minToTimeValue, relativeDayLabel, timeValueToMin } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
+import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon, RepeatIcon } from '../icons.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
@@ -19,6 +21,7 @@ function durationOption(min) {
     together means a change to the time model can only be made in one place. */
 export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const { addTask, updateTask, removeTask, tags, getSeries } = useSchedule()
+  const { pushError } = useToast()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.task : editor.draft
 
@@ -42,17 +45,8 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
 
 
   const titleRef = useRef(null)
-  useEffect(() => {
-    titleRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  const panelRef = useRef(null)
+  useModalA11y(panelRef, { onClose, initialFocusRef: titleRef })
 
   async function onSubmit(event) {
     event.preventDefault()
@@ -90,6 +84,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
       onClose()
     } catch (caught) {
       console.error('Could not save task.', caught)
+      pushError('Could not save the task. Try again.')
       setSaving(false)
     }
   }
@@ -100,6 +95,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
       onClose()
     } catch (caught) {
       console.error('Could not delete task.', caught)
+      pushError('Could not delete the task. Try again.')
     }
   }
 
@@ -115,7 +111,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={heading}>
+      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label={heading}>
         <form onSubmit={onSubmit}>
           <div className="modal__head">
             <h2 className="modal__title">{heading}</h2>

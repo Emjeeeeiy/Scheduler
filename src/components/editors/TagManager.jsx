@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { TAG_ICONS, TAG_SLOTS, useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
+import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon } from '../icons.jsx'
 import { TAG_ICON_COMPONENTS, TagGlyph } from './TagGlyph.jsx'
 
@@ -61,24 +63,20 @@ function IconPicker({ value, onPick, label }) {
 
 export function TagManager({ onClose }) {
   const { tags, tasks, addTag, updateTag, removeTag } = useSchedule()
+  const { pushError } = useToast()
   const [name, setName] = useState('')
   const [slot, setSlot] = useState(null)
   const [icon, setIcon] = useState(null)
   const [pickingIconFor, setPickingIconFor] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const panelRef = useRef(null)
+  useModalA11y(panelRef, { onClose })
 
   // The next unused slot, so the palette is consumed in its validated order.
   const suggested = TAG_SLOTS.find((s) => !tags.some((t) => t.slot === s)) ?? TAG_SLOTS[0]
   const activeSlot = slot ?? suggested
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
 
   const countFor = (id) => tasks.filter((t) => t.tagId === id).length
 
@@ -104,9 +102,24 @@ export function TagManager({ onClose }) {
       await addTag({ name: trimmed, slot: activeSlot, icon })
     } catch (caught) {
       console.error('Could not add tag.', caught)
+      pushError('Could not add the tag. Try again.')
       setName(trimmed)
     } finally {
       setAdding(false)
+    }
+  }
+
+  async function onRemove(id) {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await removeTag(id)
+      setConfirming(null)
+    } catch (caught) {
+      console.error('Could not delete tag.', caught)
+      pushError('Could not delete the tag. Try again.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -116,7 +129,7 @@ export function TagManager({ onClose }) {
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal__panel" role="dialog" aria-modal="true" aria-label="Tags">
+      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label="Tags">
         <div className="modal__head">
           <h2 className="modal__title">Tags</h2>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
@@ -160,10 +173,8 @@ export function TagManager({ onClose }) {
                       <button
                         type="button"
                         className="danger-button danger-button--sm"
-                        onClick={async () => {
-                          await removeTag(tag.id)
-                          setConfirming(null)
-                        }}
+                        disabled={deleting}
+                        onClick={() => onRemove(tag.id)}
                       >
                         Delete
                       </button>

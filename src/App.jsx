@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
+import { ToastProvider } from './state/ToastContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import {
@@ -27,6 +28,8 @@ import { TagManager } from './components/editors/TagManager.jsx'
 import { ItemManager } from './components/editors/ItemManager.jsx'
 import { NotificationBell } from './components/shell/NotificationBell.jsx'
 import { AccountMenu } from './components/shell/AccountMenu.jsx'
+import { ToastStack } from './components/shell/ToastStack.jsx'
+import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -46,7 +49,19 @@ import {
   WarningIcon,
   WeekIcon,
 } from './components/icons.jsx'
-import './styles/app.css'
+/* Split from one 4,500+ line app.css into per-area files, in the exact order
+   the original file's sections appeared — cascade order still matters (see
+   the note in WeekGrid.jsx about a ≤900px override needing to come after an
+   earlier one at equal specificity), so these have to stay in this sequence,
+   not alphabetical or by import convenience. */
+import './styles/shell.css'
+import './styles/auth.css'
+import './styles/dashboard.css'
+import './styles/focus.css'
+import './styles/calendar.css'
+import './styles/modals.css'
+import './styles/toggles-responsive.css'
+import './styles/calendar-dnd.css'
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
@@ -537,8 +552,13 @@ export default function App() {
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <Gate />
+        </AuthProvider>
+        <ToastStack />
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

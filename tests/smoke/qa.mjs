@@ -1,6 +1,17 @@
+/* Manual visual QA — NOT part of `npm test` or `npm run test:render`, and
+   not run in CI: it drives a real dev server with a real browser, which
+   neither of those two do. Not a permanent dependency either — `playwright`
+   is deliberately absent from package.json, so run
+   `npm install --no-save playwright && npx playwright install chromium`
+   once before using this, then `npm run dev` in another terminal (default
+   port 5173) and `node tests/smoke/qa.mjs`. Screenshots land in the
+   gitignored tests/smoke/.qa-screenshots/ next to this file. */
+import { mkdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
-const OUT = 'C:/Users/user/AppData/Local/Temp/claude/c--Users-user-Documents-Projects-System-scheduler/74efd923-689d-43dd-9756-1178f79f3bf7/scratchpad'
+const OUT = fileURLToPath(new URL('./.qa-screenshots', import.meta.url))
+mkdirSync(OUT, { recursive: true })
 
 const browser = await chromium.launch()
 // A fresh context has empty localStorage — exactly the "first-time visitor"
@@ -11,7 +22,7 @@ page.on('console', (msg) => {
   if (msg.type() === 'error') console.log('[console error]', msg.text())
 })
 
-await page.goto('http://localhost:5183/', { waitUntil: 'networkidle' })
+await page.goto('http://localhost:5173/', { waitUntil: 'networkidle' })
 await page.waitForSelector('.sidebar__brand')
 
 // Confirm the app actually landed on dark with no stored preference.

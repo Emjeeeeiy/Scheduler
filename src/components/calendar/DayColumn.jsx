@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '../../lib/layout.js'
 import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { durationLabel, minToLabel, snapMin } from '../../lib/date.js'
@@ -39,20 +40,33 @@ export function DayColumn({
   nowMinute = null,
 }) {
   const { scheduleTask, getTag } = useSchedule()
+  const { pushError } = useToast()
   const surfaceRef = useRef(null)
   const [hoverMin, setHoverMin] = useState(null)
   const [draft, setDraft] = useState(null)
   const [resizing, setResizing] = useState(null)
 
-  const timed = tasks.filter((t) => Number.isFinite(t.startMin))
+  const timed = useMemo(() => tasks.filter((t) => Number.isFinite(t.startMin)), [tasks])
   /* A single-day timed event sits in the grid alongside tasks; an all-day or
      multi-day one is drawn as a bar by the view above, never sliced into
      per-day pieces here. Both kinds go through layoutDay together so an event
      and a task that overlap split the column instead of stacking. */
-  const timedEvents = events.filter(
-    (e) => Number.isFinite(e.startMin) && e.startDate === e.endDate && e.startDate === dateKey,
+  const timedEvents = useMemo(
+    () =>
+      events.filter(
+        (e) => Number.isFinite(e.startMin) && e.startDate === e.endDate && e.startDate === dateKey,
+      ),
+    [events, dateKey],
   )
-  const blocks = layoutDay([...timed, ...timedEvents], windowStart, windowEnd)
+  /* Memoized because `hoverMin`/`draft`/`resizing` change on every pointer
+     tick while dragging, and this component re-renders on each — without
+     this, dragging over a busy column re-ran the whole overlap-packing
+     algorithm dozens of times a second for no reason: none of those state
+     changes affect what layoutDay computes. */
+  const blocks = useMemo(
+    () => layoutDay([...timed, ...timedEvents], windowStart, windowEnd),
+    [timed, timedEvents, windowStart, windowEnd],
+  )
 
   /** Which minute a pointer at `clientY` is over, snapped to the grid. */
   function minuteAt(clientY) {
@@ -73,7 +87,12 @@ export function DayColumn({
 
   function onSurfacePointerMove(event) {
     if (!draft) return
-    setDraft((current) => (current ? { ...current, to: minuteAt(event.clientY) } : null))
+    const at = minuteAt(event.clientY)
+    // Returning the same object when nothing moved is a real bail-out, not
+    // just tidiness — raw pointermove fires far more often than the 15-minute
+    // grid changes, and a *new* object with an unchanged `to` would still
+    // force a re-render on every one of those events.
+    setDraft((current) => (current && current.to !== at ? { ...current, to: at } : current))
   }
 
   function onSurfacePointerUp(event) {
@@ -112,9 +131,11 @@ export function DayColumn({
     setResizing((current) => {
       if (!current) return null
       if (current.edge === 'bottom') {
-        return { ...current, endMin: Math.max(at, current.startMin + MIN_DURATION_MIN) }
+        const endMin = Math.max(at, current.startMin + MIN_DURATION_MIN)
+        return endMin === current.endMin ? current : { ...current, endMin }
       }
-      return { ...current, startMin: Math.min(at, current.endMin - MIN_DURATION_MIN) }
+      const startMin = Math.min(at, current.endMin - MIN_DURATION_MIN)
+      return startMin === current.startMin ? current : { ...current, startMin }
     })
   }
 
@@ -133,6 +154,7 @@ export function DayColumn({
       })
     } catch (caught) {
       console.error('Could not resize task.', caught)
+      pushError('Could not resize the task. Try again.')
     }
   }
 
@@ -152,7 +174,8 @@ export function DayColumn({
     if (!hasDrag(event, DRAG_TASK)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
-    setHoverMin(minuteAt(event.clientY))
+    const at = minuteAt(event.clientY)
+    setHoverMin((current) => (current === at ? current : at))
   }
 
   async function onDrop(event) {
@@ -166,6 +189,7 @@ export function DayColumn({
       await scheduleTask(payload.id, { date: dateKey, startMin })
     } catch (caught) {
       console.error('Could not move task.', caught)
+      pushError('Could not move the task. Try again.')
     }
   }
 

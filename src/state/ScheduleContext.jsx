@@ -16,81 +16,27 @@ import { useAuth } from './AuthContext.jsx'
 import { addDays, clampMin, daysBetween, isValidKey } from '../lib/date.js'
 import {
   eventOccurrenceOn,
-  normalizeOverrides,
   normalizeRecurrence,
   occurrenceOn,
   parseOccurrenceId,
 } from '../lib/recurrence.js'
+import {
+  DEFAULT_DURATION_MIN,
+  DEFAULT_EVENT_DURATION_MIN,
+  TAG_ICONS,
+  TAG_SLOTS,
+  normalizeEvent,
+  normalizeTag,
+  normalizeTask,
+} from '../lib/normalize.js'
 
 const ScheduleContext = createContext(null)
 
-export const DEFAULT_DURATION_MIN = 30
-
-/** A timed event with no end time covers an hour, the same way a task with no
-    stated duration covers thirty minutes. */
-export const DEFAULT_EVENT_DURATION_MIN = 60
-
-/* An event may legitimately run for months (a sabbatical, a long project), but
-   not for centuries. This is a guard against corrupt data, not a product
-   limit — see the cap in normalizeEvent. */
-const MAX_EVENT_DAYS = 366
-
-/* The colour menu, in validated slot order (see the tag palette note in
-   tokens.css). A tag doc stores the slot NAME, not a hex: the two themes need
-   different steps of the same hue, and one stored hex could only ever satisfy
-   one of them. Slots are handed out in order because that order is what keeps
-   adjacent colours distinguishable under colour-vision deficiency. */
-export const TAG_SLOTS = [
-  'blue',
-  'orange',
-  'aqua',
-  'yellow',
-  'magenta',
-  'green',
-  'violet',
-  'red',
-]
-
-/* Unlike a slot, no icon is ever assigned automatically — a plain colour dot
-   is a complete, valid tag on its own, so this only ever reflects something
-   someone deliberately picked in the Tag Manager. See TagGlyph.jsx for how a
-   key here becomes a component. */
-export const TAG_ICONS = [
-  'briefcase',
-  'home',
-  'book',
-  'heart',
-  'wallet',
-  'plane',
-  'users',
-  'coffee',
-  'bulb',
-  'flag',
-  'star',
-  'dumbbell',
-  'pill',
-  'musicNote',
-  'cart',
-  'utensils',
-  'car',
-  'phone',
-  'mail',
-  'gameController',
-  'palette',
-  'graduationCap',
-  'leaf',
-  'moon',
-  'laptop',
-  'person',
-  'church',
-  'gift',
-  'mapPin',
-  'umbrella',
-  'pawPrint',
-  'trophy',
-  'wrench',
-  'scissors',
-]
+// Re-exported so every existing `import { DEFAULT_DURATION_MIN } from
+// '.../ScheduleContext.jsx'` (etc.) keeps working — normalize.js is now
+// where these are actually defined (see tests/normalize.test.js), not a
+// second, competing source of truth.
+export { DEFAULT_DURATION_MIN, DEFAULT_EVENT_DURATION_MIN, TAG_ICONS, TAG_SLOTS }
 
 /* Deterministic ids, so seeding is idempotent: two tabs (or a retry after an
    offline write) converge on the same three docs instead of racing to create
@@ -100,114 +46,6 @@ const STARTER_TAGS = [
   { id: 'personal', name: 'Personal', slot: 'orange', order: 1 },
   { id: 'study', name: 'Study', slot: 'aqua', order: 2 },
 ]
-
-/* ---------------------------------------------------------- normalisation -- */
-
-/* A Firestore doc is as untrusted as anything else read off a disk: it may
-   predate a field, have been written by an older build, or be half-typed from
-   another device. Coerce every field to its expected type here so a single bad
-   document can never blank out a calendar. */
-function normalizeTask(id, raw) {
-  const date = isValidKey(raw?.date) ? raw.date : null
-  // A start time without a date is meaningless — such a task belongs in the
-  // inbox, not floating on a day that does not exist.
-  const startMin = date && Number.isFinite(raw?.startMin) ? clampMin(raw.startMin) : null
-  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
-  const recurrence = normalizeRecurrence(raw?.recurrence, date)
-
-  return {
-    id,
-    title: title || 'Untitled task',
-    notes: typeof raw?.notes === 'string' ? raw.notes : '',
-    date,
-    startMin,
-    durationMin: Number.isFinite(raw?.durationMin)
-      ? Math.min(24 * 60, Math.max(5, Math.round(raw.durationMin)))
-      : DEFAULT_DURATION_MIN,
-    tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
-    done: raw?.done === true,
-    completedAt: Number.isFinite(raw?.completedAt) ? raw.completedAt : null,
-    recurrence,
-    overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
-    createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
-    updatedAt: Number.isFinite(raw?.updatedAt) ? raw.updatedAt : 0,
-  }
-}
-
-/* An event is a commitment, not work to get through: no done state, no
-   recurrence, and it may cover a range of days rather than sitting on one.
-   Because a timed event still carries startMin and a derived durationMin, it
-   flows through layoutDay/visibleWindow exactly like a task does — the grid
-   needs no second code path to draw one. */
-function normalizeEvent(id, raw) {
-  const startDate = isValidKey(raw?.startDate) ? raw.startDate : null
-  const rawEnd = isValidKey(raw?.endDate) ? raw.endDate : null
-  // An end can never sit before its start; a malformed range collapses to the
-  // single day it started on rather than rendering as a bar of negative width.
-  let endDate = startDate && rawEnd && rawEnd > startDate ? rawEnd : startDate
-  /* And a corrupt far-future end is capped rather than trusted. The month lane
-     packer walks a span day by day, so a stray '2999-12-31' would not merely
-     draw something wrong — it would spin through ~350,000 iterations per
-     render. Bound it here, at the same edge every other field is coerced. */
-  if (endDate !== null && daysBetween(startDate, endDate) >= MAX_EVENT_DAYS) {
-    endDate = addDays(startDate, MAX_EVENT_DAYS - 1)
-  }
-  /* Only a single-day event may repeat. A repeating span is the thing this
-     app deliberately did not build: an occurrence would have to carry its own
-     length, and "which day of which occurrence did you grab" becomes a real
-     question for the lane packer and every drag path. Enforced on read as well
-     as in the editor, so a hand-edited document cannot smuggle one in. */
-  const recurrence = startDate === endDate ? normalizeRecurrence(raw?.recurrence, startDate) : null
-  const startMin = startDate && Number.isFinite(raw?.startMin) ? clampMin(raw.startMin) : null
-  /* An end *time* only means something inside a single day. Across a range the
-     bar covers whole days, and a clock time would be ambiguous about which. */
-  const endMin =
-    startDate === endDate && startMin !== null && Number.isFinite(raw?.endMin)
-      ? clampMin(raw.endMin)
-      : null
-  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
-
-  return {
-    id,
-    title: title || 'Untitled event',
-    notes: typeof raw?.notes === 'string' ? raw.notes : '',
-    startDate,
-    endDate,
-    startMin,
-    endMin,
-    durationMin:
-      startMin === null
-        ? null
-        : endMin !== null && endMin > startMin
-          ? endMin - startMin
-          : DEFAULT_EVENT_DURATION_MIN,
-    tagId: typeof raw?.tagId === 'string' && raw.tagId ? raw.tagId : null,
-    recurrence,
-    // Events have no done state, so the only exception a day can carry is
-    // `detached` — normalizeOverrides drops everything else anyway.
-    overrides: recurrence ? normalizeOverrides(raw?.overrides) : {},
-    createdAt: Number.isFinite(raw?.createdAt) ? raw.createdAt : 0,
-    updatedAt: Number.isFinite(raw?.updatedAt) ? raw.updatedAt : 0,
-  }
-}
-
-function normalizeTag(id, raw) {
-  const name = typeof raw?.name === 'string' ? raw.name.trim() : ''
-  const slot = TAG_SLOTS.includes(raw?.slot) ? raw.slot : TAG_SLOTS[0]
-  return {
-    id,
-    name: name || 'Untitled',
-    slot,
-    // null is a real, valid state here — "no icon, just the colour" — not a
-    // missing value, so an unrecognised or absent one normalizes to null
-    // rather than to some default glyph nobody chose.
-    icon: TAG_ICONS.includes(raw?.icon) ? raw.icon : null,
-    // Resolved once here so every consumer paints from the themed token and
-    // no component has to know how a slot maps to a colour.
-    color: `var(--color-tag-${slot})`,
-    order: Number.isFinite(raw?.order) ? raw.order : 0,
-  }
-}
 
 /* Timestamps are plain millisecond numbers rather than serverTimestamp().
    serverTimestamp() resolves to null in the local snapshot until the server

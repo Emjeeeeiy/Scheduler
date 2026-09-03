@@ -1,0 +1,930 @@
+/* ============================================================== app shell == */
+
+.app-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  width: 232px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 20px 14px;
+  border-right: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100dvh;
+  overflow-y: auto;
+  /* One higher than .app-content's own z-index: 1 (there only to clear the
+     dot-grid background below both). Tied at the same value, DOM order would
+     let main content paint over a fixed-position popover anchored in the
+     sidebar — the notification bell's panel, or the month's day peek — any
+     time it geometrically reaches into the content column. */
+  z-index: 2;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 18px;
+  font-weight: var(--font-weight-title);
+  letter-spacing: -0.01em;
+}
+
+.brand__mark {
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-primary);
+  flex: none;
+}
+
+.brand__name {
+  font-size: var(--text-title);
+}
+
+.sidebar__new-task {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* The two create buttons are one pair; the gap to the nav below comes from
+     the second one, not from between them. */
+  margin-bottom: 6px;
+}
+
+.button-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.sidebar__link:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.sidebar__link--active {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
+}
+
+.sidebar__icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* Tags and All items: the same row idiom as the nav, below one rule that
+   separates "open a manager" from "change the view". The rule runs the
+   sidebar's full width rather than stopping at its own padding: a negative
+   margin matching the sidebar's 14px inset pushes the border out to the
+   sidebar's own edges — including the right one, where `.sidebar`'s own
+   border-right lives — so the divider actually touches it instead of
+   floating a padding's-width short, the same connected-line trade the
+   Dashboard's `.stack`/`.divided-row` make. Matching padding brings the row's
+   own content back to where it was. */
+.sidebar__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 14px -14px 0;
+  padding: 14px 14px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.sidebar__spacer {
+  flex: 1;
+}
+
+/* Sits directly above the footer's rule — outside the row of icon controls,
+   not another glyph in it. */
+.sidebar__signout {
+  margin-bottom: 2px;
+}
+
+/* Same full-bleed trade as `.sidebar__tools` above: the divider reaches the
+   sidebar's own edges instead of stopping at its padding. */
+.sidebar__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -14px;
+  padding: 14px 14px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.account {
+  position: relative;
+  flex: none;
+}
+
+/* Same fixed-position, JS-placed popover as `.notif__panel` — only the
+   sizing here is its own, since this one holds two menu rows, not a list. */
+.account__panel {
+  width: 190px;
+  max-width: calc(100vw - 24px);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 55;
+}
+
+.account__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.account__item:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+/* ======================================================== notifications == */
+
+.notif {
+  position: relative;
+}
+
+.notif__trigger {
+  position: relative;
+}
+
+.notif__badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--color-critical);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-nano);
+  font-weight: var(--font-weight-nano);
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--color-surface-1);
+}
+
+/* position/top/left/right come from NotificationBell's own JS-computed
+   placement (position: fixed, escaping the sidebar's overflow so it can
+   never be clipped) — this rule is visual styling only. */
+.notif__panel {
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 10px;
+  z-index: 55;
+}
+
+.notif__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-title);
+  padding: 4px 6px 8px;
+}
+
+.notif__clear-all {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-label);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.notif__clear-all:hover {
+  color: var(--color-critical-text);
+}
+
+.notif__desktop-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 6px 8px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.notif__desktop-toggle input {
+  width: 13px;
+  height: 13px;
+  margin-top: 1px;
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+  flex: none;
+}
+
+.notif__desktop-toggle span {
+  min-width: 0;
+}
+
+.notif__desktop-note {
+  padding: 0 6px 8px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.notif__list {
+  display: grid;
+  gap: 2px;
+}
+
+.notif__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.notif__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notif__item:hover {
+  background: var(--color-surface-2);
+}
+
+.notif__dismiss {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.notif__dismiss:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.notif__dismiss svg {
+  width: 12px;
+  height: 12px;
+}
+
+.notif__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex: none;
+}
+
+.notif__dot--overdue {
+  background: var(--color-critical);
+}
+
+.notif__dot--now {
+  background: var(--color-text-primary);
+}
+
+.notif__dot--soon {
+  background: var(--color-warning);
+}
+
+.notif__body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.notif__title {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-item);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif__meta {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 24px 64px;
+  position: relative;
+  z-index: 1;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  padding-bottom: 16px;
+}
+
+/* Day/Week/Month share one header: the date cursor stays pinned left while
+   the tab switcher takes the true center column, regardless of how wide the
+   date label or the (absent) right-hand column are. */
+.app__header--schedule {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.app__header--schedule .date-nav {
+  justify-self: start;
+}
+
+.app__main {
+  margin-top: 18px;
+}
+
+.centered {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* ============================================================== controls == */
+
+.primary-button,
+.ghost-button,
+.danger-button,
+.icon-button {
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.primary-button {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border-color: var(--color-text-primary);
+  padding: 7px 14px;
+  font-weight: var(--font-weight-item);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--color-text-secondary);
+  border-color: var(--color-text-secondary);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.primary-button--lg {
+  padding: 11px 22px;
+  font-size: var(--text-icon);
+}
+
+.ghost-button {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  padding: 6px 12px;
+}
+
+.ghost-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.ghost-button--sm {
+  padding: 3px 9px;
+  font-size: var(--text-label);
+}
+
+.ghost-button--block {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.danger-button {
+  background: transparent;
+  color: var(--color-critical-text);
+  border-color: var(--color-border);
+  padding: 6px 12px;
+}
+
+.danger-button:hover {
+  background: color-mix(in srgb, var(--color-critical) 12%, transparent);
+}
+
+.danger-button--sm {
+  padding: 3px 9px;
+  font-size: var(--text-label);
+}
+
+/* Every existing icon+label button (sidebar's New task/New event, nav links)
+   sets its own flex layout on a dedicated class, since the base button
+   classes stay plain text by default. This is that layout, pulled out once
+   a `.button-icon` needed it without a bespoke class of its own — apply
+   alongside `.primary-button`/`.ghost-button`/`.danger-button`. */
+.button--icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-button {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+/* Identity — and, when the picture is a button, the account menu trigger. */
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-title);
+  flex: none;
+}
+
+button.avatar {
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.avatar:hover {
+  border-color: color-mix(in srgb, var(--color-text-primary) 35%, var(--color-border));
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar--lg {
+  width: 72px;
+  height: 72px;
+  font-size: var(--text-headline);
+}
+
+/* ================================================================ profile == */
+
+/* `.stack` (see Cards & Frames in DESIGN.md) draws the hairline between
+   sections; this modal has no `.frame`/corner ticks of its own, so the
+   `:not(.frame-tick)` guard in `.stack`'s rule simply never matches
+   anything to exclude. */
+.profile {
+  padding-top: 4px;
+}
+
+/* `.field` carries its own margin-bottom for stacking several fields in a
+   plain form; here `.stack` already spaces the sections, so the two would
+   otherwise add up to a gap wider than every other row's. */
+.profile__section.field {
+  margin-bottom: 0;
+}
+
+/* `.field`'s grid stretches every direct child to the column's full width by
+   default — exactly what an `<input>` wants and a button never does; every
+   other button in the app sizes to its own content. */
+.profile__section.field > button {
+  justify-self: start;
+}
+
+.profile__photo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile__photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile__provider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile__provider svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+/* Stands in for a drawn provider mark on a username/password account, which
+   has no third-party logo to show — a plain filled dot rather than leaving
+   the row lopsided next to Google's own icon. */
+.profile__provider-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface-2);
+  flex: none;
+}
+
+.profile__provider-name {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  flex: 1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-label);
+}
+
+.status-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.status-badge--good {
+  background: color-mix(in srgb, var(--color-good) 14%, transparent);
+  color: var(--color-good-text);
+}
+
+.field__label--danger {
+  color: var(--color-critical-text);
+}
+
+.field__hint--error {
+  color: var(--color-critical-text);
+}
+
+.profile__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ============================================================== date nav == */
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-nav__label {
+  min-width: 148px;
+  text-align: center;
+  font-weight: var(--font-weight-item);
+  font-size: var(--text-body);
+}
+
+.date-nav--static .date-nav__label {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-meta);
+}
+
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+}
+
+.view-tabs__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-tight);
+  padding: 6px 14px;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.view-tabs__tab:hover {
+  color: var(--color-text-primary);
+}
+
+.view-tabs__tab--active {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
+}
+
+.view-tabs__icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* =============================================== frames & common bits == */
+
+/* The base unit for a page-level section, everywhere except a modal (see
+   `.modal__panel`): no border, no fill — the corner-tick frame and internal
+   hairline dividers (`.stack`, `.divided-row`) do all the separating a
+   `.card`'s box used to do. Reserve `position: relative` here so a
+   `<FrameTicks />` child has something to anchor to; a frame that doesn't
+   render ticks doesn't need it, but the padding is the same either way. */
+.frame {
+  position: relative;
+  padding: 18px;
+}
+
+@media (max-width: 640px) {
+  .frame {
+    padding: 14px;
+  }
+}
+
+/* A vertical stack whose children separate with a hairline instead of a
+   gap — the same device as the Auth Shell's `.auth-hero__row`, generalised.
+   Direct children only (`>`), so a nested `.stack` doesn't inherit its
+   parent's rule. `:not(.frame-tick)` plus the general-sibling combinator (not
+   `+`) is deliberate: `<FrameTicks />` is a Fragment, so its four spans land
+   as literal DOM siblings ahead of the real content, not a wrapper `+` could
+   skip past — `~` finds the first *real* sibling regardless of how many tick
+   spans precede it, and excluding `.frame-tick` keeps a divider from ever
+   landing on a 9px corner mark.
+
+   Border on every row-group; the 18px breathing room is deliberately NOT
+   padding on the row-group itself when that row-group is a `.divided-row`.
+   Padding here would inset a divided-row's own content box from its own
+   border, and since `.divided-row`'s `align-items: stretch` only stretches
+   a column divider to fill that (now-smaller) content box, the divider
+   would stop short of the row's real edge instead of touching the hairline
+   above and below it — which is exactly the bug this replaced: two
+   separate rulers next to each other, never a connected grid. So a
+   `.divided-row` row-group carries zero padding of its own, and its
+   children (see `.divided-row` below) carry the vertical breathing room
+   instead — a column divider then stretches the row-group's full height,
+   flush against both horizontal hairlines. A plain (non-divided) row-group
+   still takes its own padding directly; it has no column divider that
+   needs to reach anywhere. */
+.stack > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-top: 1px solid var(--color-border);
+}
+
+.stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+  padding-top: 18px;
+}
+
+.stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+  padding-bottom: 18px;
+}
+
+@media (max-width: 640px) {
+  .stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+    padding-top: 14px;
+  }
+
+  .stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+    padding-bottom: 14px;
+  }
+}
+
+/* A horizontal row whose children separate with a hairline instead of a
+   gap — the same device as the Auth Shell's `.auth-hero__stats`, used for
+   Dashboard's stat-tile and card rows once they stopped being individually
+   boxed. `auto-fit` still gives the row itself its columns; this only draws
+   the rule between them. `:not(.frame-tick)` throughout, same reason as
+   `.stack`: a `<FrameTicks />` Fragment lands its four spans as real DOM
+   children, so "first/last child" and "every child but the first" both have
+   to skip them explicitly rather than assume content starts at child 1.
+
+   The vertical padding here — not on `.divided-row` itself — is the other
+   half of the connected-grid fix in `.stack` above: a `.divided-row` that is
+   also a `.stack` row-group carries zero padding of its own, specifically so
+   `align-items: stretch` fills its full height and a column divider touches
+   the hairline above and below it. That breathing room has to live
+   somewhere, so it moves one level down, onto each cell — the same trade a
+   real collapsed-border table makes: the grid lines meet exactly, and every
+   cell insets its own content instead of the row insetting all of them. */
+.divided-row {
+  align-items: stretch;
+}
+
+.divided-row > :not(.frame-tick) {
+  padding: 18px 18px 18px 0;
+}
+
+.divided-row > :not(.frame-tick):last-child {
+  padding-right: 0;
+}
+
+.divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 1px solid var(--color-border);
+  padding-left: 18px;
+}
+
+@media (max-width: 640px) {
+  .divided-row > :not(.frame-tick) {
+    padding: 14px 14px 14px 0;
+  }
+
+  .divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+    padding-left: 14px;
+  }
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-head__title {
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-title);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-head__sub {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.count-pill {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-item);
+}
+
+.count-pill--critical {
+  background: color-mix(in srgb, var(--color-critical) 15%, transparent);
+  color: var(--color-critical-text);
+}
+
+.empty {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 32px 12px;
+  font-size: var(--text-item);
+}
+
+.empty--sm {
+  padding: 16px 8px;
+  font-size: var(--text-label);
+}
+
+.banner {
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: var(--text-item);
+  margin: 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.banner--error {
+  background: color-mix(in srgb, var(--color-critical) 12%, transparent);
+  color: var(--color-critical-text);
+}
+
+.banner__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.warn-text {
+  color: var(--color-critical-text);
+}
+
+/* ================================================================= toasts == */
+
+/* Fixed over the content, not part of any view's own layout — a dropped
+   drag or a failed save can happen from any screen, so the surface that
+   reports it has to float above whichever one is showing. */
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  margin: 0;
+  box-shadow: var(--shadow-md);
+}
+
+.toast__message {
+  flex: 1;
+}
+
+.toast__dismiss {
+  flex: none;
+}

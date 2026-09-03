@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { fileToAvatarDataUri } from '../../lib/image.js'
+import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CameraIcon, CheckIcon, CloseIcon, GoogleIcon, TrashIcon } from '../icons.jsx'
 
 const PROVIDER_LABEL = {
@@ -35,14 +36,8 @@ export function ProfileModal({ onClose }) {
   // call are already in flight — it would just unmount this component while
   // they're still running, so a late error has nothing left to report to.
   const closable = deleteStage !== 'working'
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape' && closable) onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose, closable])
+  const panelRef = useRef(null)
+  useModalA11y(panelRef, { onClose, escapeDisabled: !closable })
 
   const name = user?.displayName?.trim() || user?.email || 'Signed in'
   const email = user?.email ?? null
@@ -141,7 +136,7 @@ export function ProfileModal({ onClose }) {
       role="presentation"
       onMouseDown={(e) => closable && e.target === e.currentTarget && onClose()}
     >
-      <div className="modal__panel" role="dialog" aria-modal="true" aria-label="Account">
+      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label="Account">
         <div className="modal__head">
           <h2 className="modal__title">Account</h2>
           <button

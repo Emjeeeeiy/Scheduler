@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { hourMarks, visibleWindow } from '../../lib/layout.js'
 import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
@@ -30,10 +31,15 @@ const ALLDAY_BUDGET = 4
 
 export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEvent, onFocusDay }) {
   const { tasksOn, eventsInRange, eventsOn, getTag, scheduleTask, moveEvent } = useSchedule()
+  const { pushError } = useToast()
   const now = useNow()
   const [dropKey, setDropKey] = useState(null)
 
-  const keys = weekKeys(focusKey)
+  // Memoized on `focusKey` alone so this array's identity survives a
+  // dropKey-only re-render (the pointer crossing cells during a drag) — that
+  // stability is what lets rowEvents/spans below skip real recomputation
+  // rather than just moving the freshly-allocated-array problem downstream.
+  const keys = useMemo(() => weekKeys(focusKey), [focusKey])
   const byDay = keys.map((key) => tasksOn(key))
   const eventsByDay = keys.map((key) => eventsOn(key))
   const dayTotals = byDay.map(dayStats)
@@ -56,10 +62,22 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   /* Everything that is not a single-day timed event draws as a bar up here
      rather than in the grid: an all-day thing has no place on a clock, and a
      multi-day one would have to be sliced at midnight to fit in a column. */
-  const rowEvents = eventsInRange(keys[0], keys[6]).filter(
-    (e) => !Number.isFinite(e.startMin) || e.startDate !== e.endDate,
+  // eventsInRange builds a fresh array on every call (no cache the way the
+  // single-day eventsOn has), so memoizing it on the now-stable `keys` and
+  // the `eventsInRange` function's own identity (stable for the current data
+  // snapshot) is what actually stops it — and the packSpans call below it —
+  // from redoing real work on a dropKey-only re-render.
+  const rowEvents = useMemo(
+    () =>
+      eventsInRange(keys[0], keys[6]).filter(
+        (e) => !Number.isFinite(e.startMin) || e.startDate !== e.endDate,
+      ),
+    [keys, eventsInRange],
   )
-  const spans = packSpans(keys, rowEvents, { contentBudget: ALLDAY_BUDGET })
+  const spans = useMemo(
+    () => packSpans(keys, rowEvents, { contentBudget: ALLDAY_BUDGET }),
+    [keys, rowEvents],
+  )
 
   async function onDropOnAllDay(event, key) {
     if (hasDrag(event, DRAG_EVENT)) {
@@ -71,6 +89,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
         await moveEvent(payload.id, key, payload.grabOffsetDays ?? 0)
       } catch (caught) {
         console.error('Could not move event.', caught)
+        pushError('Could not move the event. Try again.')
       }
       return
     }
@@ -86,6 +105,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
       await scheduleTask(payload.id, { date: key, startMin: null })
     } catch (caught) {
       console.error('Could not make the task all-day.', caught)
+      pushError('Could not make the task all-day. Try again.')
     }
   }
 
@@ -230,7 +250,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                     onDragOver={(event) => {
                       if (!hasDrag(event, DRAG_TASK) && !hasDrag(event, DRAG_EVENT)) return
                       event.preventDefault()
-                      setDropKey(keys[index])
+                      setDropKey((current) => (current === keys[index] ? current : keys[index]))
                     }}
                     onDragLeave={() =>
                       setDropKey((current) => (current === keys[index] ? null : current))

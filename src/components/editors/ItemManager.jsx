@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useToast } from '../../state/ToastContext.jsx'
 import { addDays, formatDayLabel, minToShortLabel, todayKey } from '../../lib/date.js'
 import { occursOn, recurrenceLabel } from '../../lib/recurrence.js'
+import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 
@@ -94,20 +96,15 @@ function matchesDate(row, key) {
 export function ItemManager({ onClose, onEdit, onEditEvent }) {
   const { tasks, events, tags, getTag, removeTask, removeEvent, removeAllItems, toggleDone } =
     useSchedule()
+  const { pushError } = useToast()
   const [filter, setFilter] = useState('all')
   const [tagFilter, setTagFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(null)
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState(null)
   const [confirmingAll, setConfirmingAll] = useState(false)
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  const panelRef = useRef(null)
+  useModalA11y(panelRef, { onClose })
 
   const rows = useMemo(() => {
     const all = [...tasks.map(taskRow), ...events.map(eventRow)]
@@ -159,14 +156,24 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
   }
 
   async function remove(row) {
-    if (row.kind === 'event') await removeEvent(row.id)
-    else await removeTask(row.id)
-    setConfirming(null)
+    try {
+      if (row.kind === 'event') await removeEvent(row.id)
+      else await removeTask(row.id)
+      setConfirming(null)
+    } catch (caught) {
+      console.error('Could not delete item.', caught)
+      pushError(`Could not delete "${row.title}". Try again.`)
+    }
   }
 
   async function removeAll() {
-    await removeAllItems()
-    setConfirmingAll(false)
+    try {
+      await removeAllItems()
+      setConfirmingAll(false)
+    } catch (caught) {
+      console.error('Could not delete all items.', caught)
+      pushError('Could not delete everything. Some items may remain — try again.')
+    }
   }
 
   const confirmingRow = visible.find((row) => row.id === confirming) ?? null
@@ -177,7 +184,7 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal__panel" role="dialog" aria-modal="true" aria-label="All items">
+      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label="All items">
         <div className="modal__head">
           <h2 className="modal__title">All items</h2>
           <div className="modal__head-actions">

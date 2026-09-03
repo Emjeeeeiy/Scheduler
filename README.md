@@ -47,7 +47,9 @@ is not optional. `.env.local` is gitignored regardless.
 | `npm run preview` | serve the built output |
 | `npm run lint` | oxlint |
 | `npm test` | pure-logic tests, on Node's built-in runner — no extra dependencies |
+| `npm run test:dom` | vitest + jsdom — the one hook (`useModalA11y`) whose behaviour (focus trap, focus restore) needs a real DOM to prove |
 | `npm run test:render` | smoke-renders every view against mock data |
+| `node tests/smoke/qa.mjs` | manual visual QA — screenshots a running `npm run dev` with a real browser; not part of `npm test`, not run in CI, needs `playwright` installed separately (see the comment at the top of the file) |
 
 `test:render` exists because the app cannot start without a Firebase project, so
 a plain build proves only that the modules parse. It server-renders all eleven
@@ -126,8 +128,10 @@ offline. Every write comes from one person's own devices, so the client clock is
 the right trade.
 
 **Firestore documents are treated as untrusted.** `normalizeTask` /
-`normalizeTag` coerce every field on read, so one half-written document can
-never blank out a calendar.
+`normalizeEvent` / `normalizeTag` (`src/lib/normalize.js`) coerce every field
+on read, so one half-written document can never blank out a calendar.
+Pulled out of `ScheduleContext.jsx` specifically so this layer is unit
+tested on its own — `tests/normalize.test.js`.
 
 **The tag palette is validated, not eyeballed.** The eight colours are the
 validated categorical order — every check passes against both surfaces (worst
@@ -167,14 +171,17 @@ src/
   lib/
     date.js              day keys & minutes — every date primitive
     layout.js            overlap packing for the time grid
+    normalize.js          Firestore doc -> trusted shape (normalizeTask/Event/Tag)
     recurrence.js        repeat rules — expansion, labels, occurrence ids
     stats.js             dashboard & trends aggregations
     useNow.js            live clock for the now-line
     useTheme.js          system / light / dark
     usePersistentState.js
+    useModalA11y.js       shared focus-trap/restore/Escape contract for every dialog
   state/
     AuthContext.jsx      session, Google + username/password
     ScheduleContext.jsx  the single data seam
+    ToastContext.jsx      transient "that write failed" surface
   components/
     icons.jsx            the one drawn icon set — shared by every group below
     auth/                SignIn, LoginForm, RegisterForm, PasswordField
@@ -185,11 +192,23 @@ src/
                          controls only they use (RepeatPicker, EditorKindToggle)
     stats/               Dashboard's data display — StatTile, BarChart, TagBars
     shell/               chrome that belongs to no one view — NotificationBell,
-                         SetupNotice
+                         SetupNotice, ToastStack, ErrorBoundary
   styles/
     tokens.css           design tokens, both themes
-    app.css
-tests/                   pure-logic tests (date, layout, stats)
+    shell.css             app shell, notifications, controls, profile, date nav,
+                         frames & common bits, toasts
+    auth.css              setup notice + the sign-in screen
+    dashboard.css          Dashboard + its charts
+    focus.css              Focus mode (the pomodoro timer view)
+    calendar.css           Day/Week time grids, Month grid, inbox & task rows
+    modals.css              every dialog, its fields, tags, item index, repeat picker
+    toggles-responsive.css  filter chips/toggles + every ≤900px override
+    calendar-dnd.css        drag-to-create/move/resize on the time grid
+                         (split from one file, in original cascade order — see
+                         the import comment in App.jsx)
+tests/                   pure-logic tests (date, layout, stats, normalize, …) —
+                         plus a11y.test.jsx (vitest + jsdom, see Scripts) and
+                         smoke/ (SSR render check + manual qa.mjs)
 ```
 
 ## Deploying to Vercel

@@ -1,0 +1,506 @@
+/* ============================================================= dashboard == */
+
+/* `.stack` draws the hairline between each of the dashboard's row-groups
+   (the hero pairing, both stat-tile rows, the queue row, the trends header,
+   the chart, the chart row) instead of a plain grid gap — see `.stack`. */
+.dashboard {
+  display: grid;
+}
+
+/* A column, not a stack: the head sits at the top, the footer is pushed to the
+   bottom by `margin-top: auto`, and the space between them is what the card
+   used to leave dangling under its button. Nothing was added to fill it —
+   the same content is anchored to both ends instead of piling at one. */
+.hero {
+  display: flex;
+  flex-direction: column;
+  /* The one decorative wash on the Dashboard — an ink-tinted glow, not a
+     repeat of any accent, since there is no accent left to echo. */
+  background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--color-glow-neutral), transparent 70%);
+}
+
+.hero__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 28px;
+  flex-wrap: wrap;
+}
+
+.hero__figure {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hero__label {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+
+.hero__value {
+  /* Proportional figures: tabular-nums makes a large standalone number
+     look loose. Tabular is for columns, not for a hero. */
+  font-family: var(--font-mono);
+  font-size: var(--text-hero);
+  font-weight: var(--font-weight-figure);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.hero__unit {
+  font-family: var(--font-mono);
+  font-size: var(--text-hero-unit);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  margin-left: 6px;
+  letter-spacing: 0;
+}
+
+/* Pixel ticker: the spare air in this card, given a job. One line, one
+   caret, no decoration around it — the face is the whole effect. */
+.hero__pixel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 1.25em;
+  max-width: 22ch;
+  margin-bottom: 8px;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: none;
+}
+
+.hero__pixel-text {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.hero__pixel-caret {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--color-text-primary);
+  opacity: 0;
+}
+
+.hero__pixel-caret--on {
+  opacity: 1;
+}
+
+/* The fourth placement of the load indicator, on the same 10-hour reference
+   and the same violet → critical logic as the week bar, month strip, and mini
+   calendar dots. Taller than their 3px because it carries a hero, not a cell —
+   the pixel height varies with the surface, the scale and colour logic never
+   do. */
+/* margin-top: auto here, not on the footer, so the bar, its note, and the
+   footer travel to the bottom as one block. That leaves a single deliberate
+   gap under the figure instead of a void in the middle with furniture
+   stranded on both sides of it. */
+.hero__load {
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.hero__load-track {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+/* No transition, matching the week bar, month strip, and calendar dots. This
+   had one, and it was wrong twice over: animating width is a layout property,
+   and the other three placements of this indicator do not move at all — a
+   fourth that animates is a different component wearing the same colours. The
+   compositor-safe alternative, scaleX, is not available either: it would
+   squash the 999px caps this bar is drawn with. */
+.hero__load-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-text-primary);
+  border-radius: inherit;
+}
+
+.hero__load-fill--heavy {
+  background: var(--color-critical);
+}
+
+.hero__load-note {
+  margin-top: 6px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.hero__foot {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero__hint {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+/* Next up and Overdue share a row; auto-fit gives Next up the whole width on
+   its own when nothing is overdue. `.divided-row` draws the hairline between
+   them instead of a gap — and since it only rules off existing siblings,
+   Next up alone gets no stray line when Overdue isn't rendered. */
+.queue-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+/* No box of its own any more — a stat tile is a column of content living
+   inside a `.divided-row` cell, separated from its neighbours by the row's
+   own hairline rather than a border it carries itself. */
+.stat-tile__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stat-tile__icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.stat-tile--critical .stat-tile__icon {
+  color: var(--color-critical-text);
+}
+
+.stat-tile--good .stat-tile__icon {
+  color: var(--color-good-text);
+}
+
+.stat-tile__label {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+
+.stat-tile__value {
+  font-family: var(--font-mono);
+  font-size: var(--text-stat);
+  font-weight: var(--font-weight-figure);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.stat-tile__unit {
+  font-family: var(--font-mono);
+  font-size: var(--text-icon);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  margin-left: 2px;
+}
+
+.stat-tile__hint {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.stat-tile--critical .stat-tile__value {
+  color: var(--color-critical-text);
+}
+
+.stat-tile--good .stat-tile__value {
+  color: var(--color-good-text);
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+/* ================================================================ charts == */
+
+.chart__title {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-title);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chart__key {
+  display: flex;
+  gap: 12px;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
+}
+
+.chart__key-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.chart__swatch--done {
+  background: var(--color-text-primary);
+}
+
+.chart__swatch--planned {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.chart__body {
+  display: flex;
+  gap: 8px;
+}
+
+.chart__axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 168px;
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  text-align: right;
+  flex: none;
+}
+
+.chart__tick {
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.chart__tick:first-child {
+  transform: none;
+}
+
+.chart__tick:last-child {
+  transform: translateY(50%);
+}
+
+.chart__plot {
+  position: relative;
+  flex: 1;
+  height: 168px;
+}
+
+.chart__gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-gridline);
+}
+
+.chart__columns {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  /* 2px of surface between neighbouring bars — the gap does the separating,
+     never a stroke around the mark. */
+  gap: 2px;
+}
+
+.chart__band {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+
+.chart__bar {
+  position: relative;
+  width: 100%;
+  max-width: 24px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  padding: 0;
+  cursor: pointer;
+  /* Rounded at the data end, square at the baseline. */
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+}
+
+.chart__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-text-primary);
+  border-radius: 0;
+}
+
+.chart__fill--complete {
+  border-radius: 3px 3px 0 0;
+}
+
+.chart__band--hover .chart__bar {
+  filter: brightness(1.06);
+}
+
+.chart__label {
+  font-size: var(--text-micro);
+  color: var(--color-text-muted);
+  margin-top: 6px;
+  position: absolute;
+  bottom: -20px;
+  white-space: nowrap;
+}
+
+.chart__value {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.chart__tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  display: grid;
+  gap: 1px;
+  font-size: var(--text-meta);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.chart__tooltip strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-meta);
+}
+
+.chart__table-toggle {
+  margin-top: 30px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+.data-table th,
+.data-table td {
+  text-align: right;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table thead th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-label);
+  font-size: var(--text-meta);
+}
+
+.data-table tbody th {
+  text-align: left;
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-secondary);
+}
+
+/* tag bars ------------------------------------------------------------- */
+
+.tag-bars {
+  display: grid;
+  gap: 9px;
+}
+
+.tag-bars__row {
+  display: grid;
+  grid-template-columns: minmax(80px, 128px) 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-label);
+}
+
+.tag-bars__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-bars__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.tag-bars__track {
+  background: var(--color-surface-sunken);
+  border-radius: 3px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.tag-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  min-width: 2px;
+}
+
+.tag-bars__value {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}
+

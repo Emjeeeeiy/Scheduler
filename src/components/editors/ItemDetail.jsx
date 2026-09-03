@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useRef } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { durationLabel, formatDayLabel, minToLabel, relativeDayLabel } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
+import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CheckIcon, CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 
@@ -75,14 +76,8 @@ export function ItemDetail({ editor, onClose, onEdit }) {
   const source = isEvent ? editor.event : editor.task
   const fields = isEvent ? eventFields(source) : taskFields(source)
   const tag = getTag(source.tagId)
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onClose])
+  const panelRef = useRef(null)
+  useModalA11y(panelRef, { onClose })
 
   const KindIcon = isEvent ? SpanIcon : DayIcon
   const kindLabel = isEvent ? 'Event' : 'Task'
@@ -90,7 +85,7 @@ export function ItemDetail({ editor, onClose, onEdit }) {
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal__panel" role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__head">
           <h2 className="modal__title detail-title">
             {fields.isOccurrence || fields.isSeries ? (
