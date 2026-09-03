@@ -12,7 +12,6 @@ import { durationLabel, formatDayLabel, formatWeekLabel, toHours, weekKeys } fro
 import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
-import { HeatmapCalendar } from '../stats/HeatmapCalendar.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { CheckIcon, ClockIcon, FocusIcon, TrendIcon } from '../icons.jsx'
 
@@ -23,11 +22,6 @@ import { CheckIcon, ClockIcon, FocusIcon, TrendIcon } from '../icons.jsx'
  * Week already use, one week at a time. Built from the exact aggregation
  * functions Dashboard's own Trends section already uses, so a number here
  * never has a second, competing definition of "planned" or "done."
- *
- * The heatmap at the bottom is the one thing on this page that does NOT
- * move with the week cursor — 13 weeks of completion history is a "how am I
- * doing lately" band, not something scoped to whichever single week is
- * currently in view.
  */
 export function ReviewView({ focusKey }) {
   const { tasksOn, tags, focusSessions } = useSchedule()
@@ -130,12 +124,6 @@ export function ReviewView({ focusKey }) {
         </section>
       </div>
 
-      <section>
-        <div className="section-head">
-          <h2 className="section-head__title">Last 13 weeks</h2>
-        </div>
-        <HeatmapCalendar />
-      </section>
     </div>
   )
 }
