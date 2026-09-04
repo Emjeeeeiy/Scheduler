@@ -37,25 +37,12 @@ function occurrencesOnDay(normalized, key) {
 
 /** Exactly what's on one day: non-recurring tasks dated that day, plus that
     day's occurrence from every series — the server-side twin of
-    ScheduleContext's tasksOn(key). Right shape for a day TOTAL (dayStats);
-    wrong shape for scanning across dates, which is what
-    tasksForNotifications below is for instead. */
+    ScheduleContext's tasksOn(key). What the digest's dayStats total is
+    built from. */
 export function tasksOnDay(rawTasks, key) {
   const normalized = normalizeAll(rawTasks)
   const dated = normalized.filter((task) => !task.recurrence && task.date === key)
   return [...dated, ...occurrencesOnDay(normalized, key)]
-}
-
-/** The exact list buildNotifications expects: every non-recurring task
-    (whatever its date — overdueTasks inside buildNotifications scans the
-    whole thing for anything in the past) plus today's occurrences from
-    every recurring series. Mirrors NotificationBell's own
-    `[...tasks, ...occurrencesOn(now.key)]` call precisely, since a
-    notification server-side has to mean the same thing it means in the
-    app the person is looking at. */
-export function tasksForNotifications(rawTasks, todayKey) {
-  const normalized = normalizeAll(rawTasks)
-  return [...normalized, ...occurrencesOnDay(normalized, todayKey)]
 }
 
 /** Occurrences landing on any of the next `days` days after (not including)
