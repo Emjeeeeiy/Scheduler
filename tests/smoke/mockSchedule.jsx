@@ -250,6 +250,7 @@ export const mockValue = {
   removeTemplate: noop,
   importData: noop,
   profile: null,
+  updateDigestPreference: noop,
   focusSessions: [],
   addFocusSession: noop,
   trashedTasks: [],

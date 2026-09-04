@@ -849,6 +849,16 @@ export function ScheduleProvider({ children }) {
         return updateDoc(doc(db, 'users', uid), { photoBase64: deleteField() })
       },
 
+      /** Whether the daily digest Cloud Function (functions/index.js,
+          Phase 6) should email this account. Lives on the profile doc
+          because a scheduled function reads it with the Admin SDK, which
+          has no notion of a per-device setting the way usePersistentState's
+          localStorage-backed ones do — this is the one notification
+          preference that has to be an actual account field instead. */
+      async updateDigestPreference(enabled) {
+        return setDoc(doc(db, 'users', uid), { dailyDigestEnabled: enabled }, { merge: true })
+      },
+
       /** Everything this account owns in Firestore — tasks, events (including
           every repeat rule), tags, and the profile doc itself. Deliberately
           broader than removeAllItems (which leaves the tag palette alone):

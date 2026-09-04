@@ -114,6 +114,21 @@
   gap: 12px;
 }
 
+/* A single "on/off, plain-language label" row — Settings' daily-digest
+   toggle today, and any future one-off boolean preference that doesn't
+   warrant a whole filter-row of its own. */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox-row input {
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+}
+
 .field__label {
   font-size: var(--text-label);
   color: var(--color-text-secondary);

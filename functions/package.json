@@ -1,0 +1,20 @@
+{
+  "name": "cadence-functions",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "sync": "node ../scripts/syncSharedLib.mjs",
+    "pretest": "npm run sync",
+    "test": "node --test",
+    "predeploy": "npm run sync",
+    "serve": "npm run sync && firebase emulators:start --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "devDependencies": {}
+}

@@ -161,3 +161,62 @@ self.addEventListener('fetch', (event) => {
       .catch(async () => (await fromCache(request)) ?? Response.error()),
   )
 })
+
+/* ------------------------------------------------------------ push --== */
+
+/* Push notifications, handled with the raw Push API rather than Firebase's
+ * own SDK. Firebase's usual pattern is a dedicated firebase-messaging-sw.js
+ * that importScripts()s the Messaging compat build — but that file would
+ * fight this one over the same scope (registering a second service worker
+ * at "/" doesn't layer with the first, it REPLACES it, which would silently
+ * turn off everything above: the offline shell, the asset cache, all of
+ * Phase 5). The client registers for a push subscription through THIS
+ * worker instead (see enablePush in src/firebase.js, which passes this
+ * worker's own registration to getToken), so FCM's messages arrive as
+ * ordinary `push` events here — no second worker, no Firebase code inside
+ * this file, same as everything above it.
+ *
+ * UNVERIFIED: the exact shape FCM puts on the wire for a web push is one of
+ * the least-documented corners of the SDK, and this was written against
+ * that documentation, not against a real push received in a real browser.
+ * If a notification doesn't show once this is deployed, start by logging
+ * `event.data.json()` here to see what actually arrived.
+ */
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+  let payload
+  try {
+    payload = event.data.json()
+  } catch {
+    return
+  }
+
+  const title = payload.notification?.title ?? payload.data?.title ?? 'Cadence'
+  const body = payload.notification?.body ?? payload.data?.body ?? ''
+  const url = payload.fcmOptions?.link ?? payload.data?.link ?? '/'
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url },
+    }),
+  )
+})
+
+/* Focuses an already-open tab rather than always opening a new one — a
+   push about something happening now should land you back in the app you
+   already have up, not a second copy of it. */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus()
+      }
+      return self.clients.openWindow(url)
+    }),
+  )
+})

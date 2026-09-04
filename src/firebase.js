@@ -16,6 +16,7 @@ import {
   updateProfile,
 } from 'firebase/auth'
 import {
+  deleteDoc,
   doc,
   getDoc,
   initializeFirestore,
@@ -43,11 +44,12 @@ export const missingConfigKeys = Object.entries(firebaseConfig)
   .filter(([, value]) => !value)
   .map(([key]) => key)
 
+let app = null
 let auth = null
 let db = null
 
 if (firebaseReady) {
-  const app = initializeApp(firebaseConfig)
+  app = initializeApp(firebaseConfig)
   auth = getAuth(app)
 
   /* Session-only: the sign-in lives in sessionStorage, not localStorage, so
@@ -287,4 +289,103 @@ export async function requestPasswordReset(identifier) {
     if (caught.code === 'auth/user-not-found' || caught.code === 'auth/invalid-email') return
     throw describeInfraFailure(caught, 'Sending a password reset email')
   }
+}
+
+/* -------------------------------------------------------- push notifications -- */
+
+/* `firebase/messaging` is imported dynamically, only when someone actually
+   turns push on — it's dead weight for every visit that never touches
+   Settings' notification toggle, and getMessaging() itself throws on a
+   browser that doesn't support it (older Safari, a non-HTTPS origin), which
+   is one more reason not to run it at module load for every visitor. */
+
+/** One doc per device that has ever registered for push, under the owner's
+    own uid — covered by the same `users/{uid}/{document=**}` rule as every
+    other subcollection. The FCM token itself is the doc id: it's already
+    unique per device/browser, so there's nothing to gain from a second,
+    generated id standing in for it. */
+const pushTokenDoc = (uid, token) => doc(db, 'users', uid, 'pushTokens', token)
+
+/**
+ * Asks for notification permission, and — if granted — subscribes for push
+ * THROUGH THIS APP'S OWN service worker (see the `serviceWorkerRegistration`
+ * option below) rather than letting the SDK register a separate one. Two
+ * service workers can't both control the "/" scope; registering a second
+ * one would silently replace sw.js and take Phase 5's offline shell out
+ * with it. sw.js's own `push` listener is what actually shows the
+ * notification once one arrives — nothing here does that part.
+ *
+ * Resolves to the token on success, or `null` if permission was denied —
+ * the caller decides what that means for its own UI rather than this
+ * throwing over a perfectly ordinary "no thanks."
+ */
+export async function enablePush(uid) {
+  if (!db || !app) throw new Error('Firebase is not configured.')
+  if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
+    throw new Error('This browser cannot receive push notifications.')
+  }
+
+  const permission = await Notification.requestPermission()
+  if (permission !== 'granted') return null
+
+  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+  if (!vapidKey) {
+    throw new Error('Push notifications need VITE_FIREBASE_VAPID_KEY — see README-functions.md.')
+  }
+
+  /* getRegistration(), not `serviceWorker.ready` — `.ready` resolves once a
+     worker becomes active for this scope, and simply never resolves at all
+     if one was never registered in the first place (main.jsx only
+     registers sw.js in a production build — never under `npm run dev`).
+     That silent hang is indistinguishable from "the button did nothing,"
+     which is exactly the failure this app's own owner hit and reported as
+     push "randomly turning off": requestPermission() above had already
+     succeeded, so the browser's own permission stayed granted, but this
+     line never returned, busy stayed true, and reloading the page looked
+     like the whole thing had reset. getRegistration() resolves immediately
+     either way, so a missing worker becomes a clear, thrown error instead
+     of an indefinite hang. */
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) {
+    throw new Error(
+      'No service worker is registered yet. Push notifications only work in a production build — run `npm run build && npm run preview`, not `npm run dev`.',
+    )
+  }
+
+  const { getMessaging, getToken } = await import('firebase/messaging')
+  const messaging = getMessaging(app)
+  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
+  if (!token) return null
+
+  await setDoc(pushTokenDoc(uid, token), {
+    token,
+    userAgent: navigator.userAgent,
+    createdAt: Date.now(),
+  })
+  return token
+}
+
+/** The twin of enablePush: finds this device's current token (if any),
+    deletes it from FCM, and removes its doc — so a device that opts out
+    stops costing the push schedule anything to consider, rather than
+    sitting there until Cloud Messaging eventually reports it dead on its
+    own. A browser that never granted permission, or has no worker
+    registered yet, has nothing to undo. */
+export async function disablePush(uid) {
+  if (!db || !app) return
+  if (!('serviceWorker' in navigator)) return
+
+  const registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) return
+
+  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+  if (!vapidKey) return
+
+  const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
+  const messaging = getMessaging(app)
+  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration }).catch(() => null)
+  if (!token) return
+
+  await deleteToken(messaging).catch(() => {})
+  await deleteDoc(pushTokenDoc(uid, token)).catch(() => {})
 }
