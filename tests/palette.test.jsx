@@ -101,11 +101,12 @@ describe('CommandPalette search', () => {
  */
 describe('CommandPalette quick add', () => {
   /** Stands in for App.jsx's parser-backed offer: only answers for text
-      that actually carries a date or time. */
+      that actually carries a date or time — and, matching the real
+      contract, returns an ARRAY (0 or 1 entries), not a bare object. */
   const quickAdd = (query) =>
     /tomorrow/.test(query)
-      ? { id: 'quick-add', label: `Create "${query.replace(/\s*tomorrow\s*/, '')}"`, onRun: vi.fn() }
-      : null
+      ? [{ id: 'quick-add', label: `Create "${query.replace(/\s*tomorrow\s*/, '')}"`, onRun: vi.fn() }]
+      : []
 
   it('offers nothing for a query that parses to no date or time', () => {
     render(<CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={quickAdd} />)
@@ -128,7 +129,7 @@ describe('CommandPalette quick add', () => {
       <CommandPalette
         onClose={vi.fn()}
         actions={ACTIONS}
-        quickAdd={() => ({ id: 'quick-add', label: 'Create "lunch"', onRun })}
+        quickAdd={() => [{ id: 'quick-add', label: 'Create "lunch"', onRun }]}
       />,
     )
     type('lunch tomorrow 1pm')
@@ -167,5 +168,26 @@ describe('CommandPalette quick add', () => {
     expect(screen.getByText('Weekly review').closest('button').getAttribute('aria-selected')).toBe(
       'true',
     )
+  })
+
+  /* App.jsx's real quickAdd returns an array precisely so it can offer a
+     DIFFERENT action — "Parse with AI" — when its regex rules found
+     nothing, rather than only ever "Create <title>" or nothing at all.
+     This is the shape that exercises. */
+  it('offers a different action entirely when the regex-backed offer has nothing to show', () => {
+    const aiOnRun = vi.fn()
+    const regexThenAi = (query) =>
+      /tomorrow/.test(query)
+        ? [{ id: 'quick-add', label: `Create "${query}"`, onRun: vi.fn() }]
+        : [{ id: 'quick-add-ai', label: `Parse "${query}" with AI`, onRun: aiOnRun }]
+
+    render(<CommandPalette onClose={vi.fn()} actions={ACTIONS} quickAdd={regexThenAi} />)
+    type('lunch with ana sometime soon')
+
+    expect(screen.getByText('Parse "lunch with ana sometime soon" with AI')).toBeTruthy()
+    expect(screen.queryByText(/^Create /)).toBeNull()
+
+    fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'Enter' })
+    expect(aiOnRun).toHaveBeenCalledTimes(1)
   })
 })

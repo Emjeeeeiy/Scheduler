@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -7,6 +7,7 @@ import { recurrenceLabel } from '../../lib/recurrence.js'
 import { TASK_PRIORITIES } from '../../lib/normalize.js'
 import { suggestSlots } from '../../lib/autoSchedule.js'
 import { buildTagModel, suggestTag } from '../../lib/suggestTag.js'
+import { suggestTagAi } from '../../lib/aiClient.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon, PinIcon, RepeatIcon, SearchIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
@@ -71,10 +72,73 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
     const guess = suggestTag(title, tagModel, new Set(tags.map((t) => t.id)))
     return guess ? (tags.find((t) => t.id === guess.tagId) ?? null) : null
   }, [tagId, title, tagModel, tags])
+
+  /* The AI fallback: only asked when the heuristic above came up with
+     nothing — a fresh account, or a title with no word history yet — which
+     is exactly the case suggestTag.js structurally cannot answer no matter
+     how it's tuned. Debounced so a title being actively typed doesn't fire
+     a request per keystroke, and cached per normalized title for the
+     editor's own lifetime so backspacing over a character and retyping it
+     doesn't spend a second call on the same question.
+
+     The cache is real React state, not a ref holding a Map — a ref is not
+     safe to read during render (React has no way to know it changed and
+     re-render), and a cache hit needs to show up on screen the same way any
+     other derived value does. aiClient.js already guarantees the fetch
+     itself resolves to null rather than throwing on any failure — offline,
+     signed out, a timeout, Gemini's own unpublished free-tier rate limit —
+     so there is nothing to catch here, only a result to store. */
+  const [aiTagCache, setAiTagCache] = useState(() => new Map())
+  const shouldAskAi = !tagId && !suggestedTag && title.trim().length >= 3
+  const normalizedTitle = title.trim().toLowerCase()
+  const cachedResult = shouldAskAi ? aiTagCache.get(normalizedTitle) : undefined
+  // `tags` is a fresh array reference on every ScheduleContext recompute,
+  // including ones with nothing to do with tags (any Firestore snapshot
+  // update). Depending on it directly restarts this debounce's wait every
+  // time, which in practice fired 2-3 overlapping requests per title
+  // instead of one — and the pile-up of concurrent calls is almost
+  // certainly why some of them were slow enough to hit the client timeout.
+  // Reduced to a content-based string so the effect only restarts when the
+  // tag set itself actually changes.
+  const tagsKey = tags.map((t) => `${t.id}:${t.name}`).join('|')
+
+  useEffect(() => {
+    if (!shouldAskAi || aiTagCache.has(normalizedTitle)) return undefined
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const result = await suggestTagAi({
+        title: title.trim(),
+        tags: tags.map((t) => ({ id: t.id, name: t.name })),
+      })
+      if (!cancelled) {
+        setAiTagCache((prev) => new Map(prev).set(normalizedTitle, result))
+      }
+    }, 600)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+    // aiTagCache is deliberately excluded: including it would re-run this
+    // effect on every cache write, which is exactly the request this debounce
+    // exists to prevent. shouldAskAi/normalizedTitle already capture every
+    // input the cache-hit check actually depends on. tags is read fresh
+    // inside the timer when it fires; tagsKey stands in for it in the
+    // dependency array (see the comment above tagsKey).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAskAi, normalizedTitle, title, tagsKey])
+
+  const aiSuggestedTagId = cachedResult ?? null
+  const aiSuggestedTag = aiSuggestedTagId ? (tags.find((t) => t.id === aiSuggestedTagId) ?? null) : null
+
+  // The heuristic answers instantly and wins when it has an opinion; the AI
+  // suggestion only ever fills the gap where it has none.
+  const displayedTagSuggestion = suggestedTag ?? aiSuggestedTag
+
   // null = not searched yet, [] = searched and found nothing, otherwise the
   // suggestions themselves — three distinct states the UI reads apart.
+  // (Unrelated to the tag suggestion above — this backs "Find a slot".)
   const [suggestions, setSuggestions] = useState(null)
-
 
   const titleRef = useRef(null)
   const panelRef = useRef(null)
@@ -301,16 +365,22 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
               <TagSelect tags={tags} value={tagId} onChange={setTagId} />
               {/* Offered, never applied. One click to take it, and no click
                   at all to ignore it — a tag filled in silently is a tag
-                  nobody reviews. */}
-              {suggestedTag && (
+                  nobody reviews. The tooltip names its source: the
+                  from-history guess and the AI one earn different trust,
+                  and saying which this is costs nothing to show. */}
+              {displayedTagSuggestion && (
                 <button
                   type="button"
                   className="tag-suggest"
-                  onClick={() => setTagId(suggestedTag.id)}
-                  title={`Based on other tasks you've filed under ${suggestedTag.name}`}
+                  onClick={() => setTagId(displayedTagSuggestion.id)}
+                  title={
+                    suggestedTag
+                      ? `Based on other tasks you've filed under ${displayedTagSuggestion.name}`
+                      : `AI suggestion — no history to base this on yet`
+                  }
                 >
-                  <TagGlyph tag={suggestedTag} variant="swatch" className="tag-swatch tag-swatch--sm" />
-                  Use {suggestedTag.name}?
+                  <TagGlyph tag={displayedTagSuggestion} variant="swatch" className="tag-swatch tag-swatch--sm" />
+                  Use {displayedTagSuggestion.name}?
                 </button>
               )}
             </label>

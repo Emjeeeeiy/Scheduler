@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { planDay, suggestSlots } from '../src/lib/autoSchedule.js'
+import { isValidAiPlan, planDay, suggestSlots } from '../src/lib/autoSchedule.js'
 import { addDays } from '../src/lib/date.js'
 
 const START = '2026-08-24'
@@ -193,5 +193,94 @@ describe('planDay', () => {
       fromMin: 18 * 60,
     })
     assert.deepEqual(out, [])
+  })
+})
+
+describe('isValidAiPlan', () => {
+  const tasks = [
+    { id: 't1', durationMin: 60 },
+    { id: 't2', durationMin: 30 },
+  ]
+  const slots = [
+    { startMin: 9 * 60, endMin: 11 * 60 },
+    { startMin: 14 * 60, endMin: 15 * 60 },
+  ]
+
+  it('accepts a plan whose every placement fits a real slot with no overlap', () => {
+    const plan = [
+      { taskId: 't1', startMin: 9 * 60 },
+      { taskId: 't2', startMin: 14 * 60 },
+    ]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), true)
+  })
+
+  it('accepts back-to-back placements that exactly abut, inside one slot', () => {
+    // t1 (60min) then t2 (30min) end to end inside the 9-11 slot.
+    const plan = [
+      { taskId: 't1', startMin: 9 * 60 },
+      { taskId: 't2', startMin: 10 * 60 },
+    ]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), true)
+  })
+
+  it('rejects a placement naming a task id it was never offered', () => {
+    const plan = [{ taskId: 'ghost', startMin: 9 * 60 }]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects a placement that overflows past the end of its slot', () => {
+    // t1 needs 60min; starting at 10:30 in the 9-11 slot only leaves 30.
+    const plan = [{ taskId: 't1', startMin: 10 * 60 + 30 }]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects a placement that starts before any real slot begins', () => {
+    const plan = [{ taskId: 't1', startMin: 8 * 60 }]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects a placement straddling the gap between two slots', () => {
+    // Starts inside the 9-11 slot but runs past it into dead time — no
+    // single real slot contains the whole span.
+    const plan = [{ taskId: 't1', startMin: 10 * 60 + 45 }]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects two placements that overlap each other, even if each alone would fit', () => {
+    const plan = [
+      { taskId: 't1', startMin: 9 * 60 }, // 9:00-10:00
+      { taskId: 't2', startMin: 9 * 60 + 30 }, // 9:30-10:00 — overlaps t1
+    ]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects the same task placed twice', () => {
+    const plan = [
+      { taskId: 't1', startMin: 9 * 60 },
+      { taskId: 't1', startMin: 14 * 60 },
+    ]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+
+  it('rejects a non-integer or missing startMin', () => {
+    assert.equal(isValidAiPlan([{ taskId: 't1', startMin: 540.5 }], { tasks, slots }), false)
+    assert.equal(isValidAiPlan([{ taskId: 't1' }], { tasks, slots }), false)
+  })
+
+  it('is invalid — not just empty — for an empty or malformed proposal', () => {
+    // Deliberately false, not true: "nothing to show" and "safe to show
+    // nothing" are different questions, and a caller checking `=== false`
+    // to fall back must get false here, not an accidental pass.
+    assert.equal(isValidAiPlan([], { tasks, slots }), false)
+    assert.equal(isValidAiPlan(null, { tasks, slots }), false)
+    assert.equal(isValidAiPlan(undefined, { tasks, slots }), false)
+  })
+
+  it('discards the whole plan when only one placement is bad, not just that one', () => {
+    const plan = [
+      { taskId: 't1', startMin: 9 * 60 }, // genuinely valid on its own
+      { taskId: 'ghost', startMin: 14 * 60 }, // invalid
+    ]
+    assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
   })
 })

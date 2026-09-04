@@ -258,6 +258,10 @@
   margin-bottom: 10px;
 }
 
+.day-plan__ai-badge {
+  margin-left: 6px;
+}
+
 .day-plan__list {
   display: grid;
   gap: 6px;

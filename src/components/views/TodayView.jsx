@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { hourMarks, visibleWindow } from '../../lib/layout.js'
-import { planDay } from '../../lib/autoSchedule.js'
+import { isValidAiPlan, planDay, planningSlots } from '../../lib/autoSchedule.js'
+import { planDayAi } from '../../lib/aiClient.js'
 import { freeSlots } from '../../lib/slots.js'
 import { dayOfSpan, eventSpanDays, isMultiDay } from '../../lib/spans.js'
 import { dayStats, upcomingTasks } from '../../lib/stats.js'
@@ -54,7 +55,16 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
   const [mode, setMode] = usePersistentState('cadence-app:day-mode', 'grid')
   // null = not asked for. An empty array is a real answer: "nothing fits."
   const [plan, setPlan] = useState(null)
+  // 'greedy' while `plan` is planDay's own mechanical packing; 'ai' once a
+  // validated Gemini proposal has superseded it. Purely cosmetic — it only
+  // decides whether the panel says so — acceptPlan below treats both
+  // identically, since both are the same [{task, date, startMin}] shape.
+  const [planSource, setPlanSource] = useState(null)
   const [applying, setApplying] = useState(false)
+  // Bumped on every proposePlan call so a slow AI response arriving after
+  // the plan was dismissed, or after a *second* click re-proposed a fresh
+  // one, is recognised as stale and never overwrites what's on screen.
+  const planRequestIdRef = useRef(0)
 
   const tasks = tasksOn(focusKey)
   const events = eventsOn(focusKey)
@@ -115,21 +125,58 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
 
   /* Planning today starts from now, not from this morning — proposing a
      10am slot at four in the afternoon is offering a time that has gone.
-     Any other day is planned from its own beginning. */
+     Any other day is planned from its own beginning.
+
+     The greedy plan renders immediately, same as always — nobody waits on
+     a network call for the panel to have something in it. A Gemini call
+     then asks the same question about the SAME free time (planningSlots,
+     not a second, possibly-inconsistent computation of it) and, only if
+     its answer validates cleanly against real slots and real tasks
+     (isValidAiPlan — never trust a model's arithmetic about times), quietly
+     supersedes the greedy proposal in place. Any failure — offline, rate
+     limited, invalid — leaves the greedy plan exactly as it was; see
+     aiClient.js for why that's the only two outcomes this ever has. */
   function proposePlan() {
     if (plan !== null) {
-      setPlan(null)
+      closePlan()
       return
     }
-    setPlan(
-      planDay({
-        inbox,
-        dayItems: (key) => [...tasksOn(key), ...eventsOn(key).filter((e) => Number.isFinite(e.startMin))],
-        key: focusKey,
-        workingHours: settings.workingHours,
-        fromMin: isToday ? now.min : 0,
-      }),
-    )
+
+    const dayItems = (key) => [...tasksOn(key), ...eventsOn(key).filter((e) => Number.isFinite(e.startMin))]
+    const fromMin = isToday ? now.min : 0
+
+    setPlan(planDay({ inbox, dayItems, key: focusKey, workingHours: settings.workingHours, fromMin }))
+    setPlanSource('greedy')
+
+    const requestId = ++planRequestIdRef.current
+    const candidates = inbox.filter((task) => !task.done)
+    const slots = planningSlots({ dayItems, key: focusKey, workingHours: settings.workingHours, fromMin })
+    if (candidates.length === 0 || slots.length === 0) return
+
+    planDayAi({
+      tasks: candidates.map((t) => ({ id: t.id, title: t.title, durationMin: t.durationMin, priority: t.priority })),
+      slots: slots.map((s) => ({ startMin: s.startMin, endMin: s.endMin })),
+    }).then((placements) => {
+      if (requestId !== planRequestIdRef.current) return // superseded by a dismiss or a fresh click
+      if (!placements || !isValidAiPlan(placements, { tasks: candidates, slots })) return
+
+      const taskById = new Map(candidates.map((t) => [t.id, t]))
+      const aiPlan = placements
+        .map((p) => ({ task: taskById.get(p.taskId), date: focusKey, startMin: p.startMin }))
+        .sort((a, b) => a.startMin - b.startMin)
+      setPlan(aiPlan)
+      setPlanSource('ai')
+    })
+  }
+
+  /* Every way the panel can go away — Close, Cancel, a successful Accept —
+     shares this rather than calling setPlan(null) directly, so a slow AI
+     response that resolves after any of them can never resurrect a panel
+     someone already dismissed (see the requestId guard in proposePlan). */
+  function closePlan() {
+    setPlan(null)
+    setPlanSource(null)
+    planRequestIdRef.current += 1
   }
 
   async function acceptPlan() {
@@ -146,7 +193,7 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
           startMin: placement.startMin,
         })
       }
-      setPlan(null)
+      closePlan()
       pushUndo(`Scheduled ${placements.length} task${placements.length === 1 ? '' : 's'}.`, async () => {
         try {
           for (const placement of placements) {
@@ -243,7 +290,7 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
                   than the tasks waiting.
                 </p>
                 <div className="day-plan__actions">
-                  <button type="button" className="ghost-button ghost-button--sm" onClick={() => setPlan(null)}>
+                  <button type="button" className="ghost-button ghost-button--sm" onClick={closePlan}>
                     Close
                   </button>
                 </div>
@@ -252,6 +299,12 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
               <>
                 <p className="day-plan__note">
                   {`Put ${plan.length} inbox task${plan.length === 1 ? '' : 's'} on this day?`}
+                  {/* Named, not just silently different — the greedy plan is
+                      always shown first and the AI one only ever quietly
+                      supersedes it once validated, so saying which this is
+                      costs nothing and never leaves anyone guessing why the
+                      order changed under them. */}
+                  {planSource === 'ai' && <span className="count-pill day-plan__ai-badge">AI-refined</span>}
                 </p>
                 <ul className="day-plan__list">
                   {plan.map((placement) => (
@@ -273,7 +326,7 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
                   >
                     {applying ? 'Scheduling…' : 'Schedule these'}
                   </button>
-                  <button type="button" className="ghost-button ghost-button--sm" onClick={() => setPlan(null)}>
+                  <button type="button" className="ghost-button ghost-button--sm" onClick={closePlan}>
                     Cancel
                   </button>
                 </div>

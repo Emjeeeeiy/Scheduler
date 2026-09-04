@@ -68,6 +68,31 @@ export function suggestSlots({
 }
 
 /**
+ * The exact free-time window "Plan my day" reasons over for one day — its
+ * own working-hours-narrowed window, with "now" as the earliest minute
+ * worth offering when planning today. Split out from planDay so a second
+ * caller can ask a question about the SAME free time the heuristic itself
+ * used, rather than risk a slightly different computation quietly
+ * disagreeing with it — see /api/plan-day and TodayView's AI enhancement,
+ * which need to hand Gemini the identical slots planDay already found
+ * before either can compare its answer against them.
+ *
+ * @return [{ startMin, endMin, lengthMin }], or [] if there is no usable
+ *         window at all today (working hours already over, etc.)
+ */
+export function planningSlots({ dayItems, key, workingHours = null, fromMin = 0 }) {
+  const items = dayItems(key)
+  const [dayStart, dayEnd] = visibleWindow(items)
+  const windowStart = Math.max(
+    hasWorkingHours(workingHours) ? Math.max(dayStart, workingHours.startMin) : dayStart,
+    fromMin,
+  )
+  const windowEnd = hasWorkingHours(workingHours) ? Math.min(dayEnd, workingHours.endMin) : dayEnd
+  if (!(windowEnd > windowStart)) return []
+  return freeSlots(items, windowStart, windowEnd, 1)
+}
+
+/**
  * "Plan my day": lay the open inbox out across one day's actual free time.
  *
  * The same free-slot machinery suggestSlots uses, run once for a single day
@@ -99,27 +124,20 @@ export function planDay({
   fromMin = 0,
   limit = 8,
 }) {
-  const items = dayItems(key)
-  const [dayStart, dayEnd] = visibleWindow(items)
-  const windowStart = Math.max(
-    hasWorkingHours(workingHours) ? Math.max(dayStart, workingHours.startMin) : dayStart,
-    fromMin,
-  )
-  const windowEnd = hasWorkingHours(workingHours) ? Math.min(dayEnd, workingHours.endMin) : dayEnd
-  if (!(windowEnd > windowStart)) return []
+  /* Consumed as gaps are filled, so the next task is offered what is
+     genuinely left rather than the same slot again. Tracked as a mutable
+     cursor per gap instead of recomputing planningSlots after every
+     placement — nothing has been written, so there is nothing new for it
+     to find. */
+  const gaps = planningSlots({ dayItems, key, workingHours, fromMin }).map((gap) => ({ ...gap }))
+  if (gaps.length === 0) return []
 
   const rank = (task) => TASK_PRIORITIES.indexOf(task.priority)
   const queue = [...inbox]
     .filter((task) => !task.done)
     .sort((a, b) => rank(b) - rank(a) || a.createdAt - b.createdAt || a.id.localeCompare(b.id))
 
-  /* Gaps are consumed as they are filled, so the next task is offered what
-     is genuinely left rather than the same slot again. Tracked as a mutable
-     cursor per gap instead of recomputing freeSlots after every placement —
-     nothing has been written, so there is nothing new for it to find. */
-  const gaps = freeSlots(items, windowStart, windowEnd, 1).map((gap) => ({ ...gap }))
   const placements = []
-
   for (const task of queue) {
     if (placements.length >= limit) break
     const needed = task.durationMin
@@ -131,4 +149,52 @@ export function planDay({
   }
 
   return placements
+}
+
+/**
+ * Whether an AI-proposed plan (see /api/plan-day) is safe to show at all.
+ *
+ * planDay's own greedy placements can be trusted because this module built
+ * them from `freeSlots` itself — a model's placements cannot, since a model
+ * asked to reason about times can still get the arithmetic wrong in a way
+ * that reads as perfectly plausible right up until it overlaps something.
+ * `false` here means "discard the whole proposal, keep the greedy one" —
+ * deliberately all-or-nothing rather than salvaging whichever placements
+ * happen to check out, so what's shown is either fully trustworthy or not
+ * shown at all, never a plan that's silently missing pieces without saying
+ * so.
+ *
+ * @param placements [{ taskId, startMin }] — the model's raw proposal
+ * @param tasks      the real tasks the model was offered, [{ id, durationMin }]
+ * @param slots      the real free slots the model was offered, [{ startMin, endMin }]
+ */
+export function isValidAiPlan(placements, { tasks, slots }) {
+  if (!Array.isArray(placements) || placements.length === 0) return false
+
+  const taskById = new Map(tasks.map((task) => [task.id, task]))
+  const seenTaskIds = new Set()
+  const accepted = []
+
+  for (const placement of placements) {
+    const task = taskById.get(placement?.taskId)
+    if (!task) return false
+    // The same task placed twice is not a plan any greedy proposal could
+    // ever produce either — a sign something upstream is confused, not a
+    // shape worth partially trusting.
+    if (seenTaskIds.has(task.id)) return false
+    seenTaskIds.add(task.id)
+
+    if (!Number.isInteger(placement.startMin)) return false
+    const start = placement.startMin
+    const end = start + task.durationMin
+
+    const fitsARealSlot = slots.some((slot) => start >= slot.startMin && end <= slot.endMin)
+    if (!fitsARealSlot) return false
+
+    const overlapsAnAcceptedOne = accepted.some((a) => start < a.end && end > a.start)
+    if (overlapsAnAcceptedOne) return false
+    accepted.push({ start, end })
+  }
+
+  return true
 }

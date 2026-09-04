@@ -40,3 +40,6 @@ tests/smoke/.qa-screenshots
 .cursor
 .gemini
 .impeccable
+
+.vercel
+.env*

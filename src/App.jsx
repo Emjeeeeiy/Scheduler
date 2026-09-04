@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
-import { ToastProvider } from './state/ToastContext.jsx'
+import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
@@ -18,6 +18,7 @@ import {
   todayKey,
 } from './lib/date.js'
 import { parseQuickAdd } from './lib/parseQuickAdd.js'
+import { parseTaskAi } from './lib/aiClient.js'
 import { SetupNotice } from './components/shell/SetupNotice.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'
 import { Dashboard } from './components/views/Dashboard.jsx'
@@ -137,6 +138,7 @@ function AppShell() {
   const { loading, error, templates, tasks, events } = useSchedule()
   const { theme, cycleTheme } = useTheme()
   const { settings } = useSettings()
+  const { push, pushError, dismiss } = useToast()
   const shortcuts = settings.shortcuts
 
   // Not persisted across navigation on purpose: every sign-in — and every
@@ -437,39 +439,85 @@ function AppShell() {
 
      Offered only when the text yields something the plain "New task" action
      wouldn't have: a date, a time, or a length. Without that, this would be
-     a second, noisier copy of "New task" on every keystroke. */
+     a second, noisier copy of "New task" on every keystroke.
+
+     Returns an ARRAY, not one action or null — this box re-filters on every
+     keystroke, so parseQuickAdd's regex rules stay the only thing that runs
+     per keystroke, same as always. When they find nothing, the array holds
+     one extra explicit action instead — "Parse with AI" — that only fires
+     on an actual click. That's deliberate, not a smaller version of the
+     same idea: a network call firing on every keystroke here would make a
+     fast UI feel slow, and an explicit click means no debounce, no surprise
+     latency, no request spent on a query nobody meant to finish typing. */
   const quickAdd = useCallback(
     (query) => {
       const text = query.trim()
-      if (text.length < 3) return null
+      if (text.length < 3) return []
+
       const parsed = parseQuickAdd(text, { today: todayKey() })
-      if (!parsed.title || (parsed.date === null && parsed.startMin === null && parsed.durationMin === null)) {
-        return null
+      const foundSomething =
+        parsed.title && (parsed.date !== null || parsed.startMin !== null || parsed.durationMin !== null)
+
+      if (foundSomething) {
+        const when = [
+          parsed.date && relativeDayLabel(parsed.date),
+          parsed.startMin !== null && minToShortLabel(parsed.startMin),
+          parsed.durationMin !== null && durationLabel(parsed.durationMin),
+        ]
+          .filter(Boolean)
+          .join(' · ')
+
+        return [
+          {
+            id: 'quick-add',
+            label: `Create "${parsed.title}"`,
+            hint: when,
+            Icon: PlusIcon,
+            onRun: () =>
+              openCreate({
+                title: parsed.title,
+                date: parsed.date ?? undefined,
+                startMin: parsed.startMin ?? undefined,
+                durationMin: parsed.durationMin ?? undefined,
+              }),
+          },
+        ]
       }
 
-      const when = [
-        parsed.date && relativeDayLabel(parsed.date),
-        parsed.startMin !== null && minToShortLabel(parsed.startMin),
-        parsed.durationMin !== null && durationLabel(parsed.durationMin),
+      // A single word has no date or time for a model to find either — the
+      // regex already handles that case as a plain title, so there is
+      // nothing here worth a network call.
+      if (!text.includes(' ')) return []
+
+      return [
+        {
+          id: 'quick-add-ai',
+          label: `Parse "${text}" with AI`,
+          hint: 'AI',
+          Icon: PlusIcon,
+          onRun: async () => {
+            const waitingToastId = push('Asking AI…', { tone: 'success', durationMs: 15000 })
+            const result = await parseTaskAi({ text, today: todayKey() })
+            dismiss(waitingToastId)
+
+            if (!result || !result.title) {
+              // Never a dead end: whatever happened, the form still opens
+              // with exactly what was typed as the title.
+              openCreate({ title: text })
+              if (!result) pushError('Could not reach AI — opened with your text as the title.')
+              return
+            }
+            openCreate({
+              title: result.title,
+              date: result.date ?? undefined,
+              startMin: result.startMin ?? undefined,
+              durationMin: result.durationMin ?? undefined,
+            })
+          },
+        },
       ]
-        .filter(Boolean)
-        .join(' · ')
-
-      return {
-        id: 'quick-add',
-        label: `Create "${parsed.title}"`,
-        hint: when,
-        Icon: PlusIcon,
-        onRun: () =>
-          openCreate({
-            title: parsed.title,
-            date: parsed.date ?? undefined,
-            startMin: parsed.startMin ?? undefined,
-            durationMin: parsed.durationMin ?? undefined,
-          }),
-      }
     },
-    [openCreate],
+    [openCreate, push, pushError, dismiss],
   )
 
   /* Global search, folded into the palette rather than given a surface of

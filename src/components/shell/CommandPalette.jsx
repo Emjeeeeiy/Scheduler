@@ -34,6 +34,13 @@ function matches(query, label) {
  * same gesture, so they are the same list. Passing a function rather than
  * pre-built actions is what keeps every task in the account out of the
  * palette when the box is empty.
+ *
+ * `quickAdd(query)` returns an ARRAY (0, 1, or 2 entries) rather than a
+ * single action — App.jsx's own quickAdd can offer both "Create <title>"
+ * (parsed instantly, for free, on every keystroke) and, when its regex
+ * rules found nothing, an explicit "Parse with AI" action instead. Which of
+ * those it is, and whether either exists at all, is entirely App.jsx's call;
+ * this component just spreads whatever comes back at the head of the list.
  */
 export function CommandPalette({ onClose, actions, searchItems, quickAdd }) {
   const [query, setQuery] = useState('')
@@ -46,18 +53,14 @@ export function CommandPalette({ onClose, actions, searchItems, quickAdd }) {
   /* Typing a whole sentence into a command palette is a statement of intent
      to create something, not to navigate — so when the query parses as one,
      that offer leads the list rather than sitting under the commands. */
-  const create = useMemo(() => quickAdd?.(query) ?? null, [quickAdd, query])
+  const created = useMemo(() => quickAdd?.(query) ?? [], [quickAdd, query])
   /* Commands next, then what the query found. Commands are a fixed, known
      list someone learns the position of; results are a variable tail. Sorting
      the two together by relevance would move "New task" around under the
      cursor depending on what else happened to match. */
   const filtered = useMemo(
-    () => [
-      ...(create ? [create] : []),
-      ...actions.filter((action) => matches(query, action.label)),
-      ...found,
-    ],
-    [create, actions, query, found],
+    () => [...created, ...actions.filter((action) => matches(query, action.label)), ...found],
+    [created, actions, query, found],
   )
   const commandCount = filtered.length - found.length
   // Clamped rather than reset to 0 on every filter change: losing the
