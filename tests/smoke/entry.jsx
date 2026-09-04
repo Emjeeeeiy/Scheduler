@@ -21,6 +21,7 @@ import { MonthCalendar } from '../../src/components/views/MonthCalendar.jsx'
 import { ReviewView } from '../../src/components/views/ReviewView.jsx'
 import { TaskEditor } from '../../src/components/editors/TaskEditor.jsx'
 import { EventEditor } from '../../src/components/editors/EventEditor.jsx'
+import { ItemDetail } from '../../src/components/editors/ItemDetail.jsx'
 import { MiniCalendar } from '../../src/components/calendar/MiniCalendar.jsx'
 import { TagManager } from '../../src/components/editors/TagManager.jsx'
 import { ItemManager } from '../../src/components/editors/ItemManager.jsx'
@@ -61,6 +62,18 @@ const paletteActions = [
   { id: 'sample', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: noop },
 ]
 
+// A one-off, not one of mockValue's shared fixtures: several other checks
+// below count or name-match specific tasks in that array, and this only
+// needs to prove a checklist renders when a task happens to have one.
+const taskWithChecklist = {
+  ...mockValue.tasks[0],
+  id: 'checklist-demo',
+  subtasks: [
+    { id: 'c1', title: 'Warm up', done: true },
+    { id: 'c2', title: 'Cool down', done: false },
+  ],
+}
+
 const cases = [
   ['SetupNotice', <SetupNotice missing={['VITE_FIREBASE_API_KEY']} />],
   ['SignIn', <SignIn />],
@@ -79,6 +92,14 @@ const cases = [
   ['TaskEditor (edit)', <TaskEditor editor={{ mode: 'edit', task: mockValue.tasks[0] }} onClose={noop} />],
   ['EventEditor (create)', <EventEditor editor={{ mode: 'create', draft: { startDate: KEY, endDate: KEY } }} onClose={noop} />],
   ['EventEditor (edit)', <EventEditor editor={{ mode: 'edit', event: mockValue.events[0] }} onClose={noop} />],
+  [
+    'ItemDetail (task)',
+    <ItemDetail editor={{ mode: 'view', kind: 'task', task: taskWithChecklist }} onClose={noop} onEdit={noop} />,
+  ],
+  [
+    'ItemDetail (event)',
+    <ItemDetail editor={{ mode: 'view', kind: 'event', event: mockValue.events[0] }} onClose={noop} onEdit={noop} />,
+  ],
   ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
   ['SettingsModal', <SettingsModal onClose={noop} />],
@@ -255,6 +276,13 @@ expect(
   'Item index can filter by tag',
   items.includes('Any tag') && items.includes('Work') && items.includes('Personal'),
 )
+
+const itemDetail = render(
+  <ItemDetail editor={{ mode: 'view', kind: 'task', task: taskWithChecklist }} onClose={noop} onEdit={noop} />,
+)
+expect('ItemDetail renders every checklist item', itemDetail.includes('Warm up') && itemDetail.includes('Cool down'))
+expect('ItemDetail marks a done checklist item', itemDetail.includes('subtasks__title--done'))
+expect('ItemDetail shows the checklist tally', itemDetail.includes('Checklist — 1/2 done'))
 
 console.log('')
 for (const [name, ok] of checks) {

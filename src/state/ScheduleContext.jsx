@@ -399,7 +399,15 @@ export function ScheduleProvider({ children }) {
       if (!parsed) return null
       const parent = seriesById.get(parsed.seriesId)
       if (!parent) return null
-      return { parent, dateKey: parsed.dateKey, task: occurrenceOn(parent, parsed.dateKey) }
+      const task = occurrenceOn(parent, parsed.dateKey)
+      /* No live occurrence to resolve — the day was already detached (or the
+         rule no longer lands there) by an earlier write this same id is
+         chasing. Reporting "not an occurrence" here, the same as an id that
+         never parsed as one, is what lets every caller below fall through to
+         its ordinary updateDoc/deleteDoc branch instead of handing `task:
+         null` to detachOccurrence, which destructures it and would throw. */
+      if (!task) return null
+      return { parent, dateKey: parsed.dateKey, task }
     }
 
     /* A day key is not a legal dotted field path — it starts with a digit and
@@ -409,7 +417,15 @@ export function ScheduleProvider({ children }) {
     /** Editing or moving one day of a series takes that day out of it: the
         occurrence is written out as its own ordinary task and the series marks
         the date taken. "This occurrence only" is the whole contract — the rule
-        never changes shape because one morning did. */
+        never changes shape because one morning did.
+
+        Resolves to the NEW document's id — `doc(tasksCol())` generates it
+        client-side before the write ever reaches the network, so handing it
+        back costs nothing. A caller that fires several edits at the same
+        occurrence in a row (ItemDetail's checklist, ticking off more than one
+        item) needs it: the first edit detaches the day, and every edit after
+        that has to land on the document the first one just created, not on
+        the occurrence id that no longer resolves to anything live. */
     const detachOccurrence = async ({ parent, dateKey, task }, patch) => {
       const stamp = now()
       const {
@@ -422,7 +438,8 @@ export function ScheduleProvider({ children }) {
         ...fields
       } = task
       const batch = writeBatch(db)
-      batch.set(doc(tasksCol()), {
+      const detached = doc(tasksCol())
+      batch.set(detached, {
         ...fields,
         ...patch,
         recurrence: null,
@@ -431,7 +448,8 @@ export function ScheduleProvider({ children }) {
         updatedAt: stamp,
       })
       batch.update(taskDoc(parent.id), overrideAt(dateKey), { detached: true }, 'updatedAt', stamp)
-      return batch.commit()
+      await batch.commit()
+      return detached.id
     }
 
     /* The event twins of the two above. Same contract, one document collection
@@ -442,7 +460,12 @@ export function ScheduleProvider({ children }) {
       if (!parsed) return null
       const parent = eventSeriesById.get(parsed.seriesId)
       if (!parent) return null
-      return { parent, dateKey: parsed.dateKey, event: eventOccurrenceOn(parent, parsed.dateKey) }
+      // Same "already detached" guard as resolveOccurrence's task twin — see
+      // its comment for why a live occurrence is required here rather than
+      // handed to detachEventOccurrence as null.
+      const event = eventOccurrenceOn(parent, parsed.dateKey)
+      if (!event) return null
+      return { parent, dateKey: parsed.dateKey, event }
     }
 
     const detachEventOccurrence = async ({ parent, dateKey, event }, patch) => {

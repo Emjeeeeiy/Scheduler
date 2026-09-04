@@ -211,8 +211,19 @@ function AppShell() {
     (event) => setEditor({ mode: 'edit', kind: 'event', event }),
     [],
   )
-  const startEditing = useCallback(() => {
-    setEditor((current) => (current && current.mode === 'view' ? { ...current, mode: 'edit' } : current))
+  /* `updated` is ItemDetail's own live-resolved copy of what it was showing
+     — usually identical to what this modal opened with, but not always: a
+     checklist tick or a pin made from that read-only stop can detach a
+     repeating task's occurrence into a new document entirely (see
+     ItemDetail's `handoff`), and the editor has to open on THAT document,
+     not on the original occurrence frozen in `current.task`/`current.event`
+     at the moment this whole thing was opened. */
+  const startEditing = useCallback((updated) => {
+    setEditor((current) => {
+      if (!current || current.mode !== 'view') return current
+      const key = current.kind === 'event' ? 'event' : 'task'
+      return { ...current, mode: 'edit', [key]: updated ?? current[key] }
+    })
   }, [])
   const openCreateEvent = useCallback(
     (draft = {}) => setEditor({ mode: 'create', kind: 'event', draft }),
