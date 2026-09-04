@@ -515,15 +515,51 @@ code {
   cursor: pointer;
 }
 
-/* Sits between the password field and the submit button, so it reads as
-   "one more thing about this field" rather than competing with Log in for
-   attention — smaller, secondary-coloured, and pulled up out of the field's
-   own bottom margin instead of adding a full line of its own. */
+/* Sits between the password field and the submit button, pairing
+   the "Remember me" persistence preference on the left with the
+   "Forgot password?" recovery link on the right. */
+.auth-form__options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -4px 0 14px;
+}
+
+.auth-form__remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: color 120ms ease;
+}
+
+.auth-form__remember:hover {
+  color: var(--color-text-primary);
+}
+
+.auth-form__remember input[type='checkbox'] {
+  accent-color: var(--color-text-primary);
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}
+
 .link-button.auth-form__forgot {
   display: block;
   margin: -6px 0 14px auto;
   font-size: var(--text-label);
   font-weight: var(--font-weight-label);
   color: var(--color-text-secondary);
+}
+
+.auth-form__options .link-button.auth-form__forgot {
+  margin: 0;
 }
 

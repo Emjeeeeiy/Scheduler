@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
+  browserLocalPersistence,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
   deleteUser,
@@ -50,12 +51,6 @@ if (firebaseReady) {
   const app = initializeApp(firebaseConfig)
   auth = getAuth(app)
 
-  /* Session-only: the sign-in lives in sessionStorage, not localStorage, so
-     closing the tab ends it — the next visit lands back on the sign-in
-     screen. An ordinary reload in the same tab is unaffected, since
-     sessionStorage survives that. */
-  setPersistence(auth, browserSessionPersistence).catch(() => {})
-
   /* persistentLocalCache keeps the whole working set in IndexedDB: the app
      opens instantly on reload, keeps working offline, and queues writes until
      the connection returns. multipleTabManager stops two open tabs from
@@ -67,6 +62,23 @@ if (firebaseReady) {
 
 export { auth, db }
 
+/**
+ * Configure Firebase Auth persistence based on user preference.
+ * When rememberMe is true, browserLocalPersistence keeps the user signed in
+ * across browser restarts until explicit logout.
+ * When rememberMe is false, browserSessionPersistence ends the session when
+ * the browser tab or window is closed.
+ */
+export async function setAuthPersistence(rememberMe = true) {
+  if (!auth) return
+  const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence
+  try {
+    await setPersistence(auth, persistence)
+  } catch (caught) {
+    console.warn('Could not set auth persistence:', caught)
+  }
+}
+
 const provider = new GoogleAuthProvider()
 
 /* The `users/{uid}` doc otherwise stays empty for a Google account until its
@@ -75,8 +87,9 @@ const provider = new GoogleAuthProvider()
    email (and name, for the same reason) here means every sign-in keeps it
    current, and merge:true means it never clobbers photoBase64 or anything
    else already on the doc. */
-export async function signInWithGoogle() {
+export async function signInWithGoogle({ rememberMe = true } = {}) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
+  await setAuthPersistence(rememberMe)
   const credential = await signInWithPopup(auth, provider)
   await setDoc(
     doc(db, 'users', credential.user.uid),
@@ -178,12 +191,14 @@ function assertUsableUsername(normalized) {
  * account is rolled back — an auth user with no matching profile is dead
  * weight, not a recoverable state worth keeping around.
  */
-export async function registerWithUsername({ username, email, password }) {
+export async function registerWithUsername({ username, email, password, rememberMe = true }) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
 
   const trimmedUsername = username.trim()
   const normalized = normalizeUsername(trimmedUsername)
   assertUsableUsername(normalized)
+
+  await setAuthPersistence(rememberMe)
 
   const credential = await createUserWithEmailAndPassword(auth, email, password)
 
@@ -218,8 +233,10 @@ export async function registerWithUsername({ username, email, password }) {
  * user" from "wrong password" hands an attacker a free username-enumeration
  * oracle for nothing in return.
  */
-export async function signInWithUsernameOrEmail({ identifier, password }) {
+export async function signInWithUsernameOrEmail({ identifier, password, rememberMe = true }) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
+
+  await setAuthPersistence(rememberMe)
 
   const trimmed = identifier.trim()
   let email = trimmed

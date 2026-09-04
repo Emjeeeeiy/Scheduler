@@ -58,10 +58,10 @@ export function AuthProvider({ children }) {
       // through the same single banner instead of two competing ones.
       reportError: (message) => setError(message),
 
-      async signIn() {
+      async signIn({ rememberMe = true } = {}) {
         setError(null)
         try {
-          await signInWithGoogle()
+          await signInWithGoogle({ rememberMe })
         } catch (caught) {
           /* Closing the popup is a normal thing to do, not an error worth
              shouting about; anything else is worth surfacing.
@@ -95,10 +95,10 @@ export function AuthProvider({ children }) {
         }
       },
 
-      async signInWithPassword({ identifier, password }) {
+      async signInWithPassword({ identifier, password, rememberMe = true }) {
         setError(null)
         try {
-          await signInWithUsernameOrEmail({ identifier, password })
+          await signInWithUsernameOrEmail({ identifier, password, rememberMe })
         } catch (caught) {
           console.error('Sign-in failed.', caught)
           setError(friendlyMessage(caught))
@@ -123,10 +123,10 @@ export function AuthProvider({ children }) {
         }
       },
 
-      async register({ username, email, password }) {
+      async register({ username, email, password, rememberMe = true }) {
         setError(null)
         try {
-          await registerWithUsername({ username, email, password })
+          await registerWithUsername({ username, email, password, rememberMe })
         } catch (caught) {
           console.error('Registration failed.', caught)
           setError(friendlyMessage(caught))

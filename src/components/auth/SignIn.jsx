@@ -129,7 +129,20 @@ export function SignIn() {
                 below only make sense on the two forms that do use one. */}
             {!isForgot && (
               <>
-                <button type="button" className="google-button" onClick={signIn}>
+                <button
+                  type="button"
+                  className="google-button"
+                  onClick={() => {
+                    let rememberMe = true
+                    try {
+                      const stored = localStorage.getItem('cadence:remember_me')
+                      if (stored !== null) rememberMe = stored === 'true'
+                    } catch {
+                      // ignore
+                    }
+                    signIn({ rememberMe })
+                  }}
+                >
                   <GoogleIcon /> Sign in with Google
                 </button>
 
