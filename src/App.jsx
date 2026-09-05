@@ -50,6 +50,7 @@ import {
   MonthIcon,
   PlusIcon,
   RepeatIcon,
+  SearchIcon,
   SettingsIcon,
   SpanIcon,
   TagIcon,
@@ -626,6 +627,12 @@ function AppShell() {
           <span className="brand__name">Cadence</span>
         </div>
 
+        {/* One entry point, not two stacked buttons — a task is the far more
+            common case, so it's what this opens directly. Reaching for an
+            event instead costs exactly one click once the form is open,
+            via the same Task/Event EditorKindToggle every create form
+            already carries for "I opened the wrong kind" — there was never
+            a need for a second door into the same room. */}
         <button
           type="button"
           className="primary-button sidebar__new-task"
@@ -635,21 +642,18 @@ function AppShell() {
           <span className="sidebar__new-label">New task</span>
         </button>
 
-        {/* Two stacked buttons rather than a split menu: there are exactly two
-            kinds, and hiding one behind a disclosure would cost a click to
-            save nothing. */}
-        <button
-          type="button"
-          className="ghost-button sidebar__new-event"
-          onClick={() => openCreateEvent({ startDate: focusKey, endDate: focusKey })}
-        >
-          <SpanIcon className="button-icon" />
-          <span className="sidebar__new-label">New event</span>
-        </button>
-
         <nav className="sidebar__nav" aria-label="Views">
           {NAV_ITEMS.map((item) => {
             const active = item.id === 'schedule' ? SCHEDULE_VIEWS.includes(view) : view === item.id
+            // The Schedule entry mirrors whichever of Day/Week/Month/Review
+            // is actually open rather than a fixed calendar glyph — the
+            // sidebar then says not just "you're in Schedule" but which
+            // page of it, the same distinction SCHEDULE_TABS already draws
+            // in the view switcher itself.
+            const Icon =
+              item.id === 'schedule' && active
+                ? (SCHEDULE_TABS.find((tab) => tab.id === view)?.Icon ?? item.Icon)
+                : item.Icon
             return (
               <button
                 key={item.id}
@@ -659,7 +663,7 @@ function AppShell() {
                 title={item.label}
                 onClick={() => setView(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
               >
-                <item.Icon className="sidebar__icon" />
+                <Icon className="sidebar__icon" />
                 <span className="sidebar__label">{item.label}</span>
               </button>
             )
@@ -672,10 +676,32 @@ function AppShell() {
             narrow screen. */}
         <div className="sidebar__tools">
           {/* title= carries the label for a mouse on a narrow window, where
-              these go icon-only and the text is left to screen readers. */}
+              these go icon-only and the text is left to screen readers.
+              Ctrl/Cmd+K already opens the palette on a real keyboard — this
+              exists for the phone/tablet case that has no such key, though
+              it's shown everywhere rather than hidden above the mobile
+              breakpoint: one visible entry point is worth more than a
+              shortcut nobody's discovered yet. */}
           <button
             type="button"
             className="sidebar__link"
+            title="Command palette (Ctrl/Cmd+K)"
+            onClick={() => setPaletteOpen(true)}
+          >
+            <SearchIcon className="sidebar__icon" />
+            <span className="sidebar__label">Search</span>
+          </button>
+          {/* --mobile-hide: these three (and New task, above) move into the
+              avatar's dropdown below the mobile breakpoint instead — see
+              AccountMenu.jsx and its own --mobile-only rows — since a
+              crowded, horizontally-scrolling top bar was worse than one
+              more tap through a menu already sitting right there. Search
+              stays put above: it wasn't part of that ask, and losing the
+              one visible entry point to the palette on a device with no
+              Ctrl/Cmd+K would be a real loss, not just tidying. */}
+          <button
+            type="button"
+            className="sidebar__link sidebar__link--mobile-hide"
             title="Tags"
             onClick={() => setTagsOpen(true)}
           >
@@ -684,7 +710,7 @@ function AppShell() {
           </button>
           <button
             type="button"
-            className="sidebar__link"
+            className="sidebar__link sidebar__link--mobile-hide"
             title="All items"
             onClick={() => setItemsOpen(true)}
           >
@@ -693,7 +719,7 @@ function AppShell() {
           </button>
           <button
             type="button"
-            className="sidebar__link"
+            className="sidebar__link sidebar__link--mobile-hide"
             title="Settings"
             onClick={() => setSettingsOpen(true)}
           >
@@ -732,7 +758,12 @@ function AppShell() {
           >
             <ThemeIcon />
           </button>
-          <AccountMenu />
+          <AccountMenu
+            onNewTask={() => openCreate({})}
+            onOpenTags={() => setTagsOpen(true)}
+            onOpenItems={() => setItemsOpen(true)}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         </div>
       </aside>
 

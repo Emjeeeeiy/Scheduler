@@ -184,6 +184,22 @@
   color: var(--color-text-primary);
 }
 
+.account__divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 2px;
+}
+
+/* New task/Tags/All items/Settings, and the divider above Account/Log out
+   separating them: the sidebar itself already shows all four directly above
+   the mobile breakpoint, so a second copy here would be redundant chrome —
+   see toggles-responsive.css for where these become visible again once the
+   sidebar collapses into a top bar with no room left for them. */
+.account__item--mobile-only,
+.account__divider--mobile-only {
+  display: none;
+}
+
 /* ======================================================== notifications == */
 
 .notif {

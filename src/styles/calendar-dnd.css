@@ -459,19 +459,6 @@
   gap: 6px;
 }
 
-/* Matches .sidebar__new-task's box exactly — without display:flex the icon
-   sits on the text baseline and pushes the button taller than the primary one
-   above it, which reads as a mistake rather than a hierarchy. */
-.sidebar__new-event {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 16px;
-  font-weight: var(--font-weight-label);
-}
-
 .modal__note {
   font-size: var(--text-meta);
   color: var(--color-text-muted);
@@ -489,15 +476,5 @@
      hero is a second map of the same days and costs a full screen of scroll. */
   .dashboard__top .mini-cal {
     display: none;
-  }
-
-  /* Sits beside the primary button in the top bar rather than stretching
-     across it — full width is a sidebar shape, not a toolbar one. This has to
-     live here, after the base rule above: the sidebar's other ≤900px
-     overrides sit earlier in the file, and at equal specificity the later
-     declaration wins regardless of the media query. */
-  .sidebar__new-event {
-    width: auto;
-    margin-bottom: 0;
   }
 }

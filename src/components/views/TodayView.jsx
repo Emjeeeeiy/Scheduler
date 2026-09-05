@@ -286,13 +286,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
                 Plan my day
               </button>
             )}
-            <button
-              type="button"
-              className="ghost-button ghost-button--sm"
-              onClick={() => onCreate?.({ date: focusKey })}
-            >
-              Add to this day
-            </button>
           </div>
         </div>
 

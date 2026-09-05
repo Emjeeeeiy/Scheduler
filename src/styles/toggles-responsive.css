@@ -99,6 +99,11 @@
     padding: 8px 10px;
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+    /* Explicit rather than left to inherit body's own --color-page (which it
+       already resolves to either way) — this is the one place "the topbar's
+       background" can be found and changed without having to first prove a
+       transparent background was already doing the same thing. */
+    background: var(--color-page);
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -123,8 +128,7 @@
     white-space: nowrap;
   }
 
-  .sidebar__new-task,
-  .sidebar__new-event {
+  .sidebar__new-task {
     width: auto;
     min-width: 44px;
     min-height: 44px;
@@ -198,6 +202,24 @@
     margin: 0;
     padding: 0;
     border-top: none;
+  }
+
+  /* New task, plus Tags/All items/Settings below — a crowded, horizontally
+     scrolling top bar was the actual problem being fixed, not any one of
+     these on its own. Moved into the avatar's dropdown instead of dropped
+     entirely; see AccountMenu.jsx's own --mobile-only rows for where they
+     land. */
+  .sidebar__new-task,
+  .sidebar__link--mobile-hide {
+    display: none;
+  }
+
+  .account__item--mobile-only {
+    display: flex;
+  }
+
+  .account__divider--mobile-only {
+    display: block;
   }
 
   .sidebar__tools .sidebar__link,
