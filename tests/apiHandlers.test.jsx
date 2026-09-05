@@ -27,6 +27,7 @@ import { generateJson, GeminiError } from '../api/_lib/gemini.js'
 import suggestTagHandler from '../api/suggest-tag.js'
 import parseTaskHandler from '../api/parse-task.js'
 import planDayHandler from '../api/plan-day.js'
+import enrichTaskHandler from '../api/enrich-task.js'
 
 function fakeReq({ method = 'POST', body = {}, headers = { authorization: 'Bearer token' } } = {}) {
   return { method, body, headers }
@@ -56,10 +57,13 @@ beforeEach(() => {
 })
 
 describe('every route — shared request handling', () => {
+  const enrichBody = { title: 'Deep clean kitchen', today: '2026-08-24' }
+
   it.each([
     ['suggest-tag', suggestTagHandler, { title: 'Standup', tags: [{ id: 'work', name: 'Work' }] }],
     ['parse-task', parseTaskHandler, { text: 'lunch tomorrow', today: '2026-08-24' }],
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
+    ['enrich-task', enrichTaskHandler, enrichBody],
   ])('%s rejects a non-POST method with 405, before touching auth or Gemini', async (_name, handler, body) => {
     const res = fakeRes()
     await handler(fakeReq({ method: 'GET', body }), res)
@@ -72,6 +76,7 @@ describe('every route — shared request handling', () => {
     ['suggest-tag', suggestTagHandler, { title: 'Standup', tags: [{ id: 'work', name: 'Work' }] }],
     ['parse-task', parseTaskHandler, { text: 'lunch tomorrow', today: '2026-08-24' }],
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
+    ['enrich-task', enrichTaskHandler, enrichBody],
   ])('%s answers 401 and never calls Gemini when auth fails', async (_name, handler, body) => {
     verifyRequest.mockRejectedValue(new AuthError(401, 'Invalid or expired token.'))
     const res = fakeRes()
@@ -84,6 +89,7 @@ describe('every route — shared request handling', () => {
     ['suggest-tag', suggestTagHandler],
     ['parse-task', parseTaskHandler],
     ['plan-day', planDayHandler],
+    ['enrich-task', enrichTaskHandler],
   ])('%s propagates a GeminiError\'s real status (e.g. 429) rather than masking it as 500', async (_name, handler) => {
     generateJson.mockRejectedValue(new GeminiError(429, 'Rate limited.'))
     const body =
@@ -91,7 +97,9 @@ describe('every route — shared request handling', () => {
         ? { title: 'Standup', tags: [{ id: 'work', name: 'Work' }] }
         : handler === parseTaskHandler
           ? { text: 'lunch tomorrow', today: '2026-08-24' }
-          : { tasks: [{ id: 't1', title: 'x', durationMin: 30, priority: 'normal' }], slots: [{ startMin: 0, endMin: 60 }] }
+          : handler === planDayHandler
+            ? { tasks: [{ id: 't1', title: 'x', durationMin: 30, priority: 'normal' }], slots: [{ startMin: 0, endMin: 60 }] }
+            : enrichBody
     const res = fakeRes()
     await handler(fakeReq({ body }), res)
     expect(res.statusCode).toBe(429)
@@ -203,5 +211,91 @@ describe('plan-day', () => {
     const res = fakeRes()
     await planDayHandler(fakeReq({ body: { tasks, slots } }), res)
     expect(res.body).toEqual({ placements })
+  })
+})
+
+describe('enrich-task', () => {
+  const tags = [{ id: 'home', name: 'Home' }]
+  const slots = [{ startMin: 9 * 60, endMin: 11 * 60 }]
+  const base = { title: 'Deep clean kitchen', today: '2026-08-24', tags, slots }
+
+  it('400s when title is missing', async () => {
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: { today: '2026-08-24' } }), res)
+    expect(res.statusCode).toBe(400)
+  })
+
+  it("400s when today isn't a YYYY-MM-DD key", async () => {
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: { title: 'Deep clean kitchen', today: 'not-a-date' } }), res)
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('never hands back a tagId that was not in the offered set — even if Gemini invents one', async () => {
+    generateJson.mockResolvedValue({
+      tagId: 'made-up-id',
+      durationMin: null,
+      startMin: null,
+      subtasks: [],
+      notes: null,
+    })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.tagId).toBe(null)
+  })
+
+  it('sanitizes an out-of-range durationMin to null', async () => {
+    generateJson.mockResolvedValue({ tagId: null, durationMin: 5000, startMin: null, subtasks: [], notes: null })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.durationMin).toBe(null)
+  })
+
+  it('drops startMin when it would run past the end of every real slot given', async () => {
+    // The only slot given is 9-11 (120 min); this starts at 10:30 and needs
+    // 60, ending at 11:30 — never trust the model's arithmetic about time.
+    generateJson.mockResolvedValue({
+      tagId: null,
+      durationMin: 60,
+      startMin: 10 * 60 + 30,
+      subtasks: [],
+      notes: null,
+    })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.startMin).toBe(null)
+  })
+
+  it('keeps a startMin that fits entirely inside a real slot alongside its duration', async () => {
+    generateJson.mockResolvedValue({ tagId: null, durationMin: 60, startMin: 9 * 60, subtasks: [], notes: null })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.startMin).toBe(9 * 60)
+    expect(res.body.durationMin).toBe(60)
+  })
+
+  it('drops blank checklist items and caps the list at 8', async () => {
+    const subtasks = ['  ', 'Real step', ...Array.from({ length: 10 }, (_, i) => `Step ${i}`)]
+    generateJson.mockResolvedValue({ tagId: null, durationMin: null, startMin: null, subtasks, notes: null })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.subtasks.length).toBe(8)
+    expect(res.body.subtasks).not.toContain('  ')
+    expect(res.body.subtasks[0]).toBe('Real step')
+  })
+
+  it('turns a blank notes string into null rather than passing whitespace through', async () => {
+    generateJson.mockResolvedValue({ tagId: null, durationMin: null, startMin: null, subtasks: [], notes: '   ' })
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body.notes).toBe(null)
+  })
+
+  it('forwards a genuinely valid, fully-populated answer', async () => {
+    const shape = { tagId: 'home', durationMin: 60, startMin: 9 * 60, subtasks: ['Step one'], notes: 'A tip.' }
+    generateJson.mockResolvedValue(shape)
+    const res = fakeRes()
+    await enrichTaskHandler(fakeReq({ body: base }), res)
+    expect(res.body).toEqual(shape)
   })
 })

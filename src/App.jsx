@@ -179,6 +179,11 @@ function AppShell() {
   const [itemsOpen, setItemsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // Bumped (never read for its value) to tell TodayView "run Plan my day
+  // now" from the command palette, which has no other way to reach into a
+  // view it isn't rendering yet — see the palette's 'plan-my-day' action and
+  // TodayView's own effect watching this prop.
+  const [planSignal, setPlanSignal] = useState(0)
   // Any one of these being open is "a modal is up" for the purposes of the
   // global keyboard shortcuts below — stacking a second one on top (Cmd+K
   // while an editor is open, `n` while the palette has focus) is exactly
@@ -388,6 +393,15 @@ function AppShell() {
       { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => setView('review') },
       { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
       {
+        id: 'plan-my-day',
+        label: 'Plan my day',
+        Icon: DayIcon,
+        onRun: () => {
+          setView('today')
+          setPlanSignal((n) => n + 1)
+        },
+      },
+      {
         id: 'new-task',
         label: 'New task',
         hint: shortcuts.newTask,
@@ -454,6 +468,27 @@ function AppShell() {
       const text = query.trim()
       if (text.length < 3) return []
 
+      // A command's label already contains everything typed so far — typing
+      // "plan m" toward "Plan my day", not just the whole phrase verbatim,
+      // is still unambiguously reaching for that command, not asking to
+      // create a task titled "plan m". Without this check, the create-form
+      // offer below (built first, so it leads the list) would still
+      // out-rank the real command on Enter for as long as someone is midway
+      // through typing it: this is the exact bug that surfaced Phase 8 in
+      // the first place, typing toward "plan my day" and landing on a
+      // create form instead of running the planner.
+      //
+      // Substring containment only — not CommandPalette's own looser
+      // subsequence fallback (matches() in CommandPalette.jsx), which would
+      // suppress far too much ordinary typing: "gy" is a subsequence of
+      // "Go to Day" purely by coincidence, but "gy" is never a substring of
+      // it. A real command's label containing exactly what was typed is a
+      // rare, strong signal; happening to contain the same letters in order
+      // is common and means nothing. Either way this is self-correcting:
+      // once the real title grows past whatever a label contains, this
+      // stops matching and quick-add resumes normally.
+      if (paletteActions.some((action) => action.label.toLowerCase().includes(text.toLowerCase()))) return []
+
       const parsed = parseQuickAdd(text, { today: todayKey() })
       const foundSomething =
         parsed.title && (parsed.date !== null || parsed.startMin !== null || parsed.durationMin !== null)
@@ -484,13 +519,30 @@ function AppShell() {
         ]
       }
 
-      // A single word has no date or time for a model to find either — the
-      // regex already handles that case as a plain title, so there is
-      // nothing here worth a network call.
-      if (!text.includes(' ')) return []
-
-      return [
+      // Instant, no network: opens the create form with exactly this text as
+      // the title, which is enough on its own — TaskEditor's own AI
+      // enrichment (time, tag, checklist, notes) takes over automatically
+      // the moment the form is open, the same as if this title had been
+      // typed there directly. Offered for a single word too ("gym",
+      // "dentist") — a short, plain title with no obvious date/time is
+      // exactly enrichment's target case, not something that needs a
+      // sentence to work.
+      const offers = [
         {
+          id: 'new-task-ai',
+          label: `New task: "${text}"`,
+          hint: 'AI fills the rest',
+          Icon: PlusIcon,
+          onRun: () => openCreate({ title: text }),
+        },
+      ]
+
+      // "Parse with AI" pulls an explicit date/time out of a sentence —
+      // there is nothing of the kind for it to find in one word, so it
+      // stays gated on a space the way it always has, unlike the offer
+      // above.
+      if (text.includes(' ')) {
+        offers.push({
           id: 'quick-add-ai',
           label: `Parse "${text}" with AI`,
           hint: 'AI',
@@ -500,9 +552,13 @@ function AppShell() {
             const result = await parseTaskAi({ text, today: todayKey() })
             dismiss(waitingToastId)
 
-            if (!result || !result.title) {
+            if (!result || !result.title.trim()) {
               // Never a dead end: whatever happened, the form still opens
-              // with exactly what was typed as the title.
+              // with exactly what was typed as the title. Checking the
+              // trimmed title (not just truthiness) matters here — a phrase
+              // that isn't really a task title at all (e.g. "plan my day",
+              // now caught earlier anyway) can come back with a real but
+              // blank string rather than a missing one.
               openCreate({ title: text })
               if (!result) pushError('Could not reach AI — opened with your text as the title.')
               return
@@ -514,10 +570,12 @@ function AppShell() {
               durationMin: result.durationMin ?? undefined,
             })
           },
-        },
-      ]
+        })
+      }
+
+      return offers
     },
-    [openCreate, push, pushError, dismiss],
+    [openCreate, push, pushError, dismiss, paletteActions],
   )
 
   /* Global search, folded into the palette rather than given a surface of
@@ -752,6 +810,7 @@ function AppShell() {
               {view === 'today' && (
                 <TodayView
                   focusKey={focusKey}
+                  planSignal={planSignal}
                   onEdit={openEdit}
                   onCreate={openCreate}
                   onEditEvent={openEditEvent}

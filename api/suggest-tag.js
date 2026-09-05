@@ -55,6 +55,11 @@ export default async function handler(req, res) {
       systemInstruction: SYSTEM_INSTRUCTION,
       prompt,
       schema: SCHEMA,
+      // Was relying on generateJson's 8000ms default exactly equalling
+      // suggestTagAi's own 8000ms client budget — a dead heat, not a real
+      // margin. Given a fair margin like the other three routes now have;
+      // see enrich-task.js for the full reasoning.
+      timeoutMs: 7000,
     })
 
     // The one rule the client CANNOT be trusted to skip re-checking on its

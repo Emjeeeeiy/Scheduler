@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
+import { useNow } from '../../lib/useNow.js'
 import { minToLabel, minToTimeValue, relativeDayLabel, timeValueToMin, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { TASK_PRIORITIES } from '../../lib/normalize.js'
-import { suggestSlots } from '../../lib/autoSchedule.js'
+import { planningSlots, suggestSlots } from '../../lib/autoSchedule.js'
 import { buildTagModel, suggestTag } from '../../lib/suggestTag.js'
-import { suggestTagAi } from '../../lib/aiClient.js'
+import { enrichTaskAi } from '../../lib/aiClient.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon, PinIcon, RepeatIcon, SearchIcon } from '../icons.jsx'
+import { AiSuggestionPanel } from './AiSuggestionPanel.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 import { BlockedByPicker } from './BlockedByPicker.jsx'
 import { EditorKindToggle } from './EditorKindToggle.jsx'
@@ -34,6 +36,7 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
     useSchedule()
   const { settings } = useSettings()
   const { pushError, pushSuccess, pushUndo } = useToast()
+  const now = useNow()
   const isEdit = editor.mode === 'edit'
   const source = isEdit ? editor.task : editor.draft
 
@@ -73,13 +76,12 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
     return guess ? (tags.find((t) => t.id === guess.tagId) ?? null) : null
   }, [tagId, title, tagModel, tags])
 
-  /* The AI fallback: only asked when the heuristic above came up with
-     nothing — a fresh account, or a title with no word history yet — which
-     is exactly the case suggestTag.js structurally cannot answer no matter
-     how it's tuned. Debounced so a title being actively typed doesn't fire
-     a request per keystroke, and cached per normalized title for the
-     editor's own lifetime so backspacing over a character and retyping it
-     doesn't spend a second call on the same question.
+  /* The AI enrichment: one call that can fill in time, tag, checklist and
+     notes together, asked only once there's a title worth reasoning about
+     and at least one of those still empty. Debounced so active typing
+     doesn't fire a request per keystroke, and cached per normalized title
+     for the editor's own lifetime so backspacing over a character and
+     retyping it doesn't spend a second call on the same question.
 
      The cache is real React state, not a ref holding a Map — a ref is not
      safe to read during render (React has no way to know it changed and
@@ -87,11 +89,33 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
      other derived value does. aiClient.js already guarantees the fetch
      itself resolves to null rather than throwing on any failure — offline,
      signed out, a timeout, Gemini's own unpublished free-tier rate limit —
-     so there is nothing to catch here, only a result to store. */
-  const [aiTagCache, setAiTagCache] = useState(() => new Map())
-  const shouldAskAi = !tagId && !suggestedTag && title.trim().length >= 3
+     so there is nothing to catch here, only a result to store.
+
+     Duration gets no empty check of its own: it always holds a value
+     (defaults to DEFAULT_DURATION_MIN) and only becomes something someone
+     has actually chosen once a date and time exist for it to modify — the
+     same rule the Duration field's own `disabled={!date || !time}` already
+     applies, so it rides along with `time` below. A single occurrence's own
+     day is fixed by its series, not freely reschedulable here — matching
+     "Find a slot" being hidden for one below — so time is treated as
+     already spoken for. */
+  const filled = {
+    time: isOccurrence || Boolean(time),
+    tagId: Boolean(tagId),
+    subtasks: subtasks.length > 0,
+    notes: Boolean(notes.trim()),
+  }
+  const [enrichCache, setEnrichCache] = useState(() => new Map())
+  // Which normalized title currently has a request in flight, so the UI can
+  // say something rather than sit silently for however long that takes —
+  // "it takes so long the user will not wait" was the actual reported
+  // problem, and a wait with no feedback reads as broken well before a
+  // wait with a visible "thinking" state does.
+  const [pendingTitle, setPendingTitle] = useState(null)
+  const shouldEnrich = title.trim().length >= 3 && Object.values(filled).some((v) => !v)
   const normalizedTitle = title.trim().toLowerCase()
-  const cachedResult = shouldAskAi ? aiTagCache.get(normalizedTitle) : undefined
+  const cachedEnrichment = shouldEnrich ? enrichCache.get(normalizedTitle) : undefined
+  const isEnriching = shouldEnrich && pendingTitle === normalizedTitle
   // `tags` is a fresh array reference on every ScheduleContext recompute,
   // including ones with nothing to do with tags (any Firestore snapshot
   // update). Depending on it directly restarts this debounce's wait every
@@ -103,37 +127,96 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const tagsKey = tags.map((t) => `${t.id}:${t.name}`).join('|')
 
   useEffect(() => {
-    if (!shouldAskAi || aiTagCache.has(normalizedTitle)) return undefined
+    if (!shouldEnrich || enrichCache.has(normalizedTitle)) return undefined
 
     let cancelled = false
     const timer = setTimeout(async () => {
-      const result = await suggestTagAi({
+      setPendingTitle(normalizedTitle)
+      const forDate = date || todayKey()
+      const fromMin = forDate === now.key ? now.min : 0
+      const excludeId = isEdit ? editor.task.id : null
+      const dayItems = (key) => [
+        ...tasksOn(key).filter((t) => t.id !== excludeId),
+        ...eventsOn(key).filter((e) => Number.isFinite(e.startMin) && e.startDate === e.endDate),
+      ]
+      const slots = planningSlots({ dayItems, key: forDate, workingHours: settings.workingHours, fromMin })
+      // Titles, tags and durations only — see Phase 8's plan for why notes
+      // and checklists never leave the device even for this account's own
+      // history: the free tier's training/human-review use of prompt
+      // content applies to whatever this route sends, and there is no
+      // reason those two fields need to be part of it.
+      const history = [...tasks]
+        .filter((t) => t.id !== excludeId)
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 15)
+        .map((t) => ({ title: t.title, tagId: t.tagId, durationMin: t.durationMin, startMin: t.startMin }))
+
+      const result = await enrichTaskAi({
         title: title.trim(),
+        today: todayKey(),
         tags: tags.map((t) => ({ id: t.id, name: t.name })),
+        slots: slots.map((s) => ({ startMin: s.startMin, endMin: s.endMin })),
+        history,
+        filled,
       })
       if (!cancelled) {
-        setAiTagCache((prev) => new Map(prev).set(normalizedTitle, result))
+        setEnrichCache((prev) => new Map(prev).set(normalizedTitle, result ? { ...result, forDate } : null))
+        setPendingTitle((prev) => (prev === normalizedTitle ? null : prev))
       }
-    }, 600)
+    }, 500)
     return () => {
       cancelled = true
       clearTimeout(timer)
+      setPendingTitle((prev) => (prev === normalizedTitle ? null : prev))
     }
-    // aiTagCache is deliberately excluded: including it would re-run this
-    // effect on every cache write, which is exactly the request this debounce
-    // exists to prevent. shouldAskAi/normalizedTitle already capture every
-    // input the cache-hit check actually depends on. tags is read fresh
-    // inside the timer when it fires; tagsKey stands in for it in the
-    // dependency array (see the comment above tagsKey).
+    // enrichCache is deliberately excluded (see the tagsKey comment above for
+    // the same reasoning applied to `tags`). tasksOn/eventsOn/tasks/settings/
+    // now/filled are all read fresh inside the timer rather than tracked:
+    // none of them are stable references, so depending on them directly
+    // would reintroduce the exact overlapping-request bug tagsKey exists to
+    // avoid, and a day's items or "now" shifting slightly mid-debounce isn't
+    // worth restarting the wait for.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldAskAi, normalizedTitle, title, tagsKey])
+  }, [shouldEnrich, normalizedTitle, title, tagsKey, date])
 
-  const aiSuggestedTagId = cachedResult ?? null
-  const aiSuggestedTag = aiSuggestedTagId ? (tags.find((t) => t.id === aiSuggestedTagId) ?? null) : null
-
-  // The heuristic answers instantly and wins when it has an opinion; the AI
-  // suggestion only ever fills the gap where it has none.
+  // Tag keeps its own existing surface — the "Use X?" button next to the Tag
+  // field below, shared with the offline heuristic that answers first (same
+  // merge as before: the heuristic wins when it has an opinion, AI only
+  // fills the gap where it has none). Deliberately not duplicated into
+  // AiSuggestionPanel, which covers the three fields that had no prior
+  // surface at all.
+  const aiSuggestedTag =
+    !tagId && cachedEnrichment?.tagId ? (tags.find((t) => t.id === cachedEnrichment.tagId) ?? null) : null
   const displayedTagSuggestion = suggestedTag ?? aiSuggestedTag
+
+  const aiTimeSuggestion =
+    !filled.time && cachedEnrichment?.startMin != null
+      ? { date: cachedEnrichment.forDate, startMin: cachedEnrichment.startMin, durationMin: cachedEnrichment.durationMin }
+      : null
+  const aiChecklistSuggestion =
+    !filled.subtasks && cachedEnrichment?.subtasks?.length > 0 ? cachedEnrichment.subtasks : null
+  const aiNotesSuggestion = !filled.notes && cachedEnrichment?.notes ? cachedEnrichment.notes : null
+  const hasAiSuggestions = Boolean(aiTimeSuggestion || aiChecklistSuggestion || aiNotesSuggestion)
+
+  // Dismissing hides the panel for this title only — a fresh title (or
+  // reopening the editor) gets to ask again.
+  const [dismissedTitle, setDismissedTitle] = useState(null)
+  const showAiPanel = hasAiSuggestions && dismissedTitle !== normalizedTitle
+
+  function applyAiSuggestions() {
+    if (aiTimeSuggestion) {
+      if (!date) setDate(aiTimeSuggestion.date)
+      setTime(minToTimeValue(aiTimeSuggestion.startMin))
+      setDurationMin(aiTimeSuggestion.durationMin)
+    }
+    if (aiChecklistSuggestion) {
+      setSubtasks(
+        aiChecklistSuggestion.map((item, i) => ({ id: `sub-ai-${Date.now()}-${i}`, title: item, done: false })),
+      )
+    }
+    if (aiNotesSuggestion) setNotes(aiNotesSuggestion)
+    setDismissedTitle(normalizedTitle)
+  }
 
   // null = not searched yet, [] = searched and found nothing, otherwise the
   // suggestions themselves — three distinct states the UI reads apart.
@@ -311,6 +394,18 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
               maxLength={200}
             />
           </label>
+
+          {isEnriching && !showAiPanel && <p className="ai-suggest__thinking">Checking for AI suggestions…</p>}
+
+          {showAiPanel && (
+            <AiSuggestionPanel
+              time={aiTimeSuggestion}
+              checklist={aiChecklistSuggestion}
+              notes={aiNotesSuggestion}
+              onApply={applyAiSuggestions}
+              onDismiss={() => setDismissedTitle(normalizedTitle)}
+            />
+          )}
 
           <div className="field-row">
             <label className="field">

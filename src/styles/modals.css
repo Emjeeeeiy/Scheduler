@@ -805,6 +805,77 @@
   color: var(--color-text-primary);
 }
 
+/* Shown only while a request is genuinely in flight (see isEnriching in
+   TaskEditor.jsx) — a silent multi-second wait reads as broken well before
+   a wait with visible feedback does, even when the actual latency is
+   identical either way. */
+.ai-suggest__thinking {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  margin: -4px 0 12px;
+}
+
+/* The AI enrichment review panel — time/checklist/notes suggestions render
+   here as one box to accept or dismiss together, never applied silently.
+   A sibling of .series-note above: same quiet-surface, rounded-box
+   language, not a new visual idiom. */
+.ai-suggest {
+  display: grid;
+  gap: 8px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.ai-suggest__label {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-secondary);
+}
+
+.ai-suggest__rows {
+  display: grid;
+  gap: 4px;
+  /* A grid item's default min-width is auto (its content's own natural
+     width), not 0 — without this, a long Notes line refuses to shrink to
+     the panel's actual width at all, so .ai-suggest__value's ellipsis never
+     gets a chance to engage and the text overflows/overlaps instead. */
+  min-width: 0;
+}
+
+.ai-suggest__row {
+  display: flex;
+  gap: 8px;
+  font-size: var(--text-item);
+  /* Same reason as .ai-suggest__rows above, one level down: this flex
+     container is itself a grid item, so it needs its own min-width: 0
+     before its child's min-width: 0 can do anything. */
+  min-width: 0;
+}
+
+.ai-suggest__key {
+  flex: none;
+  width: 70px;
+  color: var(--color-text-muted);
+}
+
+.ai-suggest__value {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-suggest__value--clamp {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-suggest__actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* ========================================================= item detail == */
 
 .detail-title {

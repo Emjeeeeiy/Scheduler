@@ -75,6 +75,9 @@ export default async function handler(req, res) {
       systemInstruction: SYSTEM_INSTRUCTION,
       prompt,
       schema: SCHEMA,
+      // Matches (with a little margin) planDayAi's own 15000ms client
+      // budget — see enrich-task.js's identical fix for the full reasoning.
+      timeoutMs: 14000,
     })
 
     const placements = Array.isArray(result?.placements) ? result.placements : []

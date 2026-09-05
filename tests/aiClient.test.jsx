@@ -10,7 +10,7 @@
  * renders a component; `fetch` and firebase.js's `auth` are mocked instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
+import { enrichTaskAi, parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
 
 // A mutable binding inside the mock factory, the same pattern used
 // elsewhere in this suite (see itemDetail.test.jsx) for a module whose
@@ -131,5 +131,29 @@ describe('aiClient — the shared fall-back-to-null contract', () => {
     stubFetch(async () => new Response(JSON.stringify(shape), { status: 200 }))
     const result = await parseTaskAi({ text: 'lunch tomorrow at 1pm', today: '2026-08-24' })
     expect(result).toEqual(shape)
+  })
+
+  it('enrichTaskAi posts the whole payload it was given and returns the shape through untouched', async () => {
+    const shape = { tagId: 'home', durationMin: 45, startMin: 540, subtasks: ['Step one'], notes: 'A tip.' }
+    const fetch = stubFetch(async () => new Response(JSON.stringify(shape), { status: 200 }))
+    const payload = {
+      title: 'Deep clean kitchen',
+      today: '2026-08-24',
+      tags: [{ id: 'home', name: 'Home' }],
+      slots: [{ startMin: 480, endMin: 600 }],
+      history: [],
+      filled: { time: false, tagId: false, subtasks: false, notes: false },
+    }
+
+    const result = await enrichTaskAi(payload)
+
+    expect(result).toEqual(shape)
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(payload)
+  })
+
+  it('enrichTaskAi falls back to null on a 429, same as every other AI call', async () => {
+    stubFetch(async () => new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 }))
+    const result = await enrichTaskAi({ title: 'Deep clean kitchen', today: '2026-08-24' })
+    expect(result).toBe(null)
   })
 })

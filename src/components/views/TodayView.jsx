@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -47,7 +47,7 @@ function taskHappeningNow(tasks, nowMin) {
   )
 }
 
-export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEvent }) {
+export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent, onCreateEvent }) {
   const { tasksOn, eventsOn, getTag, inbox, scheduleTask } = useSchedule()
   const { settings } = useSettings()
   const { pushError, pushUndo } = useToast()
@@ -178,6 +178,25 @@ export function TodayView({ focusKey, onEdit, onCreate, onEditEvent, onCreateEve
     setPlanSource(null)
     planRequestIdRef.current += 1
   }
+
+  /* The command palette's "Plan my day" action has no view of Today's own
+     state — it can only reach this from the outside by bumping a counter
+     prop (see App.jsx). Compared against the value planSignal already held
+     on mount rather than a fixed initial constant like 0, so a page that
+     happens to load with a non-zero value some day still requires a real
+     bump before this fires — never on mount, only on an actual palette run.
+     Skips entirely if a plan is already showing rather than reusing
+     proposePlan's own open/close toggle: chaining closePlan() then
+     proposePlan() in one synchronous call would still read this render's
+     stale, pre-close `plan` value inside proposePlan's own check, closing a
+     fresh proposal instead of opening one. */
+  const mountedPlanSignal = useRef(planSignal)
+  useEffect(() => {
+    if (planSignal === mountedPlanSignal.current) return
+    mountedPlanSignal.current = planSignal
+    if (plan === null) proposePlan()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planSignal])
 
   async function acceptPlan() {
     const placements = plan

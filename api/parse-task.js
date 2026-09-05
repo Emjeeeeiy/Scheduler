@@ -82,6 +82,12 @@ export default async function handler(req, res) {
       systemInstruction: SYSTEM_INSTRUCTION,
       prompt,
       schema: SCHEMA,
+      // Matches (with a little margin) parseTaskAi's own 12000ms client
+      // budget — generateJson's 8000ms default was never actually enough
+      // room for that, a latent mismatch that happened not to matter until
+      // a slow response actually occurred. See enrich-task.js's identical
+      // fix for the full reasoning.
+      timeoutMs: 11000,
     })
 
     return res.status(200).json(sanitize(result))

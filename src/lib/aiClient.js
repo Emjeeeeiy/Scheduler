@@ -64,3 +64,14 @@ export async function planDayAi({ tasks, slots }) {
   const result = await callApi('/api/plan-day', { tasks, slots }, { timeoutMs: 15000 })
   return result?.placements ?? null
 }
+
+/** @return `{ tagId, durationMin, startMin, subtasks, notes }`, every field
+    independently nullable (a partial answer is still useful), already
+    validated server-side against the real tags/slots this request sent —
+    or null if the call didn't complete. Runs on GEMINI_MODEL_FAST now (see
+    api/enrich-task.js) after live testing showed the reasoning-tier model
+    taking long enough that a debounced while-you-type suggestion felt
+    broken rather than merely slow — a shorter timeout to match. */
+export async function enrichTaskAi(payload) {
+  return callApi('/api/enrich-task', payload, { timeoutMs: 12000 })
+}
