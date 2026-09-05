@@ -33,11 +33,11 @@ export function ToastProvider({ children }) {
     }
   }, [])
 
-  /** The general form: a message, a `tone` ('error' | 'success', which
-      ToastStack reads to pick styling and icon), and optionally one action
-      button (`actionLabel` + `onAction`) — undo-delete's "Undo", or any
-      future toast that offers a way back rather than just reporting what
-      happened. */
+  /** The general form: a message, a `tone` ('error' | 'warning' | 'success',
+      which ToastStack reads to pick styling — red, amber, or green — and an
+      icon), and optionally one action button (`actionLabel` + `onAction`) —
+      undo-delete's "Undo", or any future toast that offers a way back
+      rather than just reporting what happened. */
   const push = useCallback(
     (message, { tone = 'error', actionLabel, onAction, durationMs = AUTO_DISMISS_MS } = {}) => {
       const id = ++idRef.current
@@ -55,9 +55,13 @@ export function ToastProvider({ children }) {
   // no action attached.
   const pushError = useCallback((message) => push(message, { tone: 'error' }), [push])
 
-  // A positive confirmation ("Saved as a template") — same neutral surface
-  // as an undo toast, just without an action button to press.
+  // A positive confirmation ("Saved as a template") — green, same tone
+  // pushUndo below uses, just without an action button to press.
   const pushSuccess = useCallback((message) => push(message, { tone: 'success' }), [push])
+
+  // Not a full failure — a partial batch that mostly went through, a heads
+  // up worth a glance but not the same alarm level as pushError's red.
+  const pushWarning = useCallback((message) => push(message, { tone: 'warning' }), [push])
 
   const pushUndo = useCallback(
     (message, onAction) =>
@@ -66,8 +70,8 @@ export function ToastProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ toasts, push, pushError, pushSuccess, pushUndo, dismiss }),
-    [toasts, push, pushError, pushSuccess, pushUndo, dismiss],
+    () => ({ toasts, push, pushError, pushWarning, pushSuccess, pushUndo, dismiss }),
+    [toasts, push, pushError, pushWarning, pushSuccess, pushUndo, dismiss],
   )
 
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>

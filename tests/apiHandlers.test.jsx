@@ -310,13 +310,27 @@ describe('enrich-task', () => {
 describe('ai-schedule', () => {
   const tags = [{ id: 'health', name: 'Health' }]
   const slots = [{ date: '2026-08-25', startMin: 9 * 60, endMin: 11 * 60 }]
-  const base = { messages: [{ role: 'user', content: 'gym tuesday 9am' }], today: '2026-08-24', tags, slots }
+  const existingTasks = [
+    { id: 'existing-1', title: 'Gym', date: '2026-08-25', startMin: 9 * 60, durationMin: 60, tagId: 'health' },
+  ]
+  const base = {
+    messages: [{ role: 'user', content: 'gym tuesday 9am' }],
+    today: '2026-08-24',
+    tags,
+    slots,
+    existingTasks,
+  }
 
-  // A bare, fully-valid task — the shared starting point every sanitizer
-  // test below overrides just the one field it's checking, so a failure
-  // clearly points at the field that changed rather than requiring the
-  // reader to diff the whole object against the "everything valid" test.
-  const validTask = {
+  // A bare, fully-valid create item, shaped exactly like a real Gemini
+  // response (every schema field present, taskId genuinely null) — the
+  // shared starting point every sanitizer test below overrides just the one
+  // field it's checking. validCreateOutput is the same item with taskId
+  // dropped, since sanitizeCreate's actual output never carries that key at
+  // all (a create doesn't need one) — used wherever a test checks the
+  // sanitized OUTPUT rather than supplying the raw INPUT.
+  const validCreate = {
+    action: 'create',
+    taskId: null,
     title: 'Gym',
     date: '2026-08-25',
     startMin: 9 * 60,
@@ -325,6 +339,7 @@ describe('ai-schedule', () => {
     notes: 'Bring water.',
     priority: 'normal',
   }
+  const { taskId: _validCreateTaskId, ...validCreateOutput } = validCreate
 
   it('400s when messages is missing or has no usable content', async () => {
     const res = fakeRes()
@@ -342,8 +357,8 @@ describe('ai-schedule', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('an unrecognised status is treated as "ask" rather than risking a create', async () => {
-    generateJson.mockResolvedValue({ status: 'do-something', question: null, items: [validTask] })
+  it('an unrecognised status is treated as "ask" rather than risking an action', async () => {
+    generateJson.mockResolvedValue({ status: 'do-something', question: null, items: [validCreate] })
     const res = fakeRes()
     await aiScheduleHandler(fakeReq({ body: base }), res)
     expect(res.body.status).toBe('ask')
@@ -358,93 +373,190 @@ describe('ai-schedule', () => {
     expect(res.body.question.trim().length).toBeGreaterThan(0)
   })
 
-  it('drops an item with no title, keeping any others in the same batch', async () => {
-    const titleless = { ...validTask, title: '  ' }
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [titleless, validTask] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.status).toBe('create')
-    expect(res.body.items).toHaveLength(1)
-    expect(res.body.items[0].title).toBe('Gym')
-  })
-
-  it('never hands back a tagId that was not in the offered set', async () => {
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, tagId: 'made-up' }] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items[0].tagId).toBe(null)
-  })
-
-  it('sanitizes an out-of-range durationMin to null', async () => {
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, durationMin: 5000 }] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items[0].durationMin).toBe(null)
-  })
-
-  it('drops startMin when it would run past the end of every real slot given for that date', async () => {
-    // The only slot given for 2026-08-25 is 9-11 (120 min); this starts at
-    // 10:30 and needs 60, ending at 11:30 — never trust the model's
-    // arithmetic about time.
-    generateJson.mockResolvedValue({
-      status: 'create',
-      question: null,
-      items: [{ ...validTask, startMin: 10 * 60 + 30 }],
+  describe('create', () => {
+    it('drops an item with no title, keeping any others in the same batch', async () => {
+      const titleless = { ...validCreate, title: '  ' }
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [titleless, validCreate] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('act')
+      expect(res.body.items).toHaveLength(1)
+      expect(res.body.items[0].title).toBe('Gym')
     })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items[0].startMin).toBe(null)
-  })
 
-  it("drops startMin when it fits a real slot on a DIFFERENT date than the item's own", async () => {
-    generateJson.mockResolvedValue({
-      status: 'create',
-      question: null,
-      items: [{ ...validTask, date: '2026-08-26', startMin: 9 * 60 }],
+    it('never hands back a tagId that was not in the offered set', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, tagId: 'made-up' }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0].tagId).toBe(null)
     })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items[0].startMin).toBe(null)
-  })
 
-  it('an unrecognised priority falls back to "normal"', async () => {
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, priority: 'urgent' }] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items[0].priority).toBe('normal')
-  })
-
-  it('caps items at 10 per turn', async () => {
-    const items = Array.from({ length: 15 }, (_, i) => ({ ...validTask, title: `Task ${i}`, date: null }))
-    generateJson.mockResolvedValue({ status: 'create', question: null, items })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items).toHaveLength(10)
-  })
-
-  it('falls back to asking when every candidate item fails validation (a missing title, the only way one can), rather than silently creating nothing', async () => {
-    generateJson.mockResolvedValue({
-      status: 'create',
-      question: null,
-      items: [{ ...validTask, title: '   ' }],
+    it('sanitizes an out-of-range durationMin to null', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, durationMin: 5000 }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0].durationMin).toBe(null)
     })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.status).toBe('ask')
+
+    it('drops startMin when it would run past the end of every real slot given for that date', async () => {
+      // The only slot given for 2026-08-25 is 9-11 (120 min); this starts at
+      // 10:30 and needs 60, ending at 11:30 — never trust the model's
+      // arithmetic about time.
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ ...validCreate, startMin: 10 * 60 + 30 }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0].startMin).toBe(null)
+    })
+
+    it("drops startMin when it fits a real slot on a DIFFERENT date than the item's own", async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ ...validCreate, date: '2026-08-26', startMin: 9 * 60 }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0].startMin).toBe(null)
+    })
+
+    it('an unrecognised priority falls back to "normal"', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, priority: 'urgent' }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0].priority).toBe('normal')
+    })
+
+    it('caps items at 10 per turn', async () => {
+      const items = Array.from({ length: 15 }, (_, i) => ({ ...validCreate, title: `Task ${i}`, date: null }))
+      generateJson.mockResolvedValue({ status: 'act', question: null, items })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toHaveLength(10)
+    })
+
+    it('falls back to asking when every candidate item fails validation (a missing title, the only way one can), rather than silently doing nothing', async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ ...validCreate, title: '   ' }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('ask')
+    })
+
+    it('forwards a genuinely valid, fully-populated item', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [validCreate] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body).toEqual({ status: 'act', question: null, items: [validCreateOutput] })
+    })
+
+    it('an undated task is a legitimate create — there is no dateless item this route ever needs to drop', async () => {
+      const undatedTask = { ...validCreate, date: null, startMin: null }
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [undatedTask] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toEqual([{ ...validCreateOutput, date: null, startMin: null }])
+    })
+
+    it('an unrecognised action falls back to being treated as a create, the safest reading of otherwise-task-shaped content', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, action: 'do-something' }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items[0]).toEqual(validCreateOutput)
+    })
   })
 
-  it('forwards a genuinely valid, fully-populated item', async () => {
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [validTask] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body).toEqual({ status: 'create', question: null, items: [validTask] })
+  describe('remove', () => {
+    it('accepts a real existing task id', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ action: 'remove', taskId: 'existing-1' }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toEqual([{ action: 'remove', taskId: 'existing-1' }])
+    })
+
+    it('drops a remove for a task id that was not in the offered existingTasks list — never invented, never cross-account', async () => {
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ action: 'remove', taskId: 'made-up' }] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('ask')
+    })
   })
 
-  it('an undated task is a legitimate create — there is no dateless item this route ever needs to drop', async () => {
-    const undatedTask = { ...validTask, date: null, startMin: null }
-    generateJson.mockResolvedValue({ status: 'create', question: null, items: [undatedTask] })
-    const res = fakeRes()
-    await aiScheduleHandler(fakeReq({ body: base }), res)
-    expect(res.body.items).toEqual([undatedTask])
+  describe('update', () => {
+    it('builds a patch containing only the fields actually changing', async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [
+          {
+            action: 'update',
+            taskId: 'existing-1',
+            title: null,
+            date: null,
+            startMin: null,
+            durationMin: null,
+            tagId: null,
+            notes: 'Bring a towel.',
+            priority: null,
+          },
+        ],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toEqual([{ action: 'update', taskId: 'existing-1', patch: { notes: 'Bring a towel.' } }])
+    })
+
+    it('drops an update for a task id that is not a real offered task', async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ action: 'update', taskId: 'made-up', title: 'New title', date: null, startMin: null, durationMin: null, tagId: null, notes: null, priority: null }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('ask')
+    })
+
+    it('drops an update that changes nothing real — a "change nothing" update is not a real action', async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: null, durationMin: null, tagId: 'made-up', notes: null, priority: null }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('ask')
+    })
+
+    it("validates a new startMin against the task's own existing date when the update doesn't change the date", async () => {
+      // existing-1 already lives on 2026-08-25, the only date with a real
+      // slot (9-11). Moving it to 10:00 (still within that slot) should
+      // survive without the update needing to restate the date at all.
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: 10 * 60, durationMin: null, tagId: null, notes: null, priority: null }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toEqual([{ action: 'update', taskId: 'existing-1', patch: { startMin: 10 * 60 } }])
+    })
+
+    it("drops a new startMin that doesn't fit any real slot for the task's effective date", async () => {
+      generateJson.mockResolvedValue({
+        status: 'act',
+        question: null,
+        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: 14 * 60, durationMin: null, tagId: null, notes: null, priority: null }],
+      })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.status).toBe('ask')
+    })
   })
 })

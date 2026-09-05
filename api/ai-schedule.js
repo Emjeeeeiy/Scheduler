@@ -2,32 +2,33 @@
  *
  * Backs the command palette's "AI" action (src/components/shell/AiChatModal.jsx):
  * a small chat, not a form. Someone describes what they want in plain
- * language — one or several tasks, in one message or a few back and forth —
- * and this route either creates them directly or asks exactly one follow-up
- * question when the request is too vague to turn into a real task at all.
+ * language — create, change, or remove one or several tasks, in one message
+ * or a few back and forth — and this route either acts directly or asks
+ * exactly one follow-up question when the request is too vague to act on at
+ * all, or refers to a task ambiguously (more than one real task plausibly
+ * matches and there is no honest way to tell which).
  *
  * Tasks only, deliberately — no events. Every item is a task, which can
- * honestly stay undated ("sometime, no rush"), so there is never a "cannot
- * invent a date" situation the way there would be for an event (addEvent
- * throws without a startDate — see src/state/ScheduleContext.js). This was
- * the whole reason "ask" existed in an earlier version of this route that
- * also created events; removing events removed most of that need for it,
- * though it stays as a fallback for a request too vague to extract even a
- * task title from.
+ * honestly stay undated ("sometime, no rush"), so creating one never hits a
+ * "cannot invent a date" situation the way an event would (addEvent throws
+ * without a startDate — see src/state/ScheduleContext.js).
  *
  * A slice of the account's own recent task history (titles, tags,
  * durations — the same fields enrich-task.js already sends) is included so
  * tagId in particular reflects how this person actually tags things, not
- * just a guess from the tag list's names.
+ * just a guess from the tag list's names. A separate list of the account's
+ * current OPEN tasks (with real ids) is also included so an update/remove
+ * has something real to target — the model may never invent a task id.
  *
- * Every item that comes back is re-validated against the real tags and real
- * free time this request supplied before ever reaching the client — the
- * same "never trust a model's arithmetic about time" principle
- * src/lib/autoSchedule.js's isValidAiPlan and api/enrich-task.js's own
- * sanitize already apply, just per-item instead of whole-batch: one bad
- * item (an unknown tag, a time that doesn't fit a real slot) is dropped on
- * its own rather than invalidating the whole reply, since these items are
- * independent of each other in a way a single day's plan is not.
+ * Every item that comes back is re-validated against the real tags, real
+ * free time, and real open tasks this request supplied before ever reaching
+ * the client — the same "never trust a model's arithmetic about time"
+ * principle src/lib/autoSchedule.js's isValidAiPlan and api/enrich-task.js's
+ * own sanitize already apply, just per-item instead of whole-batch: one bad
+ * item (an unknown tag, a time that doesn't fit a real slot, an id that
+ * isn't a real open task) is dropped on its own rather than invalidating
+ * the whole reply, since these items are independent of each other in a
+ * way a single day's plan is not.
  */
 
 import { verifyRequest, AuthError } from './_lib/auth.js'
@@ -41,9 +42,9 @@ import { generateJson, GeminiError } from './_lib/gemini.js'
 // with plan-day.js (the only other route still on this model) — a genuinely
 // unusable ceiling for anything actively tested, let alone actively used.
 // GEMINI_MODEL_FAST has real headroom by comparison. Every item this route
-// returns is already re-validated against real tags/free-time regardless of
-// which model produced it, so a slightly less clever guess costs nothing a
-// stronger one wasn't already being fact-checked against — see sanitizeItem.
+// returns is already re-validated against real tags/free-time/open-tasks
+// regardless of which model produced it, so a slightly less clever guess
+// costs nothing a stronger one wasn't already being fact-checked against.
 const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 
 const MAX_MESSAGES = 12
@@ -54,113 +55,212 @@ const MAX_NOTES_LEN = 500
 // this account's own tagging pattern to be useful, without letting it
 // become the dominant part of the prompt.
 const MAX_HISTORY = 15
+// How many of the account's current open tasks are offered as real
+// update/remove targets. Generous relative to MAX_HISTORY (which is about
+// a *pattern*, not a lookup table) since a task genuinely missing from this
+// list is one "cancel the dentist thing" can never reach.
+const MAX_EXISTING = 40
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const ROLES = new Set(['user', 'assistant'])
 const PRIORITIES = new Set(['low', 'normal', 'high'])
 
-const SYSTEM_INSTRUCTION = `You turn a short, conversational request into scheduled tasks on someone's real calendar. Every item you create is a TASK — something to get done, tickable off a list. This system has no separate notion of an event; do not treat anything as one.
-You are given the conversation so far, today's date, the current time of day, their existing tags, their REAL free time for the next 7 days, and a sample of their own recent tasks with how each was actually tagged and timed.
+const SYSTEM_INSTRUCTION = `You manage someone's real task list from a short, conversational request. Every item is a TASK — something to get done, tickable off a list. This system has no separate notion of an event; do not treat anything as one.
+You are given: the conversation so far, today's date, the current time of day, their existing tags, their REAL free time for the next 7 days, a sample of their own recent tasks with how each was actually tagged and timed (to learn their patterns from), and their current OPEN tasks, each with a real id, which you may update or remove.
 
 Decide, for THIS turn only, one of two things:
-- status "create": you can make at least one real task from what's been said. Return the items.
-- status "ask": the request is too vague to turn into any real task at all — not merely missing a date or time, since a task can honestly stay undated when someone means "sometime, no rush." Ask exactly one short, specific question and return no items.
+- status "act": you have enough to create, update, or remove at least one task. Return the items.
+- status "ask": the request is too vague to act on — not merely missing a date or time, since a task can honestly stay undated when someone means "sometime, no rush" — or it refers to an existing task ambiguously (more than one open task plausibly matches and you cannot honestly tell which they mean). Ask exactly one short, specific question and return no items.
 
-Per item:
+Per item, action is exactly one of:
+- "create": a brand-new task. taskId must be null.
+- "update": change an EXISTING task. taskId must be the real id of one of the current open tasks given to you — never invent one. Set ONLY the fields that are actually changing; leave every other field null, meaning "leave it as it is."
+- "remove": delete an EXISTING task entirely. taskId must be a real id from the current open tasks. Every other field should be null.
+
+To find which existing task someone means, match on title and, if given, day or time, against the current open tasks list. If it's genuinely ambiguous, ask rather than guess.
+
+Per item's other fields — for "create" they describe the new task; for "update" only the ones actually changing are non-null; for "remove" all of them are null:
 title: short, the thing itself, with date/time words removed.
-date: an ISO date (YYYY-MM-DD), already resolved from any relative phrase ("tomorrow", "next Tuesday") against today's date — or null when genuinely undated (nothing about timing was said, or they said something like "sometime" with no day named).
-startMin: minutes after local midnight, chosen from that date's real free windows given below, only when a specific time was actually stated or clearly implied — null otherwise.
-durationMin: a reasonable length in minutes for the thing itself, or null if you truly cannot guess.
-tagId: the id of the single best-fitting tag from the ones offered, or null if none fits. Favor how this person has actually tagged similar tasks before over a guess from the title's wording alone — their recent history is the strongest signal you have for this field specifically. Never invent a tag id.
-notes: one short, genuinely useful sentence of context, or null if there is nothing worth adding.
-priority: "low", "normal", or "high" — "normal" unless the phrasing clearly signals otherwise.
+date: an ISO date (YYYY-MM-DD), already resolved from any relative phrase ("tomorrow", "next Tuesday") against today's date — null when genuinely undated, or when not being changed.
+startMin: minutes after local midnight, chosen from that date's real free windows given below, only when a specific time was actually stated or clearly implied — null otherwise, or when not being changed.
+durationMin: a reasonable length in minutes for the thing itself, or null if you truly cannot guess, or it isn't changing.
+tagId: the id of the single best-fitting tag from the ones offered, or null if none fits or it isn't changing. Favor how this person has actually tagged similar tasks before over a guess from the title's wording alone. Never invent a tag id.
+notes: one short, genuinely useful sentence of context, or null if there is nothing worth adding, or it isn't changing.
+priority: "low", "normal", or "high" for a genuinely new or changing priority — null otherwise. Defaults to "normal" for a brand-new task if you have no reason to pick otherwise.
 
-A single message can describe several tasks — return all of them. Use the whole conversation, not just the latest message: once you have asked a question, the next user message is very likely just the missing answer to it, about the same task(s) discussed before.`
+A single message can describe several actions at once — return all of them. Use the whole conversation, not just the latest message: once you have asked a question, the next user message is very likely just the missing answer to it, about the same item(s) discussed before.`
 
 const SCHEMA = {
   type: 'object',
   properties: {
-    status: { type: 'string', enum: ['ask', 'create'] },
+    status: { type: 'string', enum: ['ask', 'act'] },
     question: { type: ['string', 'null'] },
     items: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          title: { type: 'string' },
+          action: { type: 'string', enum: ['create', 'update', 'remove'] },
+          taskId: { type: ['string', 'null'] },
+          title: { type: ['string', 'null'] },
           date: { type: ['string', 'null'] },
           startMin: { type: ['integer', 'null'] },
           durationMin: { type: ['integer', 'null'] },
           tagId: { type: ['string', 'null'] },
           notes: { type: ['string', 'null'] },
-          priority: { type: 'string', enum: ['low', 'normal', 'high'] },
+          // Not a schema-level enum (unlike the original create-only
+          // version of this route) — it has to allow null too now ("not
+          // changing" on an update), and Gemini's structured output
+          // handles a plain nullable string more reliably than mixing
+          // enum with null. The three real values are still enforced by
+          // sanitizePriority below regardless of what the schema allows.
+          priority: { type: ['string', 'null'] },
         },
-        required: ['title', 'date', 'startMin', 'durationMin', 'tagId', 'notes', 'priority'],
+        required: ['action', 'taskId', 'title', 'date', 'startMin', 'durationMin', 'tagId', 'notes', 'priority'],
       },
     },
   },
   required: ['status', 'question', 'items'],
 }
 
-/** One item's worth of the same untrusted-input treatment every AI response
-    gets in this codebase — see normalize.js's stance on anything crossing a
-    network boundary. Returns null (dropped, not defaulted) only when the
-    item has no usable title at all — everything else here has a safe
-    fallback (null date, "normal" priority, etc.), since a task, unlike an
-    event, never has a field that must exist for it to be legitimately
-    creatable. */
-function sanitizeItem(raw, { tags, slotsByDate }) {
+function sanitizeDate(raw) {
+  return typeof raw === 'string' && ISO_DATE.test(raw) ? raw : null
+}
+
+function sanitizeDuration(raw) {
+  return Number.isInteger(raw) && raw >= 5 && raw <= 24 * 60 ? raw : null
+}
+
+/** A start time is only trustworthy alongside a real duration, on a real
+    date, and only when the two together fit ENTIRELY inside one of that
+    date's actual free windows — never trust the model's arithmetic about
+    time, the same rule isValidAiPlan and enrich-task's own sanitize apply.
+    Note this checks against free time that already treats the task's OWN
+    current slot (for an update) as busy — moving a task to a time that
+    overlaps where it already sits can therefore be rejected even though
+    it's actually fine. A known limitation, not a silent miscalculation. */
+function sanitizeStart(raw, date, durationMin, slotsByDate) {
+  if (!date || !Number.isInteger(raw) || !durationMin) return null
+  const end = raw + durationMin
+  const daySlots = slotsByDate.get(date) ?? []
+  return daySlots.some((slot) => raw >= slot.startMin && end <= slot.endMin) ? raw : null
+}
+
+function sanitizeTagId(raw, knownTagIds) {
+  return knownTagIds.has(raw) ? raw : null
+}
+
+function sanitizeNotes(raw) {
+  return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, MAX_NOTES_LEN) : null
+}
+
+function sanitizePriority(raw) {
+  return PRIORITIES.has(raw) ? raw : null
+}
+
+/** A brand-new task — the only action where a missing title means there is
+    nothing legitimately creatable at all; every other field here has a
+    safe fallback (null date, "normal" priority, etc). */
+function sanitizeCreate(raw, ctx) {
   const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
   if (!title) return null
 
-  const date = typeof raw?.date === 'string' && ISO_DATE.test(raw.date) ? raw.date : null
+  const date = sanitizeDate(raw?.date)
+  const durationMin = sanitizeDuration(raw?.durationMin)
+  const startMin = sanitizeStart(raw?.startMin, date, durationMin, ctx.slotsByDate)
+  const tagId = sanitizeTagId(raw?.tagId, ctx.knownTagIds)
+  const notes = sanitizeNotes(raw?.notes)
+  const priority = sanitizePriority(raw?.priority) ?? 'normal'
 
-  const durationMin =
-    Number.isInteger(raw?.durationMin) && raw.durationMin >= 5 && raw.durationMin <= 24 * 60
-      ? raw.durationMin
-      : null
+  // Built field-by-field rather than spread from `raw` — addTask does not
+  // strip a stray deletedAt (ScheduleContext.jsx), so passing model JSON
+  // through unfiltered could create a pre-trashed task.
+  return { action: 'create', title, date, startMin, durationMin, tagId, notes, priority }
+}
 
-  // A start time is only trustworthy alongside a real duration, on a real
-  // date, and only when the two together fit ENTIRELY inside one of that
-  // date's actual free windows — never trust the model's arithmetic about
-  // time, the same rule isValidAiPlan and enrich-task's own sanitize apply.
-  let startMin = null
-  if (date && Number.isInteger(raw?.startMin) && durationMin) {
-    const start = raw.startMin
-    const end = start + durationMin
-    const daySlots = slotsByDate.get(date) ?? []
-    if (daySlots.some((slot) => start >= slot.startMin && end <= slot.endMin)) startMin = start
-  }
+/** taskId must be one of the real open tasks this request offered — the
+    model may never act on an id it invented, or one belonging to a
+    different account. Only fields the model actually set survive into the
+    patch; everything else is left out entirely (not set to null), matching
+    updateTask's own partial-patch contract (ScheduleContext.jsx) — a
+    field set to null here would CLEAR it, not leave it alone. */
+function sanitizeUpdate(raw, ctx) {
+  const taskId = typeof raw?.taskId === 'string' && ctx.existingById.has(raw.taskId) ? raw.taskId : null
+  if (!taskId) return null
 
-  const known = new Set(tags.map((tag) => tag.id))
-  const tagId = known.has(raw?.tagId) ? raw.tagId : null
+  const existing = ctx.existingById.get(taskId)
+  const patch = {}
 
-  const notes =
-    typeof raw?.notes === 'string' && raw.notes.trim() ? raw.notes.trim().slice(0, MAX_NOTES_LEN) : null
+  const title = typeof raw?.title === 'string' ? raw.title.trim() : ''
+  if (title) patch.title = title
 
-  const priority = PRIORITIES.has(raw?.priority) ? raw.priority : 'normal'
+  const date = sanitizeDate(raw?.date)
+  if (date) patch.date = date
 
-  // date/startMin/durationMin/tagId/notes/priority are built field-by-field
-  // above rather than spread from `raw` — addTask does not strip a stray
-  // deletedAt (ScheduleContext.jsx), so passing model JSON through
-  // unfiltered could create a pre-trashed task. This object only ever
-  // contains fields this route itself put there.
-  return { title, date, startMin, durationMin, tagId, notes, priority }
+  const durationMin = sanitizeDuration(raw?.durationMin)
+  if (durationMin) patch.durationMin = durationMin
+
+  // Falls back to the task's own current date/duration when this update
+  // doesn't touch them — moving just the time of a task whose date isn't
+  // changing still needs to know which day's free time to check against.
+  const effectiveDate = date ?? existing?.date ?? null
+  const effectiveDuration = durationMin ?? existing?.durationMin ?? null
+  const startMin = sanitizeStart(raw?.startMin, effectiveDate, effectiveDuration, ctx.slotsByDate)
+  if (startMin !== null) patch.startMin = startMin
+
+  const tagId = sanitizeTagId(raw?.tagId, ctx.knownTagIds)
+  if (tagId) patch.tagId = tagId
+
+  const notes = sanitizeNotes(raw?.notes)
+  if (notes) patch.notes = notes
+
+  const priority = sanitizePriority(raw?.priority)
+  if (priority) patch.priority = priority
+
+  // Nothing survived validation — a "change nothing" update is not a real
+  // action, so this item is dropped exactly as if it had never been sent.
+  if (Object.keys(patch).length === 0) return null
+
+  return { action: 'update', taskId, patch }
+}
+
+function sanitizeRemove(raw, ctx) {
+  const taskId = typeof raw?.taskId === 'string' && ctx.existingById.has(raw.taskId) ? raw.taskId : null
+  if (!taskId) return null
+  return { action: 'remove', taskId }
+}
+
+/** One item's worth of the same untrusted-input treatment every AI response
+    gets in this codebase — see normalize.js's stance on anything crossing a
+    network boundary. Dispatches on the model's own claimed action, but an
+    unrecognised one falls back to "create" rather than being dropped
+    outright — the safest reading of a garbled action for content that
+    otherwise still looks like a real new task. */
+function sanitizeItem(raw, ctx) {
+  if (raw?.action === 'update') return sanitizeUpdate(raw, ctx)
+  if (raw?.action === 'remove') return sanitizeRemove(raw, ctx)
+  return sanitizeCreate(raw, ctx)
 }
 
 /** Not exported, matching enrich-task.js's own sanitize — every route here
     is tested through its handler with generateJson mocked (see
     tests/apiHandlers.test.jsx), never by calling a sanitizer directly, so
     there is no reason for this to be part of the module's public shape. */
-function sanitize(result, { tags, slots }) {
+function sanitize(result, { tags, slots, existingTasks }) {
   const safeTags = Array.isArray(tags) ? tags : []
+  const knownTagIds = new Set(safeTags.map((tag) => tag.id))
+
   const slotsByDate = new Map()
   for (const slot of Array.isArray(slots) ? slots : []) {
     if (!slotsByDate.has(slot.date)) slotsByDate.set(slot.date, [])
     slotsByDate.get(slot.date).push(slot)
   }
 
-  const status = result?.status === 'ask' || result?.status === 'create' ? result.status : 'ask'
+  const existingById = new Map(
+    (Array.isArray(existingTasks) ? existingTasks : []).map((task) => [task.id, task]),
+  )
+
+  const status = result?.status === 'ask' || result?.status === 'act' ? result.status : 'ask'
 
   if (status === 'ask') {
     const question =
@@ -170,26 +270,27 @@ function sanitize(result, { tags, slots }) {
     return { status: 'ask', question, items: [] }
   }
 
+  const ctx = { knownTagIds, slotsByDate, existingById }
   const items = Array.isArray(result?.items)
     ? result.items
-        .map((item) => sanitizeItem(item, { tags: safeTags, slotsByDate }))
+        .map((item) => sanitizeItem(item, ctx))
         .filter(Boolean)
         .slice(0, MAX_ITEMS)
     : []
 
-  // Nothing survived — the only way a task-shaped item fails sanitizeItem
-  // is a missing/blank title, so this means every candidate item had none.
-  // Asking is more honest than silently "succeeding" at creating nothing
-  // and leaving the person to wonder if it worked.
+  // Nothing survived — every candidate item failed validation (a missing
+  // title, an unrecognised task id, an update that changed nothing real).
+  // Asking is more honest than silently "succeeding" at doing nothing and
+  // leaving the person to wonder if it worked.
   if (items.length === 0) {
     return {
       status: 'ask',
-      question: "I couldn't pin that down well enough to create — could you be more specific about what and when?",
+      question: "I couldn't pin that down well enough to act on — could you be more specific about what and when?",
       items: [],
     }
   }
 
-  return { status: 'create', question: null, items }
+  return { status: 'act', question: null, items }
 }
 
 export default async function handler(req, res) {
@@ -198,7 +299,7 @@ export default async function handler(req, res) {
   try {
     await verifyRequest(req)
 
-    const { messages, today, nowMin, tags, slots, history } =
+    const { messages, today, nowMin, tags, slots, history, existingTasks } =
       typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
 
     const safeMessages = Array.isArray(messages)
@@ -238,6 +339,17 @@ export default async function handler(req, res) {
     // never leave the device just to improve a tag/duration guess.
     const safeHistory = Array.isArray(history) ? history.slice(0, MAX_HISTORY) : []
 
+    const safeExisting = Array.isArray(existingTasks)
+      ? existingTasks
+          .filter(
+            (t) =>
+              typeof t?.id === 'string' &&
+              typeof t?.title === 'string' &&
+              (t.date === null || (typeof t.date === 'string' && ISO_DATE.test(t.date))),
+          )
+          .slice(0, MAX_EXISTING)
+      : []
+
     const prompt = [
       `today: ${today}`,
       `current time: ${Number.isInteger(nowMin) ? `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${String(nowMin % 60).padStart(2, '0')}` : '(not given)'}`,
@@ -263,6 +375,17 @@ export default async function handler(req, res) {
           })
         : ['(no history yet)']),
       '',
+      'current open tasks (real ids — update/remove must use one of these, never invent one):',
+      ...(safeExisting.length
+        ? safeExisting.map((t) => {
+            const bits = [`id ${JSON.stringify(t.id)}`, `"${t.title}"`]
+            if (t.date) bits.push(t.date)
+            if (Number.isFinite(t.startMin)) bits.push(`started at minute ${t.startMin}`)
+            if (t.tagId) bits.push(`tag ${JSON.stringify(t.tagId)}`)
+            return `- ${bits.join(', ')}`
+          })
+        : ['(no open tasks right now)']),
+      '',
       'conversation so far:',
       ...safeMessages.map((m) => `${m.role}: ${m.content.trim()}`),
     ].join('\n')
@@ -285,7 +408,7 @@ export default async function handler(req, res) {
       timeoutMs: 27000,
     })
 
-    return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots }))
+    return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots, existingTasks: safeExisting }))
   } catch (caught) {
     if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
     if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
