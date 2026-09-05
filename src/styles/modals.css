@@ -876,6 +876,48 @@
   gap: 8px;
 }
 
+/* ============================================================ ai chat == */
+
+/* A conversation reads better a little wider than the default form width —
+   room for a full sentence per line without wrapping every reply into
+   three. */
+.ai-chat {
+  max-width: 560px;
+}
+
+.ai-chat__transcript {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.ai-chat__msg {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-item);
+  line-height: 1.5;
+  max-width: 85%;
+}
+
+/* The same inverted fill .primary-button already uses for its one accent
+   moment, not a new colour — DESIGN.md's system has no accent to spend on
+   telling the two speakers apart, so the user's own side reuses the
+   system's one existing "filled" treatment and the assistant's reuses its
+   one existing neutral surface tint. */
+.ai-chat__msg--user {
+  justify-self: end;
+  background: var(--color-text-primary);
+  color: var(--color-page);
+}
+
+.ai-chat__msg--assistant {
+  justify-self: start;
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
 /* ========================================================= item detail == */
 
 .detail-title {

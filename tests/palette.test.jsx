@@ -94,6 +94,32 @@ describe('CommandPalette search', () => {
     expect(screen.getByText('New task')).toBeTruthy()
     expect(screen.queryByText('Your items')).toBeNull()
   })
+
+  /* App.jsx places its "AI" action first in paletteActions specifically so
+     this holds: CommandPalette's own matches() has two tiers (an exact
+     substring, then a looser subsequence fallback), but actions.filter(matches)
+     does not rank by which tier a match came through — array order alone
+     decides what leads, and therefore what Enter runs. "Open All items"
+     matches "ai" too, but only via the loose fallback (the letters a…i do
+     appear in that order inside "open aLl Items") — never as a real
+     substring, unlike "AI" itself. Without AI listed first, this exact
+     query would run the wrong command. */
+  it('a leading action wins on Enter over a later one that only matches via the loose fallback', () => {
+    const aiOnRun = vi.fn()
+    const itemsOnRun = vi.fn()
+    const actions = [
+      { id: 'ai-chat', label: 'AI', onRun: aiOnRun },
+      { id: 'open-items', label: 'Open All items', onRun: itemsOnRun },
+    ]
+    const { container } = render(<CommandPalette onClose={vi.fn()} actions={actions} />)
+    type('ai')
+    const labels = [...container.querySelectorAll('.palette__item-label')].map((n) => n.textContent)
+    expect(labels).toEqual(['AI', 'Open All items'])
+
+    fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'Enter' })
+    expect(aiOnRun).toHaveBeenCalledTimes(1)
+    expect(itemsOnRun).not.toHaveBeenCalled()
+  })
 })
 
 /* The quick-add offer sits ahead of everything else, so it interacts with

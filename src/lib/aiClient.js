@@ -75,3 +75,17 @@ export async function planDayAi({ tasks, slots }) {
 export async function enrichTaskAi(payload) {
   return callApi('/api/enrich-task', payload, { timeoutMs: 12000 })
 }
+
+/** @return `{ status: 'ask'|'create', question, items }`, already validated
+    server-side per-item against the real tags/free-time this request sent —
+    or null if the call didn't complete, which the caller (AiChatModal)
+    treats as "couldn't reach AI" rather than a dead end. The heaviest of
+    the five calls (a whole conversation plus a week of free time in, up to
+    ten items reasoned over out, on the reasoning-tier model rather than
+    FAST), so it gets the longest timeout — and unlike enrich-task's silent
+    debounced suggestion, this is a foreground "I clicked Send and am
+    watching a Thinking… line," where 20-30s of real wait is normal for a
+    chat-style reply, not a sign something's broken. */
+export async function aiScheduleAi(payload) {
+  return callApi('/api/ai-schedule', payload, { timeoutMs: 30000 })
+}

@@ -34,6 +34,7 @@ import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
 import { NotificationBell } from '../../src/components/shell/NotificationBell.jsx'
 import { SettingsModal } from '../../src/components/shell/SettingsModal.jsx'
 import { CommandPalette } from '../../src/components/shell/CommandPalette.jsx'
+import { AiChatModal } from '../../src/components/shell/AiChatModal.jsx'
 import { DashboardIcon } from '../../src/components/icons.jsx'
 import { mockValue } from './mockSchedule.jsx'
 
@@ -104,6 +105,7 @@ const cases = [
   ['NotificationBell', <NotificationBell onEdit={noop} />],
   ['SettingsModal', <SettingsModal onClose={noop} />],
   ['CommandPalette', <CommandPalette actions={paletteActions} onClose={noop} />],
+  ['AiChatModal', <AiChatModal onClose={noop} />],
 ]
 
 let failed = 0

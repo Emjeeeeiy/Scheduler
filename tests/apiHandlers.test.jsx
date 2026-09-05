@@ -28,6 +28,7 @@ import suggestTagHandler from '../api/suggest-tag.js'
 import parseTaskHandler from '../api/parse-task.js'
 import planDayHandler from '../api/plan-day.js'
 import enrichTaskHandler from '../api/enrich-task.js'
+import aiScheduleHandler from '../api/ai-schedule.js'
 
 function fakeReq({ method = 'POST', body = {}, headers = { authorization: 'Bearer token' } } = {}) {
   return { method, body, headers }
@@ -58,12 +59,14 @@ beforeEach(() => {
 
 describe('every route — shared request handling', () => {
   const enrichBody = { title: 'Deep clean kitchen', today: '2026-08-24' }
+  const scheduleBody = { messages: [{ role: 'user', content: 'gym monday 7am' }], today: '2026-08-24' }
 
   it.each([
     ['suggest-tag', suggestTagHandler, { title: 'Standup', tags: [{ id: 'work', name: 'Work' }] }],
     ['parse-task', parseTaskHandler, { text: 'lunch tomorrow', today: '2026-08-24' }],
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
     ['enrich-task', enrichTaskHandler, enrichBody],
+    ['ai-schedule', aiScheduleHandler, scheduleBody],
   ])('%s rejects a non-POST method with 405, before touching auth or Gemini', async (_name, handler, body) => {
     const res = fakeRes()
     await handler(fakeReq({ method: 'GET', body }), res)
@@ -77,6 +80,7 @@ describe('every route — shared request handling', () => {
     ['parse-task', parseTaskHandler, { text: 'lunch tomorrow', today: '2026-08-24' }],
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
     ['enrich-task', enrichTaskHandler, enrichBody],
+    ['ai-schedule', aiScheduleHandler, scheduleBody],
   ])('%s answers 401 and never calls Gemini when auth fails', async (_name, handler, body) => {
     verifyRequest.mockRejectedValue(new AuthError(401, 'Invalid or expired token.'))
     const res = fakeRes()
@@ -90,6 +94,7 @@ describe('every route — shared request handling', () => {
     ['parse-task', parseTaskHandler],
     ['plan-day', planDayHandler],
     ['enrich-task', enrichTaskHandler],
+    ['ai-schedule', aiScheduleHandler],
   ])('%s propagates a GeminiError\'s real status (e.g. 429) rather than masking it as 500', async (_name, handler) => {
     generateJson.mockRejectedValue(new GeminiError(429, 'Rate limited.'))
     const body =
@@ -99,7 +104,9 @@ describe('every route — shared request handling', () => {
           ? { text: 'lunch tomorrow', today: '2026-08-24' }
           : handler === planDayHandler
             ? { tasks: [{ id: 't1', title: 'x', durationMin: 30, priority: 'normal' }], slots: [{ startMin: 0, endMin: 60 }] }
-            : enrichBody
+            : handler === enrichTaskHandler
+              ? enrichBody
+              : scheduleBody
     const res = fakeRes()
     await handler(fakeReq({ body }), res)
     expect(res.statusCode).toBe(429)
@@ -297,5 +304,147 @@ describe('enrich-task', () => {
     const res = fakeRes()
     await enrichTaskHandler(fakeReq({ body: base }), res)
     expect(res.body).toEqual(shape)
+  })
+})
+
+describe('ai-schedule', () => {
+  const tags = [{ id: 'health', name: 'Health' }]
+  const slots = [{ date: '2026-08-25', startMin: 9 * 60, endMin: 11 * 60 }]
+  const base = { messages: [{ role: 'user', content: 'gym tuesday 9am' }], today: '2026-08-24', tags, slots }
+
+  // A bare, fully-valid task — the shared starting point every sanitizer
+  // test below overrides just the one field it's checking, so a failure
+  // clearly points at the field that changed rather than requiring the
+  // reader to diff the whole object against the "everything valid" test.
+  const validTask = {
+    title: 'Gym',
+    date: '2026-08-25',
+    startMin: 9 * 60,
+    durationMin: 60,
+    tagId: 'health',
+    notes: 'Bring water.',
+    priority: 'normal',
+  }
+
+  it('400s when messages is missing or has no usable content', async () => {
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: { today: '2026-08-24' } }), res)
+    expect(res.statusCode).toBe(400)
+
+    const res2 = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: { messages: [{ role: 'user', content: '   ' }], today: '2026-08-24' } }), res2)
+    expect(res2.statusCode).toBe(400)
+  })
+
+  it("400s when today isn't a YYYY-MM-DD key", async () => {
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: { ...base, today: 'not-a-date' } }), res)
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('an unrecognised status is treated as "ask" rather than risking a create', async () => {
+    generateJson.mockResolvedValue({ status: 'do-something', question: null, items: [validTask] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.status).toBe('ask')
+    expect(res.body.items).toEqual([])
+  })
+
+  it('a blank question falls back to a generic one rather than passing empty text through', async () => {
+    generateJson.mockResolvedValue({ status: 'ask', question: '   ', items: [] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.status).toBe('ask')
+    expect(res.body.question.trim().length).toBeGreaterThan(0)
+  })
+
+  it('drops an item with no title, keeping any others in the same batch', async () => {
+    const titleless = { ...validTask, title: '  ' }
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [titleless, validTask] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.status).toBe('create')
+    expect(res.body.items).toHaveLength(1)
+    expect(res.body.items[0].title).toBe('Gym')
+  })
+
+  it('never hands back a tagId that was not in the offered set', async () => {
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, tagId: 'made-up' }] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items[0].tagId).toBe(null)
+  })
+
+  it('sanitizes an out-of-range durationMin to null', async () => {
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, durationMin: 5000 }] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items[0].durationMin).toBe(null)
+  })
+
+  it('drops startMin when it would run past the end of every real slot given for that date', async () => {
+    // The only slot given for 2026-08-25 is 9-11 (120 min); this starts at
+    // 10:30 and needs 60, ending at 11:30 — never trust the model's
+    // arithmetic about time.
+    generateJson.mockResolvedValue({
+      status: 'create',
+      question: null,
+      items: [{ ...validTask, startMin: 10 * 60 + 30 }],
+    })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items[0].startMin).toBe(null)
+  })
+
+  it("drops startMin when it fits a real slot on a DIFFERENT date than the item's own", async () => {
+    generateJson.mockResolvedValue({
+      status: 'create',
+      question: null,
+      items: [{ ...validTask, date: '2026-08-26', startMin: 9 * 60 }],
+    })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items[0].startMin).toBe(null)
+  })
+
+  it('an unrecognised priority falls back to "normal"', async () => {
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [{ ...validTask, priority: 'urgent' }] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items[0].priority).toBe('normal')
+  })
+
+  it('caps items at 10 per turn', async () => {
+    const items = Array.from({ length: 15 }, (_, i) => ({ ...validTask, title: `Task ${i}`, date: null }))
+    generateJson.mockResolvedValue({ status: 'create', question: null, items })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items).toHaveLength(10)
+  })
+
+  it('falls back to asking when every candidate item fails validation (a missing title, the only way one can), rather than silently creating nothing', async () => {
+    generateJson.mockResolvedValue({
+      status: 'create',
+      question: null,
+      items: [{ ...validTask, title: '   ' }],
+    })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.status).toBe('ask')
+  })
+
+  it('forwards a genuinely valid, fully-populated item', async () => {
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [validTask] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body).toEqual({ status: 'create', question: null, items: [validTask] })
+  })
+
+  it('an undated task is a legitimate create — there is no dateless item this route ever needs to drop', async () => {
+    const undatedTask = { ...validTask, date: null, startMin: null }
+    generateJson.mockResolvedValue({ status: 'create', question: null, items: [undatedTask] })
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body: base }), res)
+    expect(res.body.items).toEqual([undatedTask])
   })
 })

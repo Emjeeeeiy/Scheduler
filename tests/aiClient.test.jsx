@@ -10,7 +10,7 @@
  * renders a component; `fetch` and firebase.js's `auth` are mocked instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { enrichTaskAi, parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
+import { aiScheduleAi, enrichTaskAi, parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
 
 // A mutable binding inside the mock factory, the same pattern used
 // elsewhere in this suite (see itemDetail.test.jsx) for a module whose
@@ -155,5 +155,51 @@ describe('aiClient — the shared fall-back-to-null contract', () => {
     stubFetch(async () => new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 }))
     const result = await enrichTaskAi({ title: 'Deep clean kitchen', today: '2026-08-24' })
     expect(result).toBe(null)
+  })
+
+  it('aiScheduleAi posts the whole payload it was given and returns the shape through untouched', async () => {
+    const shape = { status: 'create', question: null, items: [{ kind: 'task', title: 'Gym' }] }
+    const fetch = stubFetch(async () => new Response(JSON.stringify(shape), { status: 200 }))
+    const payload = {
+      messages: [{ role: 'user', content: 'gym monday 7am' }],
+      today: '2026-08-24',
+      nowMin: 480,
+      tags: [{ id: 'health', name: 'Health' }],
+      slots: [{ date: '2026-08-25', startMin: 420, endMin: 600 }],
+    }
+
+    const result = await aiScheduleAi(payload)
+
+    expect(result).toEqual(shape)
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual(payload)
+  })
+
+  it('aiScheduleAi falls back to null on a malformed JSON body, same as every other AI call', async () => {
+    stubFetch(async () => new Response('<html>not json</html>', { status: 200 }))
+    const result = await aiScheduleAi({ messages: [{ role: 'user', content: 'gym monday' }], today: '2026-08-24' })
+    expect(result).toBe(null)
+  })
+
+  it('aiScheduleAi falls back to null on a 429', async () => {
+    stubFetch(async () => new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 }))
+    const result = await aiScheduleAi({ messages: [{ role: 'user', content: 'gym monday' }], today: '2026-08-24' })
+    expect(result).toBe(null)
+  })
+
+  it('aiScheduleAi aborts and falls back to null when the server never responds in time', async () => {
+    vi.useFakeTimers()
+    stubFetch(
+      (url, init) =>
+        new Promise((resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        }),
+    )
+
+    const pending = aiScheduleAi({ messages: [{ role: 'user', content: 'gym monday' }], today: '2026-08-24' })
+    await vi.advanceTimersByTimeAsync(30000)
+    const result = await pending
+
+    expect(result).toBe(null)
+    vi.useRealTimers()
   })
 })

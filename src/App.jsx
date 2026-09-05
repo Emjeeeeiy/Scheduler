@@ -38,7 +38,9 @@ import { ToastStack } from './components/shell/ToastStack.jsx'
 import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
 import { SettingsModal } from './components/shell/SettingsModal.jsx'
 import { CommandPalette } from './components/shell/CommandPalette.jsx'
+import { AiChatModal } from './components/shell/AiChatModal.jsx'
 import {
+  BulbIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
@@ -180,6 +182,7 @@ function AppShell() {
   const [itemsOpen, setItemsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   // Bumped (never read for its value) to tell TodayView "run Plan my day
   // now" from the command palette, which has no other way to reach into a
   // view it isn't rendering yet — see the palette's 'plan-my-day' action and
@@ -190,7 +193,7 @@ function AppShell() {
   // while an editor is open, `n` while the palette has focus) is exactly
   // the kind of thing useModalA11y's single-dialog focus trap doesn't
   // expect.
-  const modalOpen = Boolean(editor) || tagsOpen || itemsOpen || settingsOpen || paletteOpen
+  const modalOpen = Boolean(editor) || tagsOpen || itemsOpen || settingsOpen || paletteOpen || aiOpen
 
   /* The editor is one slot holding either kind. `kind` decides which component
      renders; `draft`/`task`/`event` carries what it starts from. `mode` adds a
@@ -387,6 +390,18 @@ function AppShell() {
      button does, because there is no separate implementation to drift. */
   const paletteActions = useMemo(
     () => [
+      // Deliberately first: CommandPalette filters with actions.filter(matches)
+      // and never ranks — array order alone decides what Enter runs when
+      // several match. Typing "ai" also subsequence-matches "All items"
+      // (a…i), so anything placed after that action would lose the race for
+      // the exact query this exists to answer.
+      {
+        id: 'ai-chat',
+        label: 'AI',
+        hint: 'Describe it, AI schedules it',
+        Icon: BulbIcon,
+        onRun: () => setAiOpen(true),
+      },
       { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => setView('dashboard') },
       { id: 'view-day', label: 'Go to Day', Icon: DayIcon, onRun: () => setView('today') },
       { id: 'view-week', label: 'Go to Week', Icon: WeekIcon, onRun: () => setView('week') },
@@ -922,6 +937,7 @@ function AppShell() {
           onClose={() => setPaletteOpen(false)}
         />
       )}
+      {aiOpen && <AiChatModal onClose={() => setAiOpen(false)} />}
     </div>
   )
 }
