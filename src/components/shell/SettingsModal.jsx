@@ -4,7 +4,6 @@ import { DEFAULT_SHORTCUTS, SHORTCUT_ACTIONS, useSettings } from '../../state/Se
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import { useInstallPrompt } from '../../lib/useInstallPrompt.js'
-import { usePushNotifications } from '../../lib/usePushNotifications.js'
 import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { toCsv, toIcs } from '../../lib/exportFormats.js'
@@ -72,7 +71,6 @@ export function SettingsModal({ onClose }) {
   const { settings, updateSetting } = useSettings()
   const { pushError, pushSuccess } = useToast()
   const { canInstall, installed, promptInstall } = useInstallPrompt()
-  const push = usePushNotifications()
   const [digestBusy, setDigestBusy] = useState(false)
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
@@ -165,18 +163,6 @@ export function SettingsModal({ onClose }) {
       console.error('Could not delete the template.', caught)
       pushError('Could not delete the template. Try again.')
     }
-  }
-
-  async function onTogglePush() {
-    if (push.enabled) {
-      await push.disable()
-      pushSuccess('Push notifications turned off.')
-      return
-    }
-    const granted = await push.enable()
-    if (granted) pushSuccess('Push notifications turned on.')
-    else if (!push.error) pushError('Notifications were not allowed for this site.')
-    else pushError('Could not turn on push notifications. Try again.')
   }
 
   async function onToggleDigest(enabled) {
@@ -339,34 +325,6 @@ export function SettingsModal({ onClose }) {
                     </button>
                   </div>
                 </>
-              )}
-            </section>
-          )}
-
-          {push.supported && (
-            <section className="profile__section field">
-              <span className="field__label">Push notifications</span>
-              <p className="field__hint">
-                A notification on this device when something's overdue, starting now, or starting
-                soon — even with Cadence closed. Needs the backend pieces in functions/ deployed;
-                see README-functions.md.
-              </p>
-              {push.denied ? (
-                <p className="field__hint">
-                  Blocked at the browser level. Allow notifications for this site from your
-                  browser's own site settings, then reload.
-                </p>
-              ) : (
-                <div className="tag-list__confirm">
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={onTogglePush}
-                    disabled={push.busy}
-                  >
-                    {push.busy ? 'Working…' : push.enabled ? 'Turn off' : 'Turn on'}
-                  </button>
-                </div>
               )}
             </section>
           )}

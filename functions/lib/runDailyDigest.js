@@ -1,9 +1,8 @@
-/* The actual work behind the sendDailyDigest schedule — same reasoning as
- * runPushNotifications.js: pulled out of index.js and written against
- * injected `db`/`sendEmail` rather than the Admin SDK/fetch directly, so
- * functions/test/runDailyDigest.test.js can exercise the real orchestration
- * (who gets skipped, what happens when a send fails, per-user isolation)
- * without a live project.
+/* The actual work behind the sendDailyDigest schedule — pulled out of
+ * index.js and written against injected `db`/`sendEmail` rather than the
+ * Admin SDK/fetch directly, so functions/test/runDailyDigest.test.js can
+ * exercise the real orchestration (who gets skipped, what happens when a
+ * send fails, per-user isolation) without a live project.
  */
 
 import { tasksOnDay, expandHorizon, normalizeAll } from './dayModel.js'
