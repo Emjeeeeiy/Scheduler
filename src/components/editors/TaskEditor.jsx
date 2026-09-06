@@ -383,115 +383,104 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
             </div>
           )}
 
-          <label className="field">
-            <span className="field__label">Title</span>
-            <input
-              ref={titleRef}
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What needs doing?"
-              maxLength={200}
-            />
-          </label>
+          <div className="stack editor-stack">
+            <div className="editor-section">
+              <label className="field">
+                <span className="field__label">Title</span>
+                <input
+                  ref={titleRef}
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What needs doing?"
+                  maxLength={200}
+                />
+              </label>
 
-          {isEnriching && !showAiPanel && <p className="ai-suggest__thinking">Checking for AI suggestions…</p>}
+              {isEnriching && !showAiPanel && <p className="ai-suggest__thinking">Checking for AI suggestions…</p>}
 
-          {showAiPanel && (
-            <AiSuggestionPanel
-              time={aiTimeSuggestion}
-              checklist={aiChecklistSuggestion}
-              notes={aiNotesSuggestion}
-              onApply={applyAiSuggestions}
-              onDismiss={() => setDismissedTitle(normalizedTitle)}
-            />
-          )}
+              {showAiPanel && (
+                <AiSuggestionPanel
+                  time={aiTimeSuggestion}
+                  checklist={aiChecklistSuggestion}
+                  notes={aiNotesSuggestion}
+                  onApply={applyAiSuggestions}
+                  onDismiss={() => setDismissedTitle(normalizedTitle)}
+                />
+              )}
+            </div>
 
-          <div className="field-row">
-            <label className="field">
-              <span className="field__label">Date</span>
-              <input
-                type="date"
-                className="input"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-              <span className="field__hint">
-                {date ? 'Scheduled' : 'Leave empty to keep it in the inbox'}
-              </span>
-            </label>
+            <div className="editor-section">
+              <span className="editor-section__label">Schedule</span>
 
-            <label className="field">
-              <span className="field__label">Start time</span>
-              <input
-                type="time"
-                className="input"
-                value={time}
-                disabled={!date}
-                onChange={(e) => setTime(e.target.value)}
-                step={900}
-              />
-              <span className="field__hint">{time ? 'Time block' : 'Empty means all day'}</span>
-            </label>
-          </div>
+              <div className="field-row">
+                <label className="field">
+                  <span className="field__label">Date</span>
+                  <input
+                    type="date"
+                    className="input"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                  <span className="field__hint">
+                    {date ? 'Scheduled' : 'Leave empty to keep it in the inbox'}
+                  </span>
+                </label>
 
-          <div className="field-row">
-            <label className="field">
-              <span className="field__label">Duration</span>
-              <select
-                className="input"
-                value={durationMin}
-                disabled={!date || !time}
-                onChange={(e) => setDurationMin(Number(e.target.value))}
-              >
-                {DURATIONS.map((min) => (
-                  <option key={min} value={min}>
-                    {durationOption(min)}
-                  </option>
-                ))}
-                {!DURATIONS.includes(durationMin) && (
-                  <option value={durationMin}>{durationOption(durationMin)}</option>
+                <label className="field">
+                  <span className="field__label">Start time</span>
+                  <input
+                    type="time"
+                    className="input"
+                    value={time}
+                    disabled={!date}
+                    onChange={(e) => setTime(e.target.value)}
+                    step={900}
+                  />
+                  <span className="field__hint">{time ? 'Time block' : 'Empty means all day'}</span>
+                </label>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span className="field__label">Duration</span>
+                  <select
+                    className="input"
+                    value={durationMin}
+                    disabled={!date || !time}
+                    onChange={(e) => setDurationMin(Number(e.target.value))}
+                  >
+                    {DURATIONS.map((min) => (
+                      <option key={min} value={min}>
+                        {durationOption(min)}
+                      </option>
+                    ))}
+                    {!DURATIONS.includes(durationMin) && (
+                      <option value={durationMin}>{durationOption(durationMin)}</option>
+                    )}
+                  </select>
+                </label>
+
+                {!isOccurrence && (
+                  <div className="field">
+                    <span className="field__label" aria-hidden="true">&nbsp;</span>
+                    <button
+                      type="button"
+                      className="ghost-button ghost-button--sm button--icon-label"
+                      onClick={findSlot}
+                    >
+                      <SearchIcon className="button-icon" />
+                      Find a slot
+                    </button>
+                    {suggestions && suggestions.length === 0 && (
+                      <span className="field__hint">
+                        No {durationOption(durationMin)} opening in the next two weeks.
+                      </span>
+                    )}
+                  </div>
                 )}
-              </select>
-            </label>
+              </div>
 
-            <label className="field">
-              <span className="field__label">Tag</span>
-              <TagSelect tags={tags} value={tagId} onChange={setTagId} />
-              {/* Offered, never applied. One click to take it, and no click
-                  at all to ignore it — a tag filled in silently is a tag
-                  nobody reviews. The tooltip names its source: the
-                  from-history guess and the AI one earn different trust,
-                  and saying which this is costs nothing to show. */}
-              {displayedTagSuggestion && (
-                <button
-                  type="button"
-                  className="tag-suggest"
-                  onClick={() => setTagId(displayedTagSuggestion.id)}
-                  title={
-                    suggestedTag
-                      ? `Based on other tasks you've filed under ${displayedTagSuggestion.name}`
-                      : `AI suggestion — no history to base this on yet`
-                  }
-                >
-                  <TagGlyph tag={displayedTagSuggestion} variant="swatch" className="tag-swatch tag-swatch--sm" />
-                  Use {displayedTagSuggestion.name}?
-                </button>
-              )}
-            </label>
-          </div>
-
-          {!isOccurrence && (
-            <div className="field">
-              <button type="button" className="ghost-button ghost-button--sm button--icon-label" onClick={findSlot}>
-                <SearchIcon className="button-icon" />
-                Find a slot
-              </button>
-              {suggestions && suggestions.length === 0 && (
-                <span className="field__hint">
-                  No {durationOption(durationMin)} opening in the next two weeks.
-                </span>
-              )}
               {suggestions && suggestions.length > 0 && (
                 <div className="filter-row" role="group" aria-label="Suggested slots">
                   {suggestions.map((s) => (
@@ -507,69 +496,102 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
                 </div>
               )}
             </div>
-          )}
 
-          <div className="field-row">
-            <div className="field">
-              <span className="field__label">Priority</span>
-              <div className="filter-row" role="group" aria-label="Priority">
-                {TASK_PRIORITIES.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`filter-chip${priority === option ? ' filter-chip--on' : ''}`}
-                    aria-pressed={priority === option}
-                    onClick={() => setPriority(option)}
-                  >
-                    {PRIORITY_LABEL[option]}
-                  </button>
-                ))}
+            <div className="editor-section">
+              <span className="editor-section__label">Organize</span>
+
+              <div className="field-row">
+                <label className="field">
+                  <span className="field__label">Tag</span>
+                  <TagSelect tags={tags} value={tagId} onChange={setTagId} />
+                  {/* Offered, never applied. One click to take it, and no click
+                      at all to ignore it — a tag filled in silently is a tag
+                      nobody reviews. The tooltip names its source: the
+                      from-history guess and the AI one earn different trust,
+                      and saying which this is costs nothing to show. */}
+                  {displayedTagSuggestion && (
+                    <button
+                      type="button"
+                      className="tag-suggest"
+                      onClick={() => setTagId(displayedTagSuggestion.id)}
+                      title={
+                        suggestedTag
+                          ? `Based on other tasks you've filed under ${displayedTagSuggestion.name}`
+                          : `AI suggestion — no history to base this on yet`
+                      }
+                    >
+                      <TagGlyph tag={displayedTagSuggestion} variant="swatch" className="tag-swatch tag-swatch--sm" />
+                      Use {displayedTagSuggestion.name}?
+                    </button>
+                  )}
+                </label>
+
+                <div className="field">
+                  <span className="field__label">Priority</span>
+                  <div className="filter-row" role="group" aria-label="Priority">
+                    {TASK_PRIORITIES.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`filter-chip${priority === option ? ' filter-chip--on' : ''}`}
+                        aria-pressed={priority === option}
+                        onClick={() => setPriority(option)}
+                      >
+                        {PRIORITY_LABEL[option]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="field">
+                <span className="field__label">Pin</span>
+                <button
+                  type="button"
+                  className={`filter-chip${pinned ? ' filter-chip--on' : ''}`}
+                  aria-pressed={pinned}
+                  onClick={() => setPinned((v) => !v)}
+                >
+                  <PinIcon width="14" height="14" />
+                  {pinned ? 'Pinned' : 'Pin to dashboard'}
+                </button>
               </div>
             </div>
 
-            <div className="field">
-              <span className="field__label">Pin</span>
-              <button
-                type="button"
-                className={`filter-chip${pinned ? ' filter-chip--on' : ''}`}
-                aria-pressed={pinned}
-                onClick={() => setPinned((v) => !v)}
-              >
-                <PinIcon width="14" height="14" />
-                {pinned ? 'Pinned' : 'Pin to dashboard'}
-              </button>
+            <div className="editor-section">
+              <span className="editor-section__label">Details</span>
+
+              <SubtaskList value={subtasks} onChange={setSubtasks} />
+
+              <BlockedByPicker taskId={isEdit ? editor.task.id : null} value={blockedBy} onChange={setBlockedBy} />
+
+              {!isOccurrence && (
+                <RepeatPicker
+                  date={date}
+                  recurrence={repeat}
+                  onChange={setRepeat}
+                  hint={
+                    !date
+                      ? 'A task in the inbox has no day to repeat from — give it a date first.'
+                      : repeat
+                        ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(date).toLowerCase()} on. Tick off, move, or delete any single day without touching the rest.`
+                        : 'Happens once, on the day above.'
+                  }
+                />
+              )}
+
+              <label className="field">
+                <span className="field__label">Notes</span>
+                <textarea
+                  className="input input--area"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional"
+                />
+              </label>
             </div>
           </div>
-
-          <SubtaskList value={subtasks} onChange={setSubtasks} />
-
-          <BlockedByPicker taskId={isEdit ? editor.task.id : null} value={blockedBy} onChange={setBlockedBy} />
-
-          {!isOccurrence && (
-            <RepeatPicker
-              date={date}
-              recurrence={repeat}
-              onChange={setRepeat}
-              hint={
-                !date
-                  ? 'A task in the inbox has no day to repeat from — give it a date first.'
-                  : repeat
-                    ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(date).toLowerCase()} on. Tick off, move, or delete any single day without touching the rest.`
-                    : 'Happens once, on the day above.'
-              }
-            />
-          )}
-
-          <label className="field">
-            <span className="field__label">Notes</span>
-            <textarea
-              className="input input--area"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional"
-            />
-          </label>
 
           <div className="modal__foot">
             {isEdit && !isSeries && (

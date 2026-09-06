@@ -114,6 +114,38 @@
   gap: 12px;
 }
 
+/* A row whose second cell only renders conditionally (e.g. Duration paired
+   with a "Find a slot" button that's hidden for a single occurrence) — with
+   only one child left, hold it to one column instead of a half-width field
+   next to dead grid space. */
+.field-row:has(> :only-child) {
+  grid-template-columns: 1fr;
+}
+
+/* Groups the Task/Event editors' fields under hairline-divided `.stack`
+   sections (see Cards & Frames in DESIGN.md) instead of one flat run of a
+   dozen same-weight fields — the same recipe Settings already uses for
+   `.profile__section`. Rhythm inside a section comes from `gap`, not each
+   field's own margin, so the wider gap `.stack` draws between sections is
+   the one contrast that actually reads as "new topic" rather than "more of
+   the same list." */
+.editor-section {
+  display: grid;
+  gap: 10px;
+}
+
+.editor-section .field {
+  margin-bottom: 0;
+}
+
+.editor-section__label {
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+
 /* A single "on/off, plain-language label" row — Settings' daily-digest
    toggle today, and any future one-off boolean preference that doesn't
    warrant a whole filter-row of its own. */

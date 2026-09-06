@@ -161,115 +161,127 @@ export function EventEditor({ editor, onClose, onChangeKind }) {
             </p>
           )}
 
-          <label className="field">
-            <span className="field__label">Title</span>
-            <input
-              ref={titleRef}
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What is happening?"
-              maxLength={200}
-            />
-          </label>
+          <div className="stack editor-stack">
+            <div className="editor-section">
+              <label className="field">
+                <span className="field__label">Title</span>
+                <input
+                  ref={titleRef}
+                  className="input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What is happening?"
+                  maxLength={200}
+                />
+              </label>
+            </div>
 
-          <div className="field-row">
-            <label className="field">
-              <span className="field__label">Starts</span>
-              <input
-                type="date"
-                className="input"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value)
-                  // Dragging the start past the end would leave an impossible
-                  // range on screen until the user noticed; carry the end along.
-                  if (endDate && e.target.value > endDate) setEndDate(e.target.value)
-                }}
-              />
-            </label>
+            <div className="editor-section">
+              <span className="editor-section__label">Schedule</span>
 
-            <label className="field">
-              <span className="field__label">Ends</span>
-              <input
-                type="date"
-                className="input"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-              <span className="field__hint">
-                {multiDay ? 'Runs across several days' : 'Ends the same day'}
-              </span>
-            </label>
+              <div className="field-row">
+                <label className="field">
+                  <span className="field__label">Starts</span>
+                  <input
+                    type="date"
+                    className="input"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value)
+                      // Dragging the start past the end would leave an impossible
+                      // range on screen until the user noticed; carry the end along.
+                      if (endDate && e.target.value > endDate) setEndDate(e.target.value)
+                    }}
+                  />
+                </label>
+
+                <label className="field">
+                  <span className="field__label">Ends</span>
+                  <input
+                    type="date"
+                    className="input"
+                    value={endDate}
+                    min={startDate || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                  <span className="field__hint">
+                    {multiDay ? 'Runs across several days' : 'Ends the same day'}
+                  </span>
+                </label>
+              </div>
+
+              <div className="field-row">
+                <label className="field">
+                  <span className="field__label">Start time</span>
+                  <input
+                    type="time"
+                    className="input"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    step={900}
+                  />
+                  <span className="field__hint">{startTime ? 'Timed' : 'Empty means all day'}</span>
+                </label>
+
+                <label className="field">
+                  <span className="field__label">End time</span>
+                  <input
+                    type="time"
+                    className="input"
+                    value={endTime}
+                    disabled={!startTime || multiDay}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    step={900}
+                  />
+                  <span className="field__hint">
+                    {multiDay
+                      ? 'A run of days covers them whole'
+                      : startTime
+                        ? 'Empty means an hour'
+                        : 'Give it a start time first'}
+                  </span>
+                </label>
+              </div>
+
+              {!isOccurrence && (
+                <RepeatPicker
+                  date={startDate}
+                  recurrence={multiDay ? null : repeat}
+                  onChange={setRepeat}
+                  disabled={multiDay}
+                  hint={
+                    multiDay
+                      ? 'A run of days cannot repeat — it would have to say which day of which occurrence you meant. Set the end back to the start date to repeat it.'
+                      : !startDate
+                        ? 'Pick a start date first — a repeat needs a day to run from.'
+                        : repeat
+                          ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(startDate).toLowerCase()} on. Move or delete any single one without touching the rest.`
+                          : 'Happens once, on the day above.'
+                  }
+                />
+              )}
+            </div>
+
+            <div className="editor-section">
+              <span className="editor-section__label">Details</span>
+
+              <label className="field">
+                <span className="field__label">Tag</span>
+                <TagSelect tags={tags} value={tagId} onChange={setTagId} />
+              </label>
+
+              <label className="field">
+                <span className="field__label">Notes</span>
+                <textarea
+                  className="input input--area"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
           </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span className="field__label">Start time</span>
-              <input
-                type="time"
-                className="input"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                step={900}
-              />
-              <span className="field__hint">{startTime ? 'Timed' : 'Empty means all day'}</span>
-            </label>
-
-            <label className="field">
-              <span className="field__label">End time</span>
-              <input
-                type="time"
-                className="input"
-                value={endTime}
-                disabled={!startTime || multiDay}
-                onChange={(e) => setEndTime(e.target.value)}
-                step={900}
-              />
-              <span className="field__hint">
-                {multiDay
-                  ? 'A run of days covers them whole'
-                  : startTime
-                    ? 'Empty means an hour'
-                    : 'Give it a start time first'}
-              </span>
-            </label>
-          </div>
-
-          {!isOccurrence && (
-            <RepeatPicker
-              date={startDate}
-              recurrence={multiDay ? null : repeat}
-              onChange={setRepeat}
-              disabled={multiDay}
-              hint={
-                multiDay
-                  ? 'A run of days cannot repeat — it would have to say which day of which occurrence you meant. Set the end back to the start date to repeat it.'
-                  : !startDate
-                    ? 'Pick a start date first — a repeat needs a day to run from.'
-                    : repeat
-                      ? `${recurrenceLabel(repeat)}, from ${relativeDayLabel(startDate).toLowerCase()} on. Move or delete any single one without touching the rest.`
-                      : 'Happens once, on the day above.'
-              }
-            />
-          )}
-
-          <label className="field">
-            <span className="field__label">Tag</span>
-            <TagSelect tags={tags} value={tagId} onChange={setTagId} />
-          </label>
-
-          <label className="field">
-            <span className="field__label">Notes</span>
-            <textarea
-              className="input input--area"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Optional"
-            />
-          </label>
 
           <div className="modal__foot">
             {isEdit && (
