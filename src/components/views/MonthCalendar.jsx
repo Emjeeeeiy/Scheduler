@@ -18,6 +18,7 @@ import {
 import { dayStats } from '../../lib/stats.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 import { DayPeek } from '../calendar/DayPeek.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 
@@ -155,7 +156,11 @@ function MonthWeek({
                         .filter(Boolean)
                         .join(' · ')}
                     >
-                      <span className="chip__dot" aria-hidden="true" />
+                      {tag ? (
+                        <TagGlyph tag={tag} variant="chip" className="chip__dot" />
+                      ) : (
+                        <span className="chip__dot" aria-hidden="true" />
+                      )}
                       {Number.isFinite(task.startMin) && (
                         <span className="chip__time">{minToLabel(task.startMin)}</span>
                       )}
@@ -249,6 +254,7 @@ function MonthWeek({
                   {segment.continuesBefore && (
                     <ChevronLeftIcon className="month__bar-carry" width="10" height="10" />
                   )}
+                  {tag?.icon && <TagGlyph tag={tag} variant="chip" className="month__bar-icon" />}
                   <span className="month__bar-title">{segment.event.title}</span>
                   {segment.continuesAfter && (
                     <ChevronRightIcon className="month__bar-carry" width="10" height="10" />

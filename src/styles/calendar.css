@@ -214,6 +214,13 @@
   white-space: nowrap;
 }
 
+/* Only rendered when the tag has a chosen icon (see DayColumn) — an
+   icon-less tag still reads via the block's own border and tint, so no
+   placeholder dot is added here to avoid doubling up on every block. */
+.block__tag-icon--icon {
+  margin-right: 3px;
+}
+
 .block__time {
   font-family: var(--font-mono);
   font-size: var(--text-micro);

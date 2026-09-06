@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { formatDayLabel, durationLabel, minToLabel } from '../../lib/date.js'
 import { eventSpanDays, isMultiDay } from '../../lib/spans.js'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 const PANEL_WIDTH = 260
 const PANEL_MAX_HEIGHT = 320
@@ -79,6 +80,7 @@ export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
                     <span className="day-peek__when">
                       {Number.isFinite(event.startMin) ? minToLabel(event.startMin) : 'All day'}
                     </span>
+                    {tag?.icon && <TagGlyph tag={tag} variant="chip" className="day-peek__icon" />}
                     <span className="day-peek__label">{event.title}</span>
                     {isMultiDay(event) && (
                       <span className="day-peek__note">{eventSpanDays(event)}d</span>
@@ -104,6 +106,7 @@ export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
                     <span className="day-peek__when">
                       {Number.isFinite(task.startMin) ? minToLabel(task.startMin) : 'All day'}
                     </span>
+                    {tag?.icon && <TagGlyph tag={tag} variant="chip" className="day-peek__icon" />}
                     <span className="day-peek__label">{task.title}</span>
                     {Number.isFinite(task.startMin) && (
                       <span className="day-peek__note">{durationLabel(task.durationMin)}</span>

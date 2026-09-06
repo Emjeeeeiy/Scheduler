@@ -6,6 +6,7 @@ import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { durationLabel, minToLabel, snapMin } from '../../lib/date.js'
 import { recurrenceLabel } from '../../lib/recurrence.js'
 import { RepeatIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 const SNAP_MIN = 15
 const MIN_DURATION_MIN = 15
@@ -313,7 +314,10 @@ export function DayColumn({
                 .filter(Boolean)
                 .join(' · ')}
             >
-              <span className="block__title">{item.title}</span>
+              <span className="block__title">
+                {tag?.icon && <TagGlyph tag={tag} variant="chip" className="block__tag-icon" />}
+                {item.title}
+              </span>
               <span className="block__time">
                 {minToLabel(live ? live.startMin : item.startMin)} ·{' '}
                 {durationLabel(live ? live.endMin - live.startMin : item.durationMin)}

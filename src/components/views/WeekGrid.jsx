@@ -19,6 +19,7 @@ import {
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 const HOUR_HEIGHT = 52
 
@@ -241,6 +242,9 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                         >
                           {segment.continuesBefore && (
                             <ChevronLeftIcon className="week__span-carry" width="10" height="10" />
+                          )}
+                          {tag?.icon && (
+                            <TagGlyph tag={tag} variant="chip" className="week__span-icon" />
                           )}
                           <span className="week__span-title">{segment.event.title}</span>
                           {segment.continuesAfter && (

@@ -18,6 +18,16 @@ function matches(query, label) {
   return qi === q.length
 }
 
+/** Same as matches(), except an action flagged `hiddenUntilSearched` never
+    shows up in the empty-query default list — only once something is
+    actually typed that leads to it. For a command whose name alone (e.g.
+    "AI") would otherwise sit permanently among "New task" and "Go to Day"
+    in a list meant for quick, common actions. */
+function isShown(action, query) {
+  if (action.hiddenUntilSearched && !query.trim()) return false
+  return matches(query, action.label)
+}
+
 /**
  * A global "jump to anything" overlay — Cmd/Ctrl+K, same idiom as every
  * other app that has one. `actions` is a flat list of
@@ -59,7 +69,7 @@ export function CommandPalette({ onClose, actions, searchItems, quickAdd }) {
      the two together by relevance would move "New task" around under the
      cursor depending on what else happened to match. */
   const filtered = useMemo(
-    () => [...created, ...actions.filter((action) => matches(query, action.label)), ...found],
+    () => [...created, ...actions.filter((action) => isShown(action, query)), ...found],
     [created, actions, query, found],
   )
   const commandCount = filtered.length - found.length

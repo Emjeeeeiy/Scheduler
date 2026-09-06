@@ -390,16 +390,16 @@ function AppShell() {
      button does, because there is no separate implementation to drift. */
   const paletteActions = useMemo(
     () => [
-      // Deliberately first: CommandPalette filters with actions.filter(matches)
-      // and never ranks — array order alone decides what Enter runs when
-      // several match. Typing "ai" also subsequence-matches "All items"
-      // (a…i), so anything placed after that action would lose the race for
-      // the exact query this exists to answer.
+      // hiddenUntilSearched: true — sits out of the default "New task" /
+      // "Go to Day" list that shows when the palette first opens, but
+      // appears as a normal row (Enter or click to run, same as any other
+      // command) the moment "ai" is actually typed.
       {
         id: 'ai-chat',
         label: 'AI',
         hint: 'Describe it, AI schedules it',
         Icon: BulbIcon,
+        hiddenUntilSearched: true,
         onRun: () => setAiOpen(true),
       },
       { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => setView('dashboard') },

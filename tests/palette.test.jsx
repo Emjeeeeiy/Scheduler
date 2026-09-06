@@ -95,30 +95,53 @@ describe('CommandPalette search', () => {
     expect(screen.queryByText('Your items')).toBeNull()
   })
 
-  /* App.jsx places its "AI" action first in paletteActions specifically so
-     this holds: CommandPalette's own matches() has two tiers (an exact
-     substring, then a looser subsequence fallback), but actions.filter(matches)
-     does not rank by which tier a match came through — array order alone
-     decides what leads, and therefore what Enter runs. "Open All items"
-     matches "ai" too, but only via the loose fallback (the letters a…i do
-     appear in that order inside "open aLl Items") — never as a real
-     substring, unlike "AI" itself. Without AI listed first, this exact
-     query would run the wrong command. */
+  /* CommandPalette's own matches() has two tiers (an exact substring, then a
+     looser subsequence fallback), but actions.filter(matches) does not rank
+     by which tier a match came through — array order alone decides what
+     leads, and therefore what Enter runs. Here "First" matches "fi" as a
+     real substring while "Second" only matches via the loose fallback (the
+     letters f…i appear in order inside "SecondFIle" — contrived, but it
+     proves order beats tier). */
   it('a leading action wins on Enter over a later one that only matches via the loose fallback', () => {
-    const aiOnRun = vi.fn()
-    const itemsOnRun = vi.fn()
+    const firstOnRun = vi.fn()
+    const secondOnRun = vi.fn()
     const actions = [
-      { id: 'ai-chat', label: 'AI', onRun: aiOnRun },
-      { id: 'open-items', label: 'Open All items', onRun: itemsOnRun },
+      { id: 'first', label: 'First', onRun: firstOnRun },
+      { id: 'second', label: 'SecondFIle', onRun: secondOnRun },
     ]
     const { container } = render(<CommandPalette onClose={vi.fn()} actions={actions} />)
-    type('ai')
+    type('fi')
     const labels = [...container.querySelectorAll('.palette__item-label')].map((n) => n.textContent)
-    expect(labels).toEqual(['AI', 'Open All items'])
+    expect(labels).toEqual(['First', 'SecondFIle'])
+
+    fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'Enter' })
+    expect(firstOnRun).toHaveBeenCalledTimes(1)
+    expect(secondOnRun).not.toHaveBeenCalled()
+  })
+
+  /* A `hiddenUntilSearched` action sits out of the default list a palette
+     opens with — so it doesn't permanently occupy a slot among "New task"
+     and "Go to Day" — but is otherwise a completely normal row: it shows up
+     once its label actually matches the query, and still needs Enter or a
+     click to run, exactly like anything else in the list. */
+  it('a hiddenUntilSearched action is absent by default but a normal row once searched', () => {
+    const aiOnRun = vi.fn()
+    const onClose = vi.fn()
+    const actions = [
+      { id: 'ai-chat', label: 'AI', hiddenUntilSearched: true, onRun: aiOnRun },
+      { id: 'open-items', label: 'Open All items', onRun: vi.fn() },
+    ]
+    render(<CommandPalette onClose={onClose} actions={actions} />)
+
+    expect(screen.queryByText('AI')).toBeNull()
+
+    type('ai')
+    expect(screen.getByText('AI')).toBeTruthy()
+    expect(aiOnRun).not.toHaveBeenCalled()
 
     fireEvent.keyDown(screen.getByLabelText('Command palette search'), { key: 'Enter' })
     expect(aiOnRun).toHaveBeenCalledTimes(1)
-    expect(itemsOnRun).not.toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })
 
