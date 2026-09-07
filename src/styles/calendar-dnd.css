@@ -102,6 +102,29 @@
   gap: 2px;
 }
 
+/* A task row in AgendaModal (the command palette's Today/week/month peeks):
+   the done checkbox as a sibling of the item button, same split TaskRow uses
+   elsewhere, so ticking a task off is a different gesture from opening its
+   editor rather than a click the button would also catch. An event row has
+   no checkbox and skips this wrapper — .day-peek__item fills its <li> alone. */
+.day-peek__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* This row is one line, unlike .task-row's title-plus-meta block the 3px
+   top margin was set for — recentre rather than hug a top edge that isn't
+   there. */
+.day-peek__row .task-row__check {
+  margin-top: 0;
+}
+
+.day-peek__row .day-peek__item {
+  flex: 1;
+  min-width: 0;
+}
+
 .day-peek__item {
   width: 100%;
   display: flex;

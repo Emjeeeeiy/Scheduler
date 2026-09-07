@@ -923,6 +923,13 @@
   cursor: grabbing;
 }
 
+/* TodoModal reuses the Day view Inbox's exact row markup, minus the
+   drag-to-schedule gesture it's built around — grab/grabbing implies a
+   gesture that doesn't exist here. */
+.todo__list .inbox-item {
+  cursor: default;
+}
+
 .inbox-item--done .inbox-item__title {
   text-decoration: line-through;
   color: var(--color-text-muted);

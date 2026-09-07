@@ -23,6 +23,7 @@ import { SetupNotice } from './components/shell/SetupNotice.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'
 import { Dashboard } from './components/views/Dashboard.jsx'
 import { TodayView } from './components/views/TodayView.jsx'
+import { TodoModal } from './components/calendar/TodoModal.jsx'
 import { WeekGrid } from './components/views/WeekGrid.jsx'
 import { MonthCalendar } from './components/views/MonthCalendar.jsx'
 import { ReviewView } from './components/views/ReviewView.jsx'
@@ -39,6 +40,7 @@ import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
 import { SettingsModal } from './components/shell/SettingsModal.jsx'
 import { CommandPalette } from './components/shell/CommandPalette.jsx'
 import { AiChatModal } from './components/shell/AiChatModal.jsx'
+import { AgendaModal } from './components/calendar/AgendaModal.jsx'
 import {
   BulbIcon,
   ChevronLeftIcon,
@@ -47,6 +49,7 @@ import {
   DashboardIcon,
   DayIcon,
   FocusIcon,
+  InboxIcon,
   ListIcon,
   LogOutIcon,
   MonthIcon,
@@ -180,9 +183,14 @@ function AppShell() {
   })
   const [tagsOpen, setTagsOpen] = useState(false)
   const [itemsOpen, setItemsOpen] = useState(false)
+  const [todoOpen, setTodoOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  // Which of the three "what's on" palette commands (Today / This week /
+  // This month) opened AgendaModal, or null when it's closed — one modal,
+  // parameterised, rather than three near-identical booleans.
+  const [agendaRange, setAgendaRange] = useState(null)
   // Bumped (never read for its value) to tell TodayView "run Plan my day
   // now" from the command palette, which has no other way to reach into a
   // view it isn't rendering yet — see the palette's 'plan-my-day' action and
@@ -193,7 +201,15 @@ function AppShell() {
   // while an editor is open, `n` while the palette has focus) is exactly
   // the kind of thing useModalA11y's single-dialog focus trap doesn't
   // expect.
-  const modalOpen = Boolean(editor) || tagsOpen || itemsOpen || settingsOpen || paletteOpen || aiOpen
+  const modalOpen =
+    Boolean(editor) ||
+    tagsOpen ||
+    itemsOpen ||
+    todoOpen ||
+    settingsOpen ||
+    paletteOpen ||
+    aiOpen ||
+    Boolean(agendaRange)
 
   /* The editor is one slot holding either kind. `kind` decides which component
      renders; `draft`/`task`/`event` carries what it starts from. `mode` adds a
@@ -408,6 +424,13 @@ function AppShell() {
       { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => setView('month') },
       { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => setView('review') },
       { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
+      // Distinct from "Go to Day/Week/Month" above: those navigate the app to
+      // a view, these open a quick read-only peek at what's scheduled without
+      // leaving whichever view you're already on. AgendaModal does the actual
+      // work; this just picks which of its three ranges to open.
+      { id: 'agenda-today', label: "Today's agenda", Icon: DayIcon, onRun: () => setAgendaRange('today') },
+      { id: 'agenda-week', label: "This week's agenda", Icon: WeekIcon, onRun: () => setAgendaRange('week') },
+      { id: 'agenda-month', label: "This month's agenda", Icon: MonthIcon, onRun: () => setAgendaRange('month') },
       {
         id: 'plan-my-day',
         label: 'Plan my day',
@@ -437,6 +460,7 @@ function AppShell() {
           ),
       },
       { id: 'jump-today', label: 'Jump to today', hint: shortcuts.jumpToday, Icon: ClockIcon, onRun: () => setFocusKey(todayKey()) },
+      { id: 'open-todo', label: 'Open To-do', Icon: InboxIcon, onRun: () => setTodoOpen(true) },
       { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => setTagsOpen(true) },
       { id: 'open-items', label: 'Open All items', Icon: ListIcon, onRun: () => setItemsOpen(true) },
       { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => setSettingsOpen(true) },
@@ -706,7 +730,7 @@ function AppShell() {
             <SearchIcon className="sidebar__icon" />
             <span className="sidebar__label">Search</span>
           </button>
-          {/* --mobile-hide: these three (and New task, above) move into the
+          {/* --mobile-hide: these four (and New task, above) move into the
               avatar's dropdown below the mobile breakpoint instead — see
               AccountMenu.jsx and its own --mobile-only rows — since a
               crowded, horizontally-scrolling top bar was worse than one
@@ -714,6 +738,15 @@ function AppShell() {
               stays put above: it wasn't part of that ask, and losing the
               one visible entry point to the palette on a device with no
               Ctrl/Cmd+K would be a real loss, not just tidying. */}
+          <button
+            type="button"
+            className="sidebar__link sidebar__link--mobile-hide"
+            title="To-do"
+            onClick={() => setTodoOpen(true)}
+          >
+            <InboxIcon className="sidebar__icon" />
+            <span className="sidebar__label">To-do</span>
+          </button>
           <button
             type="button"
             className="sidebar__link sidebar__link--mobile-hide"
@@ -775,6 +808,7 @@ function AppShell() {
           </button>
           <AccountMenu
             onNewTask={() => openCreate({})}
+            onOpenTodo={() => setTodoOpen(true)}
             onOpenTags={() => setTagsOpen(true)}
             onOpenItems={() => setItemsOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
@@ -920,6 +954,9 @@ function AppShell() {
           onChangeKind={changeEditorKind}
         />
       )}
+      {todoOpen && (
+        <TodoModal onClose={() => setTodoOpen(false)} onEdit={openEdit} onCreate={openCreate} />
+      )}
       {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
       {itemsOpen && (
         <ItemManager
@@ -929,6 +966,15 @@ function AppShell() {
         />
       )}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {agendaRange && (
+        <AgendaModal
+          range={agendaRange}
+          onClose={() => setAgendaRange(null)}
+          onEdit={openEdit}
+          onEditEvent={openEditEvent}
+          onFocusDay={focusDay}
+        />
+      )}
       {paletteOpen && (
         <CommandPalette
           actions={paletteActions}
