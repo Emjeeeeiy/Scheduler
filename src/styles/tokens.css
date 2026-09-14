@@ -19,7 +19,7 @@
 
    `static`, not the bare `@theme`: Tailwind only keeps a variable in its
    compiled output if it can see a matching utility class or a literal
-   var(--token) somewhere in the CSS it scans. The eight --color-tag-* tokens
+   var(--token) somewhere in the CSS it scans. The --color-tag-* tokens
    are read exclusively from JS — ScheduleContext resolves a tag's color as
    the STRING `var(--color-tag-${slot})`, assembled at runtime and invisible
    to that static scan — so Tailwind silently dropped their light-mode
@@ -137,6 +137,11 @@
      19.3). The ORDER is the colorblind-safety mechanism, not decoration, so
      new tags take the next unused slot rather than a random one.
 
+     That validation covers the first eight slots. cyan/lime/purple/slate are
+     appended after them for accounts that outgrow eight tags — chosen for
+     maximum hue separation from the eight, but not validator-checked, so treat
+     their colour as decoration and their text label as the signal.
+
      A tag doc stores the slot *name*, never a hex, which is what lets each mode
      use its own step below instead of forcing one hex to serve both. Aqua,
      yellow, and magenta fall under 3:1 on the light surface, so anything
@@ -149,6 +154,10 @@
   --color-tag-green:   #008300;
   --color-tag-violet:  #4a3aa7;
   --color-tag-red:     #e34948;
+  --color-tag-cyan:    #0b8fb4;
+  --color-tag-lime:    #5f9900;
+  --color-tag-purple:  #8b46c7;
+  --color-tag-slate:   #64748b;
 }
 
 /* Not a Tailwind theme scale — a plain custom property and one non-token CSS
@@ -193,6 +202,10 @@
     --color-tag-green:       #008300;
     --color-tag-violet:      #9085e9;
     --color-tag-red:         #e66767;
+    --color-tag-cyan:        #45bfe3;
+    --color-tag-lime:        #8fd14f;
+    --color-tag-purple:      #bd8bf2;
+    --color-tag-slate:       #94a3b8;
   }
 }
 
@@ -224,4 +237,8 @@
   --color-tag-green:       #008300;
   --color-tag-violet:      #9085e9;
   --color-tag-red:         #e66767;
+  --color-tag-cyan:        #45bfe3;
+  --color-tag-lime:        #8fd14f;
+  --color-tag-purple:      #bd8bf2;
+  --color-tag-slate:       #94a3b8;
 }

@@ -206,7 +206,7 @@ The system is quiet, precise, and unshowy by deliberate choice. Its confirmed an
 - Zero accent color anywhere — an interactive or "selected" state inverts to solid Ink instead of reaching for a hue, the one idiom the whole app shares
 - Line-based, not card-based: no section of the app sits in a bordered, filled box any more — a `.frame`'s corner ticks mark its edge, and a hairline divider (`.stack`, `.divided-row`) separates one region from the next. Shadow, fill, and a drawn border are reserved entirely for content that floats above the page — a modal, a dropdown — never for anything at rest — see Elevation & Depth
 - Inter carries every word in the app; Space Mono is reserved for numeral content alone — the hero figure, stat tiles, chart axes, and every calendar/time/count readout. Two faces, one clean split: never mixed inside a sentence, never a stylistic pairing
-- A validated, colorblind-safe 8-color palette for user data (tags), kept strictly separate from the app's own chrome
+- A validated, colorblind-safe palette for user data (tags) — eight validator-checked hues plus four appended ones — kept strictly separate from the app's own chrome
 - A single reusable "selected" idiom (neutral pill → filled Ink pill) used everywhere something toggles
 - One drawn icon grammar, not a scatter of Unicode characters — every icon in the app shares a stroke style and lives in one file
 - A quiet dot-grid in the app shell's negative space, and a low-key neutral glow on the Dashboard hero — the app's one restrained decorative motif, not scattered across multiple surfaces

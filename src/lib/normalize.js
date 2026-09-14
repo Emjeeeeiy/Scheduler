@@ -28,7 +28,14 @@ export const MAX_EVENT_DAYS = 366
    tokens.css). A tag doc stores the slot NAME, not a hex: the two themes need
    different steps of the same hue, and one stored hex could only ever satisfy
    one of them. Slots are handed out in order because that order is what keeps
-   adjacent colours distinguishable under colour-vision deficiency. */
+   adjacent colours distinguishable under colour-vision deficiency.
+
+   The first eight are the validator-checked order; cyan/lime/purple/slate
+   are appended after them — new tags reach them only once the validated set
+   is in use, and appending (never inserting) keeps every existing tag on the
+   colour it already had. The four additions are picked for maximum hue
+   separation from the eight, but unlike those they were not run through the
+   data-viz validator, so the label-always rule matters for them even more. */
 export const TAG_SLOTS = [
   'blue',
   'orange',
@@ -38,6 +45,10 @@ export const TAG_SLOTS = [
   'green',
   'violet',
   'red',
+  'cyan',
+  'lime',
+  'purple',
+  'slate',
 ]
 
 /* Unlike a slot, no icon is ever assigned automatically — a plain colour dot

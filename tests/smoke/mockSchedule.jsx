@@ -6,7 +6,7 @@ import { WEEKDAYS, eventOccurrenceOn, occurrenceOn } from '../../src/lib/recurre
 
 export const DEFAULT_DURATION_MIN = 30
 
-export const TAG_SLOTS = ['blue', 'orange', 'aqua', 'yellow', 'magenta', 'green', 'violet', 'red']
+export const TAG_SLOTS = ['blue', 'orange', 'aqua', 'yellow', 'magenta', 'green', 'violet', 'red', 'cyan', 'lime', 'purple', 'slate']
 
 export const TAG_ICONS = [
   'briefcase',

@@ -6,7 +6,7 @@ import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
 import { buildNotifications, describeNotification } from '../../lib/notifications.js'
-import { BellIcon, ClockIcon, CloseIcon } from '../icons.jsx'
+import { BellIcon, CloseIcon } from '../icons.jsx'
 
 const PANEL_WIDTH = 300
 const PANEL_MAX_HEIGHT = 360
@@ -88,11 +88,7 @@ export function NotificationBell({ onEdit }) {
         aria-expanded={open}
         title="Notifications"
       >
-        <BellIcon className="notif__glyph notif__glyph--bell" />
-        {/* Brand mark instead of the bell on tablet/mobile (see the ≤900px
-            block in toggles-responsive.css) — one DOM tree, CSS decides which
-            glyph shows, so the trigger keeps one badge, one label, one panel. */}
-        <ClockIcon className="notif__glyph notif__glyph--brand" />
+        <BellIcon />
         {visible.length > 0 && (
           <span className="notif__badge" aria-hidden="true">
             {visible.length > 9 ? '9+' : visible.length}

@@ -133,10 +133,12 @@ on read, so one half-written document can never blank out a calendar.
 Pulled out of `ScheduleContext.jsx` specifically so this layer is unit
 tested on its own — `tests/normalize.test.js`.
 
-**The tag palette is validated, not eyeballed.** The eight colours are the
+**The tag palette is validated, not eyeballed.** The first eight colours are the
 validated categorical order — every check passes against both surfaces (worst
 adjacent CVD ΔE 9.1 light / 8.4 dark). The *order* is the colourblind-safety
-mechanism, so new tags take the next unused slot. Three light-mode slots sit
+mechanism, so new tags take the next unused slot. Four further hues
+(cyan/lime/purple/slate) extend the menu past eight tags; they are picked for
+separation, not validator-checked. Three light-mode slots sit
 under 3:1 contrast, so anything wearing a tag colour also carries a visible text
 label — never colour alone.
 

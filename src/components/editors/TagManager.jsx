@@ -126,8 +126,7 @@ export function TagManager({ onClose }) {
   const [name, setName] = useState('')
   const [slot, setSlot] = useState(null)
   const [icon, setIcon] = useState(null)
-  const [pickingIconFor, setPickingIconFor] = useState(null)
-  const [openOptionsFor, setOpenOptionsFor] = useState(null)
+  const [editingId, setEditingId] = useState(null)
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -195,6 +194,7 @@ export function TagManager({ onClose }) {
     try {
       await removeTag(id)
       setConfirming(null)
+      setEditingId((current) => (current === id ? null : current))
       if (snapshot) {
         pushUndo(`Deleted "${snapshot.name}".`, async () => {
           try {
@@ -249,30 +249,13 @@ export function TagManager({ onClose }) {
                     aria-label={`Rename ${tag.name}`}
                     maxLength={40}
                   />
-                  <SlotPicker
-                    value={tag.slot}
-                    onPick={(next) => updateTag(tag.id, { slot: next })}
-                    label={`Colour for ${tag.name}`}
-                  />
                   <button
                     type="button"
                     className="ghost-button ghost-button--sm"
-                    onClick={() => setPickingIconFor((id) => (id === tag.id ? null : tag.id))}
-                    aria-expanded={pickingIconFor === tag.id}
+                    onClick={() => setEditingId((id) => (id === tag.id ? null : tag.id))}
+                    aria-expanded={editingId === tag.id}
                   >
-                    {pickingIconFor === tag.id ? 'Close' : 'Icon'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={() => setOpenOptionsFor((id) => (id === tag.id ? null : tag.id))}
-                    aria-expanded={openOptionsFor === tag.id}
-                  >
-                    {openOptionsFor === tag.id
-                      ? 'Close'
-                      : tag.goalMinutes
-                        ? `${Math.round(tag.goalMinutes / 60)}h/wk`
-                        : 'Options'}
+                    {editingId === tag.id ? 'Close' : 'Edit'}
                   </button>
                   <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
                     {countFor(tag.id)}
@@ -306,20 +289,34 @@ export function TagManager({ onClose }) {
                     </button>
                   )}
                 </div>
-                {pickingIconFor === tag.id && (
-                  <IconPicker
-                    value={tag.icon}
-                    onPick={(next) => updateTag(tag.id, { icon: next })}
-                    label={`Icon for ${tag.name}`}
-                  />
-                )}
-                {openOptionsFor === tag.id && (
-                  <TagOptions
-                    tag={tag}
-                    tags={tags}
-                    descendantIds={descendantsOf(tag.id)}
-                    onChange={(patch) => updateTag(tag.id, patch)}
-                  />
+                {/* One tag's editing panel: colour, icon, and filing/goal live
+                    here instead of on the row, so the list itself stays a
+                    quiet name-per-line until a tag is opened for editing. */}
+                {editingId === tag.id && (
+                  <div className="tag-edit">
+                    <div>
+                      <span className="field__label">Colour</span>
+                      <SlotPicker
+                        value={tag.slot}
+                        onPick={(next) => updateTag(tag.id, { slot: next })}
+                        label={`Colour for ${tag.name}`}
+                      />
+                    </div>
+                    <div>
+                      <span className="field__label">Icon</span>
+                      <IconPicker
+                        value={tag.icon}
+                        onPick={(next) => updateTag(tag.id, { icon: next })}
+                        label={`Icon for ${tag.name}`}
+                      />
+                    </div>
+                    <TagOptions
+                      tag={tag}
+                      tags={tags}
+                      descendantIds={descendantsOf(tag.id)}
+                      onChange={(patch) => updateTag(tag.id, patch)}
+                    />
+                  </div>
                 )}
               </li>
             ))}
@@ -331,40 +328,33 @@ export function TagManager({ onClose }) {
         )}
 
         <form className="tag-add" onSubmit={onAdd}>
-          <TagGlyph
-            tag={{ color: `var(--color-tag-${activeSlot})`, icon }}
-            variant="swatch"
-            className="tag-swatch"
-          />
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New tag"
-            maxLength={40}
-            aria-label="New tag name"
-          />
-          <SlotPicker value={activeSlot} onPick={setSlot} label="Colour for the new tag" />
-          <button
-            type="button"
-            className="ghost-button ghost-button--sm"
-            onClick={() => setPickingIconFor((id) => (id === 'new' ? null : 'new'))}
-            aria-expanded={pickingIconFor === 'new'}
-          >
-            {pickingIconFor === 'new' ? 'Close' : 'Icon'}
-          </button>
-          <button type="submit" className="primary-button" disabled={adding}>
-            Add
-          </button>
+          <div className="tag-add__row">
+            <TagGlyph
+              tag={{ color: `var(--color-tag-${activeSlot})`, icon }}
+              variant="swatch"
+              className="tag-swatch"
+            />
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="New tag"
+              maxLength={40}
+              aria-label="New tag name"
+            />
+            <button type="submit" className="primary-button" disabled={adding}>
+              Add
+            </button>
+          </div>
+          <div>
+            <span className="field__label">Colour</span>
+            <SlotPicker value={activeSlot} onPick={setSlot} label="Colour for the new tag" />
+          </div>
+          <div>
+            <span className="field__label">Icon</span>
+            <IconPicker value={icon} onPick={setIcon} label="Icon for the new tag" />
+          </div>
         </form>
-        {pickingIconFor === 'new' && (
-          <IconPicker value={icon} onPick={setIcon} label="Icon for the new tag" />
-        )}
-
-        <p className="field__hint">
-          Colours are offered in a fixed order chosen so neighbouring tags stay distinguishable
-          with colour-vision deficiency. An icon is optional, and stays off unless you pick one.
-        </p>
       </div>
     </div>
   )

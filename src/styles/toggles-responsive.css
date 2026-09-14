@@ -262,16 +262,6 @@
     min-height: 44px;
   }
 
-  /* Tablet/mobile: the notification trigger wears the brand mark instead of
-     the bell — same button, badge, and panel, just the project's own glyph. */
-  .notif__glyph--bell {
-    display: none;
-  }
-
-  .notif__glyph--brand {
-    display: block;
-  }
-
   .app-content {
     max-width: none;
     margin: 0;

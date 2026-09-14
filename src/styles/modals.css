@@ -424,6 +424,17 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* One tag's collapsed editing panel: colour, icon, and filing/goal stacked
+   under the row that opened them, separated from it by the same hairline the
+   option groups use between themselves. */
+.tag-edit {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 10px;
+  padding: 12px 6px 2px;
+  border-top: 1px solid var(--color-border);
+}
+
 .tag-options__field {
   min-width: 0;
 }
@@ -495,15 +506,19 @@
 }
 
 .tag-add {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.tag-add__row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
-  flex-wrap: wrap;
 }
 
-.tag-add .input {
+.tag-add__row .input {
   flex: 1;
   min-width: 120px;
 }

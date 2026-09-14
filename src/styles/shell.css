@@ -210,12 +210,6 @@
   position: relative;
 }
 
-/* Desktop shows the bell; the brand mark is the ≤900px replacement (see
-   toggles-responsive.css). */
-.notif__glyph--brand {
-  display: none;
-}
-
 .notif__badge {
   position: absolute;
   top: 2px;
