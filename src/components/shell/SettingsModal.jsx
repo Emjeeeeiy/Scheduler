@@ -174,10 +174,14 @@ export function SettingsModal({ onClose }) {
       else pushError('Could not turn off push notifications. Try again.')
       return
     }
-    const granted = await push.enable()
-    if (granted) pushSuccess('Push notifications turned on for this device.')
-    else if (push.denied) pushError('Notifications are blocked — allow them in your browser site settings, then reload.')
-    else if (!push.error) pushError('Notifications were not allowed for this site.')
+    // The result carries the outcome — push.denied/push.error here would be
+    // the pre-click render's stale values, not this attempt's.
+    const result = await push.enable()
+    if (result.ok) pushSuccess('Push notifications turned on for this device.')
+    else if (result.reason === 'denied')
+      pushError('Notifications are blocked — allow them in your browser site settings, then reload.')
+    else if (result.reason === 'dismissed')
+      pushError('Notifications were not allowed for this site.')
     else pushError('Could not turn on push notifications. Try again.')
   }
 

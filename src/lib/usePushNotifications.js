@@ -59,20 +59,34 @@ export function usePushNotifications() {
     }
   }, [user, supported, permission])
 
+  /* Resolves to a result object — never a bare boolean — so the caller toasts
+     exactly what happened. Reading push.denied/push.error after the await
+     would see the pre-click render's stale values, misattributing dismissals
+     as failures and vice versa. Reasons: 'denied' (browser-blocked),
+     'dismissed' (prompt left undecided), 'error' (anything thrown). */
   const enable = useCallback(async () => {
-    if (!user) return false
+    if (!user) return { ok: false, reason: 'error' }
     setBusy(true)
     setError(null)
     seqRef.current += 1
     try {
       const token = await enablePush(user.uid)
-      setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
-      if (token !== null) setSubscribed(true)
-      return token !== null
+      const permissionNow =
+        typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+      setPermission(permissionNow)
+      if (token !== null) {
+        setSubscribed(true)
+        return { ok: true }
+      }
+      // Null means "no token": a dismissal only while permission is still
+      // undecided — denied, or granted-but-empty, are real failures.
+      if (permissionNow === 'denied') return { ok: false, reason: 'denied' }
+      if (permissionNow === 'granted') return { ok: false, reason: 'error' }
+      return { ok: false, reason: 'dismissed' }
     } catch (caught) {
       console.error('Could not enable push notifications.', caught)
       setError(caught)
-      return false
+      return { ok: false, reason: 'error' }
     } finally {
       setBusy(false)
     }
