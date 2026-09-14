@@ -326,6 +326,26 @@ function hashToken(token) {
 
 const fcmTokenDoc = (uid, token) => doc(db, 'users', uid, 'fcmTokens', hashToken(token))
 
+/* Diagnostic breadcrumbs for the tablet installed-PWA enable failure.
+   Temporary: each step of enablePush logs one line so the exact failing
+   operation can be read off the tablet console. Deliberately redacted —
+   never the FCM token (only its length), never the VAPID key (only whether
+   one is present), never the uid. Safe to delete once diagnosed. */
+function pushDiag(step, details) {
+  try {
+    console.info('[push][enable]', step, details ?? '')
+  } catch {
+    /* logging must never break enablement */
+  }
+}
+
+function describePushError(caught) {
+  const code =
+    caught && typeof caught === 'object' && 'code' in caught ? String(caught.code) : null
+  const message = String(caught?.message ?? caught ?? 'unknown error').slice(0, 300)
+  return { code, message }
+}
+
 /**
  * Asks for notification permission and — if granted — subscribes through
  * THIS app's own service worker (not a second firebase-messaging-sw.js).
@@ -334,39 +354,119 @@ const fcmTokenDoc = (uid, token) => doc(db, 'users', uid, 'fcmTokens', hashToken
  * Resolves to token string on success, null if permission denied.
  */
 export async function enablePush(uid) {
-  if (!db || !app) throw new Error('Firebase is not configured.')
+  pushDiag('start', {
+    hasNotification: typeof Notification !== 'undefined',
+    hasServiceWorker: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
+    permissionBefore: typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+    firebaseReady: Boolean(db && app),
+  })
+  if (!db || !app) {
+    const err = new Error('Firebase is not configured.')
+    pushDiag('configFailed', describePushError(err))
+    throw err
+  }
   if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
-    throw new Error('This browser cannot receive push notifications.')
+    const err = new Error('This browser cannot receive push notifications.')
+    pushDiag('capabilityFailed', describePushError(err))
+    throw err
   }
 
-  const permission = await Notification.requestPermission()
+  let permission
+  try {
+    permission = await Notification.requestPermission()
+  } catch (caught) {
+    pushDiag('requestPermissionFailed', describePushError(caught))
+    throw caught
+  }
+  pushDiag('permissionResult', { permission })
   if (permission !== 'granted') return null
 
   const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+  pushDiag('config', { vapidPresent: Boolean(vapidKey) })
   if (!vapidKey) {
-    throw new Error('Push notifications need VITE_FIREBASE_VAPID_KEY — see .env.example.')
+    const err = new Error('Push notifications need VITE_FIREBASE_VAPID_KEY — see .env.example.')
+    pushDiag('vapidMissing', describePushError(err))
+    throw err
   }
 
   // getRegistration(), not serviceWorker.ready — .ready never resolves if no
   // worker was ever registered (dev build), causing an indefinite hang.
-  const registration = await navigator.serviceWorker.getRegistration()
+  let registration = null
+  try {
+    registration = await navigator.serviceWorker.getRegistration()
+  } catch (caught) {
+    pushDiag('getRegistrationFailed', describePushError(caught))
+    throw caught
+  }
+  pushDiag('swRegistration', {
+    found: Boolean(registration),
+    scope: registration?.scope ?? null,
+    activeScriptURL: registration?.active?.scriptURL ?? null,
+    controlled: typeof navigator !== 'undefined' && Boolean(navigator.serviceWorker.controller),
+    hasPushManager: Boolean(registration?.pushManager),
+  })
   if (!registration) {
-    throw new Error(
+    const err = new Error(
       'No service worker is registered yet. Push notifications only work in a production build — run `npm run build && npm run preview`, not `npm run dev`.',
     )
+    pushDiag('swMissing', describePushError(err))
+    throw err
   }
 
-  const { getMessaging, getToken } = await import('firebase/messaging')
-  const messaging = getMessaging(app)
-  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
+  let messagingApi
+  try {
+    messagingApi = await import('firebase/messaging')
+  } catch (caught) {
+    pushDiag('messagingImportFailed', describePushError(caught))
+    throw caught
+  }
+  let supported = null
+  try {
+    supported = await messagingApi.isSupported()
+  } catch (caught) {
+    pushDiag('isSupportedFailed', describePushError(caught))
+    supported = false
+  }
+  pushDiag('messagingSupport', { supported })
+  // getMessaging() itself throws messaging/unsupported-browser when the
+  // browser is unsupported — still call it so the canonical SDK error (not
+  // a custom one) is what surfaces in the next breadcrumb.
+  let messaging
+  try {
+    messaging = messagingApi.getMessaging(app)
+  } catch (caught) {
+    pushDiag('getMessagingFailed', describePushError(caught))
+    throw caught
+  }
+
+  let token = null
+  try {
+    // The SAME registration object logged above is passed here — if the
+    // tablet log shows one scope/scriptURL, that is what getToken used.
+    token = await messagingApi.getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    })
+  } catch (caught) {
+    pushDiag('getTokenFailed', describePushError(caught))
+    throw caught
+  }
+  // Length only — the token itself is a credential and is never logged.
+  pushDiag('getTokenResult', { gotToken: Boolean(token), tokenLength: token ? token.length : 0 })
   if (!token) return null
 
-  await setDoc(fcmTokenDoc(uid, token), {
-    token,
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
+  try {
+    await setDoc(fcmTokenDoc(uid, token), {
+      token,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+  } catch (caught) {
+    pushDiag('tokenWriteFailed', describePushError(caught))
+    throw caught
+  }
+  pushDiag('tokenWriteOk', {})
   return token
 }
 
