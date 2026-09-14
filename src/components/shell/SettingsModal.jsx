@@ -57,6 +57,14 @@ function keyLabel(key) {
   return arrows[key] ?? key
 }
 
+/* TEMP-DIAG: renders one redacted push-diagnostic row. Remove with the panel. */
+function diagStatusText(step) {
+  if (step.status === 'ok') return 'OK'
+  if (step.status === 'denied') return 'DENIED'
+  if (step.status === 'failed') return step.code ? `FAILED (${step.code})` : 'FAILED'
+  return 'Not reached'
+}
+
 /**
  * Per-device preferences, in one place rather than scattered across the
  * views that happen to read them — week start, where the app opens, how
@@ -374,6 +382,26 @@ export function SettingsModal({ onClose }) {
                   >
                     {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
                   </button>
+                </div>
+              )}
+              {/* TEMP-DIAG: tablet PWA diagnosis — on-screen readout of the last
+                  Turn on attempt. Statuses + sanitized codes only; remove once
+                  the root cause is fixed. */}
+              {push.diag && (
+                <div>
+                  <p className="field__hint">
+                    {push.diag.ok
+                      ? 'Last Turn on attempt: every step passed.'
+                      : `Last Turn on attempt failed${push.diag.errorCode ? ` (${push.diag.errorCode})` : ''} — ${push.diag.errorMessage ?? 'unknown error'}`}
+                  </p>
+                  <ul className="shortcut-list">
+                    {push.diag.steps.map((step) => (
+                      <li key={step.id} className="shortcut-list__row">
+                        <span className="shortcut-list__label">{step.label}</span>
+                        <span>{diagStatusText(step)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </section>

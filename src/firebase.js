@@ -353,7 +353,16 @@ function describePushError(caught) {
  * and break offline caching. See public/sw.js.
  * Resolves to token string on success, null if permission denied.
  */
-export async function enablePush(uid) {
+export async function enablePush(uid, { onStep } = {}) {
+  // TEMP-DIAG: forwards redacted per-step results to the Settings UI panel.
+  // Only statuses, error codes and truncated messages — never token/VAPID/uid.
+  const report = (entry) => {
+    try {
+      onStep?.(entry)
+    } catch {
+      /* diagnostics must never break enablement */
+    }
+  }
   pushDiag('start', {
     hasNotification: typeof Notification !== 'undefined',
     hasServiceWorker: typeof navigator !== 'undefined' && 'serviceWorker' in navigator,
@@ -363,11 +372,14 @@ export async function enablePush(uid) {
   if (!db || !app) {
     const err = new Error('Firebase is not configured.')
     pushDiag('configFailed', describePushError(err))
+    report({ id: 'config', status: 'failed', code: null, message: 'Firebase is not configured.' })
     throw err
   }
+  report({ id: 'config', status: 'ok', code: null, message: 'Firebase initialised.' })
   if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
     const err = new Error('This browser cannot receive push notifications.')
     pushDiag('capabilityFailed', describePushError(err))
+    report({ id: 'permission', status: 'failed', code: null, message: err.message })
     throw err
   }
 
@@ -375,19 +387,27 @@ export async function enablePush(uid) {
   try {
     permission = await Notification.requestPermission()
   } catch (caught) {
-    pushDiag('requestPermissionFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('requestPermissionFailed', { code, message })
+    report({ id: 'permission', status: 'failed', code, message })
     throw caught
   }
   pushDiag('permissionResult', { permission })
-  if (permission !== 'granted') return null
+  if (permission !== 'granted') {
+    report({ id: 'permission', status: 'denied', code: null, message: `Permission: ${permission}.` })
+    return null
+  }
+  report({ id: 'permission', status: 'ok', code: null, message: 'Permission granted.' })
 
   const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
   pushDiag('config', { vapidPresent: Boolean(vapidKey) })
   if (!vapidKey) {
     const err = new Error('Push notifications need VITE_FIREBASE_VAPID_KEY — see .env.example.')
     pushDiag('vapidMissing', describePushError(err))
+    report({ id: 'vapid', status: 'failed', code: null, message: 'VAPID key missing from this build.' })
     throw err
   }
+  report({ id: 'vapid', status: 'ok', code: null, message: 'VAPID key present.' })
 
   // getRegistration(), not serviceWorker.ready — .ready never resolves if no
   // worker was ever registered (dev build), causing an indefinite hang.
@@ -395,7 +415,9 @@ export async function enablePush(uid) {
   try {
     registration = await navigator.serviceWorker.getRegistration()
   } catch (caught) {
-    pushDiag('getRegistrationFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('getRegistrationFailed', { code, message })
+    report({ id: 'sw', status: 'failed', code, message })
     throw caught
   }
   pushDiag('swRegistration', {
@@ -410,24 +432,34 @@ export async function enablePush(uid) {
       'No service worker is registered yet. Push notifications only work in a production build — run `npm run build && npm run preview`, not `npm run dev`.',
     )
     pushDiag('swMissing', describePushError(err))
+    report({ id: 'sw', status: 'failed', code: null, message: 'No service worker registration found.' })
     throw err
   }
+  // UI keeps scope/URL out — console already carries them; OK/FAILED is enough on screen.
+  report({ id: 'sw', status: 'ok', code: null, message: 'Service worker registered.' })
 
   let messagingApi
   try {
     messagingApi = await import('firebase/messaging')
   } catch (caught) {
-    pushDiag('messagingImportFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('messagingImportFailed', { code, message })
+    report({ id: 'support', status: 'failed', code, message })
     throw caught
   }
   let supported = null
   try {
     supported = await messagingApi.isSupported()
   } catch (caught) {
-    pushDiag('isSupportedFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('isSupportedFailed', { code, message })
+    report({ id: 'support', status: 'failed', code, message })
     supported = false
   }
   pushDiag('messagingSupport', { supported })
+  if (supported === false) {
+    report({ id: 'support', status: 'failed', code: null, message: 'Firebase Messaging reports this browser unsupported.' })
+  }
   // getMessaging() itself throws messaging/unsupported-browser when the
   // browser is unsupported — still call it so the canonical SDK error (not
   // a custom one) is what surfaces in the next breadcrumb.
@@ -435,8 +467,13 @@ export async function enablePush(uid) {
   try {
     messaging = messagingApi.getMessaging(app)
   } catch (caught) {
-    pushDiag('getMessagingFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('getMessagingFailed', { code, message })
+    report({ id: 'support', status: 'failed', code, message })
     throw caught
+  }
+  if (supported !== false) {
+    report({ id: 'support', status: 'ok', code: null, message: 'Messaging supported.' })
   }
 
   let token = null
@@ -448,12 +485,18 @@ export async function enablePush(uid) {
       serviceWorkerRegistration: registration,
     })
   } catch (caught) {
-    pushDiag('getTokenFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('getTokenFailed', { code, message })
+    report({ id: 'getToken', status: 'failed', code, message })
     throw caught
   }
   // Length only — the token itself is a credential and is never logged.
   pushDiag('getTokenResult', { gotToken: Boolean(token), tokenLength: token ? token.length : 0 })
-  if (!token) return null
+  if (!token) {
+    report({ id: 'getToken', status: 'failed', code: null, message: 'No token returned.' })
+    return null
+  }
+  report({ id: 'getToken', status: 'ok', code: null, message: 'Token issued.' })
 
   try {
     await setDoc(fcmTokenDoc(uid, token), {
@@ -463,10 +506,13 @@ export async function enablePush(uid) {
       updatedAt: Date.now(),
     })
   } catch (caught) {
-    pushDiag('tokenWriteFailed', describePushError(caught))
+    const { code, message } = describePushError(caught)
+    pushDiag('tokenWriteFailed', { code, message })
+    report({ id: 'write', status: 'failed', code, message })
     throw caught
   }
   pushDiag('tokenWriteOk', {})
+  report({ id: 'write', status: 'ok', code: null, message: 'Token stored.' })
   return token
 }
 
