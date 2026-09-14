@@ -167,43 +167,22 @@ export function SettingsModal({ onClose }) {
     }
   }
 
-  // TEMP PUSH-DEBUG — records CLICK/TOAST into the hook's debug panel.
-  // Guarded: unit tests stub the hook without the recorder. Toast strings
-  // below are byte-identical to before; only the recording was added.
-  function noteToast(text) {
-    push.notePushDebug?.('TOAST', { toast: text }, { lastToast: text })
-  }
-
   async function onTogglePush() {
-    const branch = push.subscribed ? 'disable' : 'enable'
-    push.notePushDebug?.(
-      'CLICK',
-      { subscribedAtClick: push.subscribed, branch },
-      { lastClick: `subscribed=${push.subscribed} branch=${branch}` },
-    )
     if (push.subscribed) {
       const ok = await push.disable()
-      const text = ok
-        ? 'Push notifications turned off for this device.'
-        : 'Could not turn off push notifications. Try again.'
-      noteToast(text)
-      if (ok) pushSuccess(text)
-      else pushError(text)
+      if (ok) pushSuccess('Push notifications turned off for this device.')
+      else pushError('Could not turn off push notifications. Try again.')
       return
     }
     // The result carries the outcome — push.denied/push.error here would be
     // the pre-click render's stale values, not this attempt's.
     const result = await push.enable()
-    const text = result.ok
-      ? 'Push notifications turned on for this device.'
-      : result.reason === 'denied'
-        ? 'Notifications are blocked — allow them in your browser site settings, then reload.'
-        : result.reason === 'dismissed'
-          ? 'Notifications were not allowed for this site.'
-          : 'Could not turn on push notifications. Try again.'
-    noteToast(text)
-    if (result.ok) pushSuccess(text)
-    else pushError(text)
+    if (result.ok) pushSuccess('Push notifications turned on for this device.')
+    else if (result.reason === 'denied')
+      pushError('Notifications are blocked — allow them in your browser site settings, then reload.')
+    else if (result.reason === 'dismissed')
+      pushError('Notifications were not allowed for this site.')
+    else pushError('Could not turn on push notifications. Try again.')
   }
 
   async function onToggleDigest(enabled) {
@@ -400,28 +379,6 @@ export function SettingsModal({ onClose }) {
                   >
                     {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
                   </button>
-                </div>
-              )}
-              {/* TEMP PUSH-DEBUG panel — diagnosis only, remove with the hook
-                  block. Values only: never token, VAPID, uid, credentials. */}
-              {push.pushDebug && (
-                <div>
-                  <p className="field__hint">PUSH DEBUG (temporary)</p>
-                  <p className="field__hint">Current subscribed: {String(push.subscribed)}</p>
-                  <p className="field__hint">
-                    Current button:{' '}
-                    {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
-                  </p>
-                  <p className="field__hint">Last click: {push.pushDebug.lastClick ?? '—'}</p>
-                  <p className="field__hint">Last operation: {push.pushDebug.lastOperation ?? '—'}</p>
-                  <p className="field__hint">Subscription check: {push.pushDebug.lastCheck ?? '—'}</p>
-                  <p className="field__hint">
-                    Last subscribed state update: {push.pushDebug.lastSetSubscribed ?? '—'}
-                  </p>
-                  <p className="field__hint">Last toast: {push.pushDebug.lastToast ?? '—'}</p>
-                  <p className="field__hint">Render count: {push.pushDebug.renderCount}</p>
-                  <p className="field__hint">Last event: {push.pushDebug.lastEvent ?? '—'}</p>
-                  <p className="field__hint">Timestamp: {push.pushDebug.timestamp ?? '—'}</p>
                 </div>
               )}
             </section>
