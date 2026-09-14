@@ -77,11 +77,16 @@ export function describeNotification(item) {
  * caller can simply move on. Fire-and-forget with `void` at call sites.
  */
 export async function showLocalNotification(title, options = {}) {
+  // Brand default: every device notification wears the project's own PWA
+  // icon (see public/manifest.webmanifest) unless a caller passes its own.
+  // Without this the OS shows a generic globe/chrome glyph. `badge` is the
+  // small Android status-bar glyph; the same asset is fine for both.
+  const branded = { icon: '/icon-192.png', badge: '/icon-192.png', ...options }
   try {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration()
       if (registration) {
-        await registration.showNotification(title, options)
+        await registration.showNotification(title, branded)
         return true
       }
     }
@@ -89,7 +94,7 @@ export async function showLocalNotification(title, options = {}) {
     /* fall through to the constructor path */
   }
   try {
-    const notification = new Notification(title, options)
+    const notification = new Notification(title, branded)
     notification.onclick = () => window.focus()
     return true
   } catch {
