@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePersistentState } from './usePersistentState.js'
-import { describeNotification } from './notifications.js'
+import { describeNotification, showLocalNotification } from './notifications.js'
 
 const ENABLED_KEY = 'cadence-app:desktop-notifications'
 const SEEN_KEY = 'cadence-app:desktop-notifications-seen'
@@ -73,11 +73,22 @@ export function useDesktopNotifications(items) {
         if (seen.current.has(item.id)) continue
         seen.current.add(item.id)
         changed = true
-        const notification = new Notification(item.task.title, {
-          body: describeNotification(item),
-          tag: item.id,
-        })
-        notification.onclick = () => window.focus()
+        // Never `new Notification()` directly: its constructor throws a
+        // TypeError on nearly all mobile browsers, and a synchronous throw
+        // here reaches the ErrorBoundary — then re-crashes on every reload
+        // because this opt-in is persisted. showLocalNotification goes via
+        // the service worker where it must and never throws. The title/body
+        // reads are guarded for the same reason: one malformed item must not
+        // take down the whole shell.
+        try {
+          if (!item?.task?.title) continue
+          void showLocalNotification(item.task.title, {
+            body: describeNotification(item),
+            tag: item.id,
+          })
+        } catch {
+          /* non-fatal: skip this item */
+        }
       }
     }
 
@@ -86,7 +97,13 @@ export function useDesktopNotifications(items) {
 
   async function request() {
     if (permission === 'unsupported') return
-    const result = await Notification.requestPermission()
+    let result
+    try {
+      result = await Notification.requestPermission()
+    } catch {
+      // Mobile Safari / denied contexts can reject instead of resolving.
+      return
+    }
     setPermission(result)
     if (result === 'granted') setEnabled(true)
   }

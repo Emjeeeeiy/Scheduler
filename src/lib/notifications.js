@@ -60,3 +60,39 @@ export function describeNotification(item) {
   if (kind === 'now') return `Happening now · ${durationLabel(task.durationMin)}`
   return `Starts in ${item.minutesUntil}m · ${minToLabel(task.startMin)}`
 }
+
+/**
+ * Page-context `new Notification()` throws a TypeError on nearly all mobile
+ * browsers (Android Chrome: "Illegal constructor. Use
+ * ServiceWorkerRegistration.showNotification() instead", iOS Safari likewise)
+ * — it only ever worked on desktop. A synchronous throw inside the
+ * desktop-alerts effect reaches the app's ErrorBoundary and, because the
+ * opt-in is persisted in localStorage, re-crashes on every reload until that
+ * stored value is cleared by hand.
+ *
+ * So this helper never throws: when a service-worker registration exists it
+ * notifies through that (the one path mobile supports — clicks are routed by
+ * sw.js's notificationclick handler), otherwise it falls back to the
+ * constructor for desktop, and when neither works it resolves false so the
+ * caller can simply move on. Fire-and-forget with `void` at call sites.
+ */
+export async function showLocalNotification(title, options = {}) {
+  try {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.getRegistration()
+      if (registration) {
+        await registration.showNotification(title, options)
+        return true
+      }
+    }
+  } catch {
+    /* fall through to the constructor path */
+  }
+  try {
+    const notification = new Notification(title, options)
+    notification.onclick = () => window.focus()
+    return true
+  } catch {
+    return false
+  }
+}

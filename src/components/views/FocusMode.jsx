@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { todayKey, weekKeys } from '../../lib/date.js'
 import { focusByTag, focusStatsFor } from '../../lib/stats.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
+import { showLocalNotification } from '../../lib/notifications.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
@@ -56,7 +57,9 @@ function notify(phase) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   const title = phase === 'focus' ? 'Focus session complete' : 'Break is over — back to it'
   const body = phase === 'focus' ? 'Time for a break.' : 'Your next focus round is ready.'
-  new Notification(title, { body })
+  // Same mobile constraint as the desktop alerts (see showLocalNotification):
+  // `new Notification()` throws a TypeError on nearly all mobile browsers.
+  void showLocalNotification(title, { body })
 }
 
 const DIAL_CENTER = 50
