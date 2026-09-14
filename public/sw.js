@@ -18,7 +18,7 @@
  * need it, since the entries are either immutable or network-first.
  */
 
-const CACHE = 'cadence-shell-v1'
+const CACHE = 'cadence-shell-v2'
 
 /* Enough to render something useful on a cold, offline start. Kept to files
    whose paths are stable across builds — every hashed asset arrives through
@@ -149,9 +149,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   /* Everything else same-origin — icons, sounds, the manifest: try the
-     network, fall back to whatever was stored. Stale-while-revalidate would
-     be tempting here, but these are small and rarely change, and a fallback
-     is all offline actually needs. */
+      network, fall back to whatever was stored. Stale-while-revalidate would
+      be tempting here, but these are small and rarely change, and a fallback
+      is all offline actually needs. */
   event.respondWith(
     fetch(request)
       .then((response) => {
@@ -159,5 +159,57 @@ self.addEventListener('fetch', (event) => {
         return response
       })
       .catch(async () => (await fromCache(request)) ?? Response.error()),
+  )
+})
+
+/* ------------------------------------------------------------ push -- */
+
+/* Push notifications via FCM — handled in THIS worker, not a second
+ * firebase-messaging-sw.js. Two workers at "/" can't coexist: the second
+ * would replace sw.js and break the offline shell (see src/firebase.js
+ * enablePush). FCM delivers as a normal `push` event here.
+ *
+ * Suppress the OS notification when a Cadence tab is already visible —
+ * the foreground NotificationBell/useDesktopNotifications path already
+ * showed the in-app alert, so showing a second system toast would
+ * duplicate it.
+ */
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+  let payload
+  try {
+    payload = event.data.json()
+  } catch {
+    return
+  }
+
+  const title = payload.notification?.title ?? payload.data?.title ?? 'Cadence'
+  const body = payload.notification?.body ?? payload.data?.body ?? ''
+  const url = payload.fcmOptions?.link ?? payload.data?.link ?? '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      if (clients.some((c) => c.visibilityState === 'visible')) return undefined
+      return self.registration.showNotification(title, {
+        body,
+        icon: '/notif-icon-192.png',
+        badge: '/icon-192.png',
+        data: { url },
+        tag: payload.data?.tag,
+      })
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus()
+      }
+      return self.clients.openWindow(url)
+    }),
   )
 })

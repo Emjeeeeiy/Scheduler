@@ -6,6 +6,7 @@ import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
+import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import {
   addDays,
   durationLabel,
@@ -140,12 +141,12 @@ const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
 const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
 
 function AppShell() {
-  const { signOut } = useAuth()
   const { loading, error, templates, tasks, events } = useSchedule()
   const { theme, cycleTheme } = useTheme()
   const { settings } = useSettings()
   const { push, pushError, dismiss } = useToast()
   const shortcuts = settings.shortcuts
+  useTimeZoneSync()
 
   // Not persisted across navigation on purpose: every sign-in — and every
   // fresh mount of the app shell — starts back on the configured landing

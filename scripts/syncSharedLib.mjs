@@ -28,10 +28,13 @@ const destLib = join(here, '..', 'functions', 'shared', 'lib')
    digest.js pulls in stats.js and date.js for its totals; expanding a
    recurring task into a given day's occurrence (see functions/lib/dayModel.js)
    needs recurrence.js and normalize.js the same way ScheduleContext does on
-   the client. Keeping this list exactly as wide as what's actually used is
-   what keeps it a small, auditable copy rather than a slow drift toward
-   mirroring all of src/lib/. */
-const FILES = ['date.js', 'recurrence.js', 'normalize.js', 'stats.js']
+   the client. Push notifications also need the same buildNotifications
+   logic the in-app bell uses (see notifications.js), so that server-side
+   "what needs attention" means exactly the same thing as client-side.
+   Keeping this list exactly as wide as what's actually used is what keeps it
+   a small, auditable copy rather than a slow drift toward mirroring all of
+   src/lib/. */
+const FILES = ['date.js', 'recurrence.js', 'normalize.js', 'stats.js', 'notifications.js']
 
 mkdirSync(destLib, { recursive: true })
 for (const file of FILES) {

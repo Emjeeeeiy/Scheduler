@@ -885,6 +885,29 @@ export function ScheduleProvider({ children }) {
           for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
           await batch.commit()
         }
+        // Best-effort sweep of FCM/device state — Firestore's deleteDoc on
+        // users/{uid} does not delete subcollections; without this, orphaned
+        // fcmTokens would remain reachable via collectionGroup. These may not
+        // be in local state (no listener on them), so they're listed via
+        // getDocs rather than from `tasks`/`tags` arrays. Failure is non-fatal
+        // — the server's dead-token pruning would eventually drop them.
+        try {
+          const { getDocs, collection } = await import('firebase/firestore')
+          const fcmSnap = await getDocs(collection(db, 'users', uid, 'fcmTokens')).catch(() => null)
+          if (fcmSnap && !fcmSnap.empty) {
+            for (let i = 0; i < fcmSnap.docs.length; i += 400) {
+              const batch = writeBatch(db)
+              for (const d of fcmSnap.docs.slice(i, i + 400)) batch.delete(d.ref)
+              await batch.commit()
+            }
+          }
+          const metaSnap = await getDocs(collection(db, 'users', uid, 'meta')).catch(() => null)
+          if (metaSnap && !metaSnap.empty) {
+            for (const d of metaSnap.docs) await deleteDoc(d.ref).catch(() => {})
+          }
+        } catch {
+          /* non-fatal — profile doc deletion below still proceeds */
+        }
         return deleteDoc(doc(db, 'users', uid))
       },
 

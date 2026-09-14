@@ -135,6 +135,15 @@ export function AuthProvider({ children }) {
 
       async signOut() {
         try {
+          // Best-effort: remove this device's FCM token so it doesn't keep
+          // receiving this user's pushes after sign-out. Server-side dead-token
+          // pruning is authoritative; this just avoids the delay.
+          try {
+            const { cleanupPushToken } = await import('../firebase.js')
+            await cleanupPushToken()
+          } catch {
+            /* best-effort — sign-out proceeds even if token cleanup fails */
+          }
           await logout()
         } catch (caught) {
           console.error('Sign-out failed.', caught)
