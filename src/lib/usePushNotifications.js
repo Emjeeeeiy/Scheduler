@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '../state/AuthContext.jsx'
 import { disablePush, enablePush, isFcmSubscribed } from '../firebase.js'
 
@@ -15,6 +15,12 @@ export function usePushNotifications() {
     typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
   )
   const [subscribed, setSubscribed] = useState(false)
+  /* Generation guard for the check below: a slow isFcmSubscribed() started
+     before an enable()/disable() must not overwrite that fresh intent when
+     it lands late (seen as the button flipping back right after the toast
+     on slow devices). Bumped by both mutations; the effect only applies a
+     result from the current generation. */
+  const seqRef = useRef(0)
 
   useEffect(() => {
     if (!hasBasicPushSupport()) return undefined
@@ -40,12 +46,13 @@ export function usePushNotifications() {
       return undefined
     }
     let cancelled = false
+    const mySeq = seqRef.current
     isFcmSubscribed(user.uid)
       .then((val) => {
-        if (!cancelled) setSubscribed(val)
+        if (!cancelled && seqRef.current === mySeq) setSubscribed(val)
       })
       .catch(() => {
-        if (!cancelled) setSubscribed(false)
+        if (!cancelled && seqRef.current === mySeq) setSubscribed(false)
       })
     return () => {
       cancelled = true
@@ -56,6 +63,7 @@ export function usePushNotifications() {
     if (!user) return false
     setBusy(true)
     setError(null)
+    seqRef.current += 1
     try {
       const token = await enablePush(user.uid)
       setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
@@ -71,17 +79,29 @@ export function usePushNotifications() {
   }, [user])
 
   const disable = useCallback(async () => {
-    if (!user) return
+    if (!user) return false
     setBusy(true)
     setError(null)
+    seqRef.current += 1
     try {
-      await disablePush(user.uid)
-      setSubscribed(false)
+      const deleted = await disablePush(user.uid)
+      if (!deleted) {
+        // disablePush swallows its own failures, so a false means "unknown" —
+        // read back the ground truth rather than claiming the token is gone.
+        // A failed read stays conservative (still subscribed).
+        const still = await isFcmSubscribed(user.uid).catch(() => true)
+        setSubscribed(still)
+        if (still) return false
+      } else {
+        setSubscribed(false)
+      }
       // permission stays granted at browser level; keep reading actual permission so "denied" note still works.
       setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
+      return true
     } catch (caught) {
       console.error('Could not disable push notifications.', caught)
       setError(caught)
+      return false
     } finally {
       setBusy(false)
     }

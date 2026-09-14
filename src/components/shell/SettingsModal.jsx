@@ -169,8 +169,9 @@ export function SettingsModal({ onClose }) {
 
   async function onTogglePush() {
     if (push.subscribed) {
-      await push.disable()
-      pushSuccess('Push notifications turned off for this device.')
+      const ok = await push.disable()
+      if (ok) pushSuccess('Push notifications turned off for this device.')
+      else pushError('Could not turn off push notifications. Try again.')
       return
     }
     const granted = await push.enable()

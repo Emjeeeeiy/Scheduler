@@ -370,26 +370,35 @@ export async function enablePush(uid) {
   return token
 }
 
-/** Remove this device's token from Firestore and FCM. Best-effort. */
+/** Removes this device's token from Firestore and FCM. Resolves true only
+    when the token doc is confirmed deleted — anything else (no token to
+    resolve, a failed write) resolves false so the Settings toggle can report
+    the real outcome instead of assuming success. Callers that don't care
+    (sign-out cleanup) simply ignore the result. */
 export async function disablePush(uid) {
-  if (!db || !app) return
-  if (!('serviceWorker' in navigator)) return
+  if (!db || !app) return false
+  if (!('serviceWorker' in navigator)) return false
 
   const registration = await navigator.serviceWorker.getRegistration()
-  if (!registration) return
+  if (!registration) return false
 
   const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-  if (!vapidKey) return
+  if (!vapidKey) return false
 
   try {
     const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
     const messaging = getMessaging(app)
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration }).catch(() => null)
-    if (!token) return
+    if (!token) return false
     await deleteToken(messaging).catch(() => {})
-    await deleteDoc(fcmTokenDoc(uid, token)).catch(() => {})
+    try {
+      await deleteDoc(fcmTokenDoc(uid, token))
+    } catch {
+      return false
+    }
+    return true
   } catch {
-    /* best-effort */
+    return false
   }
 }
 
