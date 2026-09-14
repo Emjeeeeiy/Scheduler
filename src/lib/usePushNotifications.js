@@ -6,6 +6,13 @@ function hasBasicPushSupport() {
   return typeof Notification !== 'undefined' && 'serviceWorker' in navigator
 }
 
+/* TEMP PUSH-DEBUG — diagnosis only, remove entirely once the toggle mismatch
+   is identified (this block plus every pushLog/applySubscribed/notePushDebug
+   call site and the modal panel). Values only on every line: never FCM token,
+   VAPID key, uid, or credentials. Deliberately NOT dev-gated: the tablet PWA
+   runs a production build, which is exactly where we must capture. */
+let pushDebugInstanceCount = 0
+
 export function usePushNotifications() {
   const { user } = useAuth()
   const [supported, setSupported] = useState(() => (hasBasicPushSupport() ? null : false))
@@ -21,6 +28,55 @@ export function usePushNotifications() {
      on slow devices). Bumped by both mutations; the effect only applies a
      result from the current generation. */
   const seqRef = useRef(0)
+
+  // TEMP PUSH-DEBUG — per-instance diagnostics. The instance id answers
+  // whether more than one hook lives at once; renderCount counts commits.
+  const instanceRef = useRef(0)
+  if (instanceRef.current === 0) instanceRef.current = ++pushDebugInstanceCount
+  const renderRef = useRef(0)
+  renderRef.current += 1
+  const [pushDebug, setPushDebug] = useState(() => ({
+    lastClick: null,
+    lastOperation: null,
+    lastCheck: null,
+    lastSetSubscribed: null,
+    lastToast: null,
+    lastEvent: null,
+    timestamp: null,
+    renderCount: 0,
+  }))
+  const pushLog = useCallback((event, consoleFields = {}, panelPatch = {}) => {
+    console.info('[PUSH-DEBUG]', event, { instance: instanceRef.current, ...consoleFields })
+    setPushDebug((prev) => ({
+      ...prev,
+      ...panelPatch,
+      renderCount: renderRef.current,
+      lastEvent: event,
+      timestamp: new Date().toISOString(),
+    }))
+  }, [])
+  const applySubscribed = useCallback(
+    (value, origin) => {
+      pushLog('SET_SUBSCRIBED', { value, origin }, { lastSetSubscribed: `${value} (${origin})` })
+      setSubscribed(value)
+    },
+    [pushLog],
+  )
+  // TEMP PUSH-DEBUG — lets the modal record CLICK/TOAST into the same panel.
+  const notePushDebug = useCallback(
+    (event, consoleFields = {}, panelPatch = {}) => {
+      pushLog(event, consoleFields, panelPatch)
+    },
+    [pushLog],
+  )
+
+  console.info('[PUSH-DEBUG] RENDER', {
+    instance: instanceRef.current,
+    subscribed,
+    button: busy ? 'Working…' : subscribed ? 'Turn off' : 'Turn on',
+    supported,
+    permission,
+  })
 
   useEffect(() => {
     if (!hasBasicPushSupport()) return undefined
@@ -42,22 +98,35 @@ export function usePushNotifications() {
   // Handles: permission granted but no token doc → subscribed stays false (shows Turn on).
   useEffect(() => {
     if (!user || supported !== true || permission !== 'granted') {
-      setSubscribed(false)
+      applySubscribed(false, 'effect:early-reset')
       return undefined
     }
     let cancelled = false
     const mySeq = seqRef.current
+    pushLog('SUBSCRIPTION_CHECK_START', { seq: mySeq }, { lastCheck: `start seq=${mySeq}` })
     isFcmSubscribed(user.uid)
       .then((val) => {
-        if (!cancelled && seqRef.current === mySeq) setSubscribed(val)
+        const applied = !cancelled && seqRef.current === mySeq
+        pushLog(
+          'SUBSCRIPTION_CHECK_RESULT',
+          { seq: mySeq, currentSeq: seqRef.current, applied, value: val },
+          { lastCheck: `result seq=${mySeq} applied=${applied} value=${val}` },
+        )
+        if (applied) applySubscribed(val, 'effect:check')
       })
       .catch(() => {
-        if (!cancelled && seqRef.current === mySeq) setSubscribed(false)
+        const applied = !cancelled && seqRef.current === mySeq
+        pushLog(
+          'SUBSCRIPTION_CHECK_RESULT',
+          { seq: mySeq, currentSeq: seqRef.current, applied, value: false, errored: true },
+          { lastCheck: `result seq=${mySeq} applied=${applied} value=false (check threw)` },
+        )
+        if (applied) applySubscribed(false, 'effect:check-error')
       })
     return () => {
       cancelled = true
     }
-  }, [user, supported, permission])
+  }, [user, supported, permission, applySubscribed, pushLog])
 
   /* Resolves to a result object — never a bare boolean — so the caller toasts
      exactly what happened. Reading push.denied/push.error after the await
@@ -69,34 +138,41 @@ export function usePushNotifications() {
     setBusy(true)
     setError(null)
     seqRef.current += 1
+    pushLog('ENABLE_START', { seq: seqRef.current }, { lastOperation: 'enable started' })
     try {
       const token = await enablePush(user.uid)
       const permissionNow =
         typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
       setPermission(permissionNow)
       if (token !== null) {
-        setSubscribed(true)
-        return { ok: true }
+        applySubscribed(true, 'enable:success')
+        const result = { ok: true }
+        pushLog('ENABLE_RESULT', { result }, { lastOperation: `enable → ${JSON.stringify(result)}` })
+        return result
       }
       // Null means "no token": a dismissal only while permission is still
       // undecided — denied, or granted-but-empty, are real failures.
-      if (permissionNow === 'denied') return { ok: false, reason: 'denied' }
-      if (permissionNow === 'granted') return { ok: false, reason: 'error' }
-      return { ok: false, reason: 'dismissed' }
+      const reason = permissionNow === 'denied' ? 'denied' : permissionNow === 'granted' ? 'error' : 'dismissed'
+      const result = { ok: false, reason }
+      pushLog('ENABLE_RESULT', { result }, { lastOperation: `enable → ${JSON.stringify(result)}` })
+      return result
     } catch (caught) {
       console.error('Could not enable push notifications.', caught)
       setError(caught)
-      return { ok: false, reason: 'error' }
+      const result = { ok: false, reason: 'error' }
+      pushLog('ENABLE_RESULT', { result }, { lastOperation: `enable → ${JSON.stringify(result)}` })
+      return result
     } finally {
       setBusy(false)
     }
-  }, [user])
+  }, [user, applySubscribed, pushLog])
 
   const disable = useCallback(async () => {
     if (!user) return false
     setBusy(true)
     setError(null)
     seqRef.current += 1
+    pushLog('DISABLE_START', { seq: seqRef.current }, { lastOperation: 'disable started' })
     try {
       const deleted = await disablePush(user.uid)
       if (!deleted) {
@@ -104,10 +180,12 @@ export function usePushNotifications() {
         // read back the ground truth rather than claiming the token is gone.
         // A failed read stays conservative (still subscribed).
         const still = await isFcmSubscribed(user.uid).catch(() => true)
-        setSubscribed(still)
+        applySubscribed(still, 'disable:verify')
+        pushLog('DISABLE_RESULT', { deleted, still, returnValue: !still }, { lastOperation: `disable → verified still=${still}` })
         if (still) return false
       } else {
-        setSubscribed(false)
+        applySubscribed(false, 'disable:success')
+        pushLog('DISABLE_RESULT', { deleted, returnValue: true }, { lastOperation: 'disable → deleted=true' })
       }
       // permission stays granted at browser level; keep reading actual permission so "denied" note still works.
       setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
@@ -115,11 +193,12 @@ export function usePushNotifications() {
     } catch (caught) {
       console.error('Could not disable push notifications.', caught)
       setError(caught)
+      pushLog('DISABLE_RESULT', { threw: true, returnValue: false }, { lastOperation: 'disable → threw' })
       return false
     } finally {
       setBusy(false)
     }
-  }, [user])
+  }, [user, applySubscribed, pushLog])
 
   return {
     supported,
@@ -130,5 +209,8 @@ export function usePushNotifications() {
     error,
     enable,
     disable,
+    // TEMP PUSH-DEBUG — panel data + modal event recorder. Remove with the block.
+    pushDebug,
+    notePushDebug,
   }
 }
