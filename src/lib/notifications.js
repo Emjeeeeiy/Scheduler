@@ -77,11 +77,16 @@ export function describeNotification(item) {
  * caller can simply move on. Fire-and-forget with `void` at call sites.
  */
 export async function showLocalNotification(title, options = {}) {
-  // Brand default: every device notification wears the project's own PWA
-  // icon (see public/manifest.webmanifest) unless a caller passes its own.
-  // Without this the OS shows a generic globe/chrome glyph. `badge` is the
-  // small Android status-bar glyph; the same asset is fine for both.
-  const branded = { icon: '/icon-192.png', badge: '/icon-192.png', ...options }
+  // Brand default: every device notification wears the project's own artwork
+  // unless a caller passes its own. Split in two on purpose —
+  // `icon` is the large logo, an OPAQUE white tile (public/notif-icon-192.png,
+  // rasterized from favicon.svg) so the black clock stays visible on light
+  // AND dark notification shades, where the transparent PWA icon's clock
+  // vanishes into the background and reads as an empty box. `badge` is the
+  // tiny status-bar glyph, which Android draws from the alpha channel only,
+  // so it takes the transparent clock instead — an opaque tile there would
+  // render as a solid square.
+  const branded = { icon: '/notif-icon-192.png', badge: '/icon-192.png', ...options }
   try {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration()
