@@ -8,6 +8,7 @@ import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
+import { dismissBootSplash } from './lib/bootSplash.js'
 import {
   addDays,
   durationLabel,
@@ -1020,12 +1021,24 @@ function LiveFavicon() {
   return null
 }
 
+/** Removes index.html's boot splash on first paint — the effect runs after
+    React's first commit, which is exactly when the launch screen's job (cover
+    the blank gap while JS loads) is done. Same null-component shape as
+    LiveFavicon above, mounted unconditionally for the same reason. */
+function BootSplash() {
+  useEffect(() => {
+    dismissBootSplash()
+  }, [])
+  return null
+}
+
 export default function App() {
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
     <ErrorBoundary>
       <LiveFavicon />
+      <BootSplash />
       <ToastProvider>
         <SettingsProvider>
           <AuthProvider>
