@@ -1004,3 +1004,174 @@ button.avatar:hover {
 .toast__dismiss {
   flex: none;
 }
+
+/* ===================================================== session skeleton == */
+
+/* What Gate renders while the session check runs: the app shell's own
+   silhouette (rail + content) in shimmer blocks, so a refresh reads as the
+   app arriving rather than a dead page with one line of text. Dimensions echo
+   the real rail/brand/nav/content metrics above, so the swap to the real
+   shell doesn't jump. Surface tokens throughout, so both themes get a
+   readable shimmer for free. */
+.session-skeleton {
+  display: flex;
+  align-items: stretch;
+  min-height: 100dvh;
+}
+
+.session-skeleton__rail {
+  width: 232px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 14px;
+  border-right: 1px solid var(--color-border);
+}
+
+.session-skeleton__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 18px;
+}
+
+.session-skeleton__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-skeleton__nav .skel {
+  height: 34px;
+}
+
+.session-skeleton__nav .skel:nth-child(2) {
+  width: 88%;
+}
+
+.session-skeleton__nav .skel:nth-child(3) {
+  width: 94%;
+}
+
+.session-skeleton__nav .skel:nth-child(4) {
+  width: 64%;
+}
+
+.session-skeleton__spacer {
+  flex: 1;
+}
+
+.session-skeleton__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-skeleton__main {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.session-skeleton__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.session-skeleton__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.session-skeleton__cards .skel {
+  height: 128px;
+}
+
+.session-skeleton__cards .skel:last-child {
+  height: 84px;
+}
+
+.session-skeleton__action {
+  height: 32px;
+  margin-bottom: 6px;
+}
+
+.session-skeleton__title {
+  width: min(220px, 40%);
+  height: 22px;
+}
+
+.session-skeleton__tabs {
+  width: min(300px, 45%);
+  height: 38px;
+}
+
+/* One shimmer grammar for every block: a slow diagonal sweep across the two
+   surfaces, not an opacity blink — a blink reads as broken, a sweep reads as
+   loading. */
+.skel {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-2) 35%,
+    var(--color-surface-1) 50%,
+    var(--color-surface-2) 65%
+  );
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skel-shimmer {
+  from {
+    background-position: 125% 0;
+  }
+  to {
+    background-position: -125% 0;
+  }
+}
+
+.skel--mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.skel--brand-name {
+  width: 92px;
+  height: 17px;
+}
+
+/* The sidebar already collapses into a top bar at and below this width (see
+   toggles-responsive.css), so a rail-shaped skeleton would promise a layout
+   that never arrives — content blocks alone carry the moment instead. */
+@media (max-width: 900px) {
+  .session-skeleton__rail {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .session-skeleton__main {
+    padding: 14px 12px 76px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+    background: var(--color-surface-2);
+  }
+}

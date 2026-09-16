@@ -8,6 +8,7 @@ import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
+import { dismissBootSplash } from './lib/bootSplash.js'
 import {
   addDays,
   durationLabel,
@@ -43,6 +44,7 @@ import { SettingsModal } from './components/shell/SettingsModal.jsx'
 import { CommandPalette } from './components/shell/CommandPalette.jsx'
 import { AiChatModal } from './components/shell/AiChatModal.jsx'
 import { AgendaModal } from './components/calendar/AgendaModal.jsx'
+import { SessionSkeleton } from './components/shell/SessionSkeleton.jsx'
 import {
   BulbIcon,
   ChevronLeftIcon,
@@ -995,11 +997,7 @@ function Gate() {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return (
-      <div className="centered">
-        <p className="empty">Checking your session…</p>
-      </div>
-    )
+    return <SessionSkeleton />
   }
 
   if (!user) return <SignIn />
@@ -1020,12 +1018,25 @@ function LiveFavicon() {
   return null
 }
 
+/** Removes index.html's boot splash on first paint — the effect runs after
+    React's first commit, which is exactly when the launch screen's job (take
+    over from Android's own white+logo frame with the live clock and the
+    animated Cadence title) is done. Same null-component shape as LiveFavicon
+    above, mounted unconditionally for the same reason. */
+function BootSplash() {
+  useEffect(() => {
+    dismissBootSplash()
+  }, [])
+  return null
+}
+
 export default function App() {
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
     <ErrorBoundary>
       <LiveFavicon />
+      <BootSplash />
       <ToastProvider>
         <SettingsProvider>
           <AuthProvider>

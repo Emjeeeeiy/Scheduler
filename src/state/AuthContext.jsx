@@ -14,6 +14,13 @@ import {
 
 const AuthContext = createContext(null)
 
+/* Hint for index.html's head script: a visit with a live session skips the
+   boot splash and goes straight to the skeleton, so returning users never
+   watch the launch screen for an app they're already inside. Maintained here
+   — the one place every sign-in (all methods) and sign-out flows through —
+   rather than in each form. */
+const SIGNED_IN_KEY = 'cadence-app:signed_in'
+
 const FRIENDLY_MESSAGES = {
   'auth/email-already-in-use': 'An account with that email already exists.',
   'auth/invalid-email': 'Enter a valid email address.',
@@ -44,6 +51,12 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
       setLoading(false)
+      try {
+        if (nextUser) localStorage.setItem(SIGNED_IN_KEY, 'true')
+        else localStorage.removeItem(SIGNED_IN_KEY)
+      } catch {
+        /* storage blocked — the splash just shows on every visit */
+      }
     })
   }, [])
 
