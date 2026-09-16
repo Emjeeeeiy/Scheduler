@@ -5,6 +5,7 @@ import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
+import { useAppBadge } from '../../lib/useAppBadge.js'
 import { buildNotifications, describeNotification } from '../../lib/notifications.js'
 import { BellIcon, CloseIcon } from '../icons.jsx'
 
@@ -64,6 +65,11 @@ export function NotificationBell({ onEdit }) {
      quiet its desktop alert too, not just hide the row. */
   const visible = notifications.filter((item) => !dismissed.has(item.id))
   const desktop = useDesktopNotifications(visible)
+
+  /* The launcher icon's own badge — deliberately the same undismissed count
+     as the bell dot above, derived once, so the home-screen number and the
+     in-app dot can never disagree. Deleting an item here quiets both. */
+  useAppBadge(visible.length)
 
   const deleteAllNotifications = useCallback(() => {
     setDismissedIds((current) => {
