@@ -9,6 +9,7 @@ import { useTheme } from './lib/useTheme.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { dismissBootSplash } from './lib/bootSplash.js'
+import { hadSession } from './lib/sessionHint.js'
 import {
   addDays,
   durationLabel,
@@ -995,8 +996,15 @@ function AppShell() {
 /** Auth gate: config first, then the session, then the app. */
 function Gate() {
   const { user, loading } = useAuth()
+  /* Snapshot once per mount: a visit that *started* with a session hint is a
+     returning user, and the skeleton covers Firebase restoring it. Without
+     the hint there is almost certainly no session coming, so the check goes
+     straight to the sign-in form instead of flashing a loader on the
+     sign-in path. */
+  const [returning] = useState(() => hadSession())
 
   if (loading) {
+    if (!returning) return <SignIn />
     return <SessionSkeleton />
   }
 

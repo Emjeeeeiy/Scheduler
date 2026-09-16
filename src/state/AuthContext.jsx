@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
+import { noteSession } from '../lib/sessionHint.js'
 import {
   auth,
   deleteAccount,
@@ -13,13 +14,6 @@ import {
 } from '../firebase.js'
 
 const AuthContext = createContext(null)
-
-/* Hint for index.html's head script: a visit with a live session skips the
-   boot splash and goes straight to the skeleton, so returning users never
-   watch the launch screen for an app they're already inside. Maintained here
-   — the one place every sign-in (all methods) and sign-out flows through —
-   rather than in each form. */
-const SIGNED_IN_KEY = 'cadence-app:signed_in'
 
 const FRIENDLY_MESSAGES = {
   'auth/email-already-in-use': 'An account with that email already exists.',
@@ -51,12 +45,8 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
       setLoading(false)
-      try {
-        if (nextUser) localStorage.setItem(SIGNED_IN_KEY, 'true')
-        else localStorage.removeItem(SIGNED_IN_KEY)
-      } catch {
-        /* storage blocked — the splash just shows on every visit */
-      }
+      // The signed_in hint for the boot splash and Gate (see sessionHint.js).
+      noteSession(nextUser)
     })
   }, [])
 

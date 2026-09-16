@@ -27,8 +27,9 @@
         document.documentElement.className += bootDark ? ' boot-dark' : ' boot-light'
         /* Returning session? Skip the launch screen entirely — signed-in
            visits go straight to the skeleton, never watching the splash for
-           an app they're already inside. AuthContext maintains
-           cadence-app:signed_in from onAuthStateChanged. */
+           an app they're already inside. The key's home is lib/sessionHint.js
+           (written by AuthContext); duplicated here because a module can't
+           load before first paint. */
         if (localStorage.getItem('cadence-app:signed_in') === 'true') {
           document.documentElement.className += ' boot-skip-splash'
         }
