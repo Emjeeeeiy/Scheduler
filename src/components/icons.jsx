@@ -5,6 +5,9 @@
    plus one drawn icon is worse than either alone. Sizing is left to the
    caller (CSS width/height, or explicit props) rather than baked in here. */
 
+import { useEffect, useState } from 'react'
+import { clockHandAngles } from '../lib/liveFavicon.js'
+
 function Icon({ children, ...props }) {
   return (
     <svg
@@ -24,12 +27,51 @@ function Icon({ children, ...props }) {
   )
 }
 
-/** The brand mark — a clock face, echoing the "Cadence" name. */
-export function ClockIcon(props) {
+/** Tick on the second boundary (like useNow's minute-boundary tick) so every
+    live clock in the tree flips its second hand when the second actually
+    changes, rather than drifting off a mount-time 1000ms interval. Honors
+    prefers-reduced-motion by staying frozen at the mount-time reading. */
+function useTickingDate(live) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    if (!live) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let timer
+    const tick = () => {
+      setNow(new Date())
+      timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 25)
+    }
+    timer = setTimeout(tick, 1000 - (Date.now() % 1000) + 25)
+    return () => clearTimeout(timer)
+  }, [live])
+  return now
+}
+
+/** The brand mark — a clock face, echoing the "Cadence" name. Live by
+    default: hour, minute, and second hands track the actual local time and
+    tick every second (the macOS Clock-app treatment — every instance shows
+    the real time, including the sidebar brand lockup and the sign-in
+    screen). Pass `live={false}` for a frozen mark, or `now={date}` in tests
+    to pin the hands without mocking timers. */
+export function ClockIcon({ live = true, now: nowProp, ...props }) {
+  const tickingNow = useTickingDate(live && nowProp == null)
+  const now = nowProp ?? tickingNow
+  const { hour, minute, second } = clockHandAngles(now)
   return (
     <Icon {...props}>
       <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3.5 2" />
+      <line x1="12" y1="12" x2="12" y2="8.2" transform={`rotate(${hour} 12 12)`} />
+      <line x1="12" y1="12" x2="12" y2="7" transform={`rotate(${minute} 12 12)`} />
+      <line
+        x1="12"
+        y1="13.2"
+        x2="12"
+        y2="6.5"
+        strokeWidth="1.3"
+        opacity="0.55"
+        transform={`rotate(${second} 12 12)`}
+      />
+      <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
     </Icon>
   )
 }

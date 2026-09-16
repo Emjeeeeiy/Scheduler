@@ -7,6 +7,7 @@ import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTheme } from './lib/useTheme.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
+import { useLiveFavicon } from './lib/liveFavicon.js'
 import {
   addDays,
   durationLabel,
@@ -1010,11 +1011,21 @@ function Gate() {
   )
 }
 
+/** Keeps the browser-tab icon's clock hands at the actual local time (see
+    lib/liveFavicon.js). A hook, so a null-rendering component — called
+    unconditionally here rather than inside Gate/AppShell so the tab clock
+    ticks on the sign-in screen too, before any session exists. */
+function LiveFavicon() {
+  useLiveFavicon()
+  return null
+}
+
 export default function App() {
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
     <ErrorBoundary>
+      <LiveFavicon />
       <ToastProvider>
         <SettingsProvider>
           <AuthProvider>
