@@ -2,22 +2,29 @@
  *
  * - sendDailyDigest: Phase 6 email digest.
  * - sendPushNotifications: Web Push via FCM (every 5 min), timeZone-aware.
+ * - pruneSharedPushToken: ownership guard for push tokens (on document
+ *   created) — a token identifies a device, not an account, so a new
+ *   registration under one uid deletes the same token under any other uid.
+ *   This is what keeps push working after logout WITHOUT leaking Account A's
+ *   notifications to Account B on a shared device.
  *
- * Both are thin onSchedule wrappers around testable lib modules
- * (runDailyDigest / runPushNotifications) that take Admin SDK deps as
- * arguments. See README-functions.md before deploying.
+ * All three are thin wrappers around testable lib modules
+ * (runDailyDigest / runPushNotifications / reconcilePushToken) that take
+ * Admin SDK deps as arguments. See README-functions.md before deploying.
  */
 
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions'
 
 import { toKey } from './shared/lib/date.js'
 import { runDailyDigest } from './lib/runDailyDigest.js'
 import { runPushNotifications } from './lib/runPushNotifications.js'
+import { reconcilePushToken } from './lib/reconcilePushToken.js'
 
 initializeApp()
 const db = getFirestore()
@@ -79,3 +86,17 @@ export const sendPushNotifications = onSchedule(
     logger.info('sendPushNotifications', result)
   },
 )
+
+/** Fires on every users/{uid}/fcmTokens/{tokenId} create — i.e. exactly when
+ *  a device opts in. Removes the same token string under any OTHER uid, so
+ *  the newest registration owns the device and a previous owner's pushes
+ *  stop arriving there. Runs with Admin SDK privileges precisely because a
+ *  client must never be allowed to delete another uid's docs (see
+ *  firestore.rules). Idempotent: re-runs and same-owner docs are no-ops. */
+export const pruneSharedPushToken = onDocumentCreated('users/{uid}/fcmTokens/{tokenId}', async (event) => {
+  const uid = event.params.uid
+  const token = event.data?.data()?.token
+  if (!token) return
+  const result = await reconcilePushToken({ db, uid, token, logger })
+  logger.info('pruneSharedPushToken', { uid, ...result })
+})

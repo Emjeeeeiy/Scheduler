@@ -23,7 +23,6 @@ vi.mock('../src/firebase.js', () => ({
   disablePush: vi.fn(),
   enablePush: vi.fn(),
   isFcmSubscribed: vi.fn(),
-  cleanupPushToken: vi.fn(),
 }))
 
 let mockAuthState = { user: null, loading: true }

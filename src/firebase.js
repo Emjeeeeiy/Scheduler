@@ -373,8 +373,11 @@ export async function enablePush(uid) {
 /** Removes this device's token from Firestore and FCM. Resolves true only
     when the token doc is confirmed deleted — anything else (no token to
     resolve, a failed write) resolves false so the Settings toggle can report
-    the real outcome instead of assuming success. Callers that don't care
-    (sign-out cleanup) simply ignore the result. */
+    the real outcome instead of assuming success. Reached ONLY through the
+    explicit Turn-off toggle: sign-out deliberately leaves the subscription
+    alone (see AuthContext.signOut), so a logged-out device keeps receiving
+    scheduled pushes until the user opts out, deletes the account, or the
+    token dies server-side. */
 export async function disablePush(uid) {
   if (!db || !app) return false
   if (!('serviceWorker' in navigator)) return false
@@ -424,11 +427,4 @@ export async function isFcmSubscribed(uid) {
   } catch {
     return false
   }
-}
-
-/** Called on sign-out to avoid leaving a stale token owned by a logged-out profile. */
-export async function cleanupPushToken() {
-  const uid = auth?.currentUser?.uid
-  if (!uid) return
-  await disablePush(uid)
 }

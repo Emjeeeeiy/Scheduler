@@ -1,9 +1,10 @@
 /* A small, purpose-built stand-in for the Admin SDK — not a general
- * Firestore emulator, just the exact surface runDailyDigest.js +
- * runPushNotifications.js actually call: collection().doc().collection()...
- * chains, collectionGroup(), where('field','==',value), get()/set(), and
- * a ref.delete() reachable off a query result. Real in-memory data, real
- * async behaviour (every read/write is a genuine Promise).
+ * Firestore emulator, just the exact surface runDailyDigest.js,
+ * runPushNotifications.js and reconcilePushToken.js actually call:
+ * collection().doc().collection()... chains, collectionGroup() with and
+ * without where('field','==',value), get()/set(), and a ref.delete()
+ * reachable off a query result. Real in-memory data, real async behaviour
+ * (every read/write is a genuine Promise).
  */
 
 class DocRef {
@@ -123,17 +124,21 @@ export class FakeFirestore {
 
   collectionGroup(name) {
     const rows = [...this.docs.entries()].filter(([key]) => key.split('/').includes(name))
+    const toDocs = (filtered) =>
+      filtered.map(([key, data]) => {
+        const segments = key.split('/')
+        return {
+          id: segments[segments.length - 1],
+          data: () => data,
+          ref: new DocRef(this, segments),
+        }
+      })
     return {
-      get: async () => ({
-        docs: rows.map(([key, data]) => {
-          const segments = key.split('/')
-          return {
-            id: segments[segments.length - 1],
-            data: () => data,
-            ref: new DocRef(this, segments),
-          }
-        }),
-      }),
+      where(field, op, value) {
+        if (op !== '==') throw new Error(`fakeFirestore only supports '==', got '${op}'`)
+        return { get: async () => ({ docs: toDocs(rows.filter(([, data]) => data[field] === value)) }) }
+      },
+      get: async () => ({ docs: toDocs(rows) }),
     }
   }
 }
