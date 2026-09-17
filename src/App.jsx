@@ -411,16 +411,15 @@ function AppShell() {
      button does, because there is no separate implementation to drift. */
   const paletteActions = useMemo(
     () => [
-      // hiddenUntilSearched: true — sits out of the default "New task" /
-      // "Go to Day" list that shows when the palette first opens, but
-      // appears as a normal row (Enter or click to run, same as any other
-      // command) the moment "ai" is actually typed.
+      // First row of the default list, not hidden until searched: opening
+      // the palette is how a phone/tablet user (no Ctrl/Cmd+K) discovers
+      // what the app can do, and the AI entry point belongs in that
+      // discovery list alongside "New task" and "Go to Day".
       {
         id: 'ai-chat',
         label: 'AI',
         hint: 'Describe it, AI schedules it',
         Icon: BulbIcon,
-        hiddenUntilSearched: true,
         onRun: () => setAiOpen(true),
       },
       { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => setView('dashboard') },
