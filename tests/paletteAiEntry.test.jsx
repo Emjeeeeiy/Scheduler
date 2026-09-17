@@ -5,7 +5,7 @@
  * under test is the actual paletteActions composition, not a fixture.
  */
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App.jsx'
 
 vi.mock('../src/firebase.js', () => ({
@@ -53,6 +53,20 @@ vi.mock('../src/state/ScheduleContext.jsx', () => ({
 
 beforeEach(() => {
   localStorage.clear()
+  // jsdom has no matchMedia; the dashboard's PixelType reads it on mount.
+  window.matchMedia = vi.fn((query) => ({
+    matches: false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => false),
+  }))
+})
+
+afterEach(() => {
+  if ('matchMedia' in window) delete window.matchMedia
 })
 
 function openPalette() {
