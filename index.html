@@ -45,10 +45,16 @@
          to the real time by the script below the markup; the title rises
          letter by letter, then a hairline shimmer holds the eye until React
          dismisses the whole screen on first paint. */
-      html.boot-dark body {
+      /* :has(#boot-splash) gates these to the splash's own lifetime: the
+         stamp classes stay on <html> forever, so without the guard they
+         would outrank the app's `body { background: var(--color-page) }`
+         and pin the background to the launch theme after every later theme
+         change. Once React dismisses the splash node, these stop matching
+         and the app's theme owns the background fully. */
+      html.boot-dark body:has(#boot-splash) {
         background: #050505;
       }
-      html.boot-light body {
+      html.boot-light body:has(#boot-splash) {
         background: #f9f9f7;
       }
       #boot-splash {
