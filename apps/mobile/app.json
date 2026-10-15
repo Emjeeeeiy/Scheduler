@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "name": "Cadence",
+    "slug": "cadence",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "primaryColor": "#0b0b0b"
+  }
+}

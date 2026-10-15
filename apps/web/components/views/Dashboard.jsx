@@ -1,0 +1,379 @@
+import { useState } from 'react'
+import { useSchedule } from '../../state/ScheduleContext.jsx'
+import { useSettings } from '../../state/SettingsContext.jsx'
+import { useNow } from '../../lib/useNow.js'
+import {
+  HEAVY_DAY_MIN,
+  bestDayOfWeek,
+  dayStats,
+  isSeriesTemplate,
+  overdueTasks,
+  rangeStats,
+  rollUpTags,
+  summarize,
+  tagBreakdown,
+  upcomingTasks,
+  weakestTag,
+} from '@cadence/shared/src/stats.js'
+import {
+  DAY_LONG,
+  addDays,
+  dayOfMonth,
+  durationLabel,
+  formatDayLabel,
+  lastNDays,
+  relativeDayLabel,
+  toHours,
+  weekKeys,
+} from '@cadence/shared/src/date.js'
+import { StatTile } from '../stats/StatTile.jsx'
+import { BarChart } from '../stats/BarChart.jsx'
+import { TagBars } from '../stats/TagBars.jsx'
+import { TaskRow } from '../calendar/TaskRow.jsx'
+import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
+import { FrameTicks } from '../shell/FrameTicks.jsx'
+import { PixelType } from './PixelType.jsx'
+import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
+
+/* Repeats land at least weekly, so two weeks of expansion always contains the
+   next one — enough for "Next up" without walking the calendar forever. */
+const UPCOMING_HORIZON_DAYS = 15
+
+const RANGES = [
+  { id: 7, label: 'Last 7 days' },
+  { id: 30, label: 'Last 30 days' },
+]
+
+export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
+  const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
+  const { settings } = useSettings()
+  const now = useNow()
+  const [days, setDays] = useState(7)
+
+  const today = tasksOn(now.key)
+  const todayTotals = dayStats(today)
+
+  const weekKeysList = weekKeys(now.key, settings.weekStartsOn)
+  const week = summarize(rangeStats(tasksOn, weekKeysList))
+  const weekByTag = tagBreakdown(weekKeysList.flatMap(tasksOn), tags)
+  const goalTags = tags.filter((t) => t.goalMinutes)
+
+  const overdue = overdueTasks(tasks, now.key)
+  /* Stored tasks reach as far ahead as they were scheduled, so they go in
+     whole; occurrences only exist once expanded, so they come from the
+     horizon. */
+  const horizon = Array.from({ length: UPCOMING_HORIZON_DAYS }, (_, i) =>
+    occurrencesOn(addDays(now.key, i)),
+  )
+  const next = upcomingTasks([...tasks, ...horizon.flat()], now.key, now.min, 3)
+  const openInbox = inbox.filter((t) => !t.done).length
+  // Pinned surfaces regardless of date — a deliberate exception to every
+  // other section here, which is built around "when." A repeating task's
+  // own rule document is never itself "on" a day (see isSeriesTemplate in
+  // stats.js), so it has no business in a dated pinned list either.
+  const pinned = tasks.filter((t) => t.pinned && !t.done && !isSeriesTemplate(t))
+
+  /* Today's load against the same 10-hour reference the week bar, month strip,
+     and mini calendar all scale to — the hero states the number, this says how
+     full the day that number describes actually is. */
+  const heavyToday = todayTotals.plannedMin > HEAVY_DAY_MIN
+  const loadPct = Math.min(100, Math.round((todayTotals.plannedMin / HEAVY_DAY_MIN) * 100))
+
+  // Trends: the range picked here drives the chart, the tag breakdown, and
+  // the insights below it together, so they always describe the same window.
+  const rangeKeys = lastNDays(now.key, days)
+  const rangeRows = rangeStats(tasksOn, rangeKeys).map((row, index) => ({
+    ...row,
+    // At 30 columns every label would collide, so thin them out and let the
+    // tooltip and table carry the exact day.
+    short:
+      days <= 7 || index % 5 === 0 || index === rangeKeys.length - 1
+        ? String(dayOfMonth(row.key))
+        : '',
+    label: formatDayLabel(row.key),
+  }))
+  const rangeTotals = summarize(rangeRows)
+  const rangeTasks = rangeKeys.flatMap(tasksOn)
+  /* Rolled up to top-level tags: a nested tag's hours belong to the thing it
+     files under, and charting both would draw the same time twice. The
+     weekly-goal bars above deliberately don't roll up — a goal is set on one
+     specific tag, so it is measured against that tag's own hours. */
+  const rangeByTag = rollUpTags(tagBreakdown(rangeTasks, tags), tags)
+  const weakest = weakestTag(rangeTasks, tags)
+  const best = bestDayOfWeek(rangeRows)
+  const activeDays = rangeRows.filter((row) => row.plannedMin > 0).length
+
+  return (
+    <div className="dashboard frame stack">
+      <FrameTicks />
+      <div className="dashboard__top divided-row">
+        {/* Three zones anchored top and bottom rather than one stack piled at
+            the top: the figure and what it means, then air, then the footer
+            pairing the day's breakdown with its action. The space in the
+            middle is the point — it is what an unanchored stack would have
+            left dangling under the button instead. */}
+        <section className="hero" aria-label="Today at a glance">
+          <div className="hero__head">
+            <div className="hero__figure">
+              <p className="hero__label">Planned today</p>
+              <p className="hero__value">
+                {toHours(todayTotals.plannedMin)}
+                <span className="hero__unit">h</span>
+              </p>
+            </div>
+            <PixelType hourMin={now.min} />
+          </div>
+
+          <div className="hero__load">
+            <span className="hero__load-track" aria-hidden="true">
+              <span
+                className={`hero__load-fill${heavyToday ? ' hero__load-fill--heavy' : ''}`}
+                style={{ width: `${loadPct}%` }}
+              />
+            </span>
+            {/* The track is decorative; this line is the accessible readout. */}
+            <p className="hero__load-note">
+              {heavyToday ? 'Over a 10-hour day' : `${loadPct}% of a 10-hour day`}
+            </p>
+          </div>
+
+          <div className="hero__foot">
+            <p className="hero__hint">
+              {todayTotals.count === 0
+                ? 'Nothing on the books yet.'
+                : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
+                    todayTotals.remainingMin,
+                  )} left`}
+            </p>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => onCreate?.({ date: now.key })}
+            >
+              Plan something for today
+            </button>
+          </div>
+        </section>
+
+        <MiniCalendar onFocusDay={onFocusDay} onFocusMonth={onFocusMonth} />
+      </div>
+
+      <div className="tile-row divided-row">
+        <StatTile
+          icon={DayIcon}
+          label="Open today"
+          value={todayTotals.openCount}
+          hint={`${todayTotals.count} scheduled in total`}
+        />
+        <StatTile
+          icon={WarningIcon}
+          label="Overdue"
+          value={overdue.length}
+          tone={overdue.length > 0 ? 'critical' : 'neutral'}
+          hint={overdue.length === 0 ? 'Nothing left behind' : 'Open, and the day has passed'}
+        />
+        <StatTile
+          icon={InboxIcon}
+          label="In the inbox"
+          value={openInbox}
+          hint={openInbox === 0 ? 'All captured work is scheduled' : 'Waiting for a slot'}
+        />
+        <StatTile
+          icon={CheckIcon}
+          label="Done this week"
+          value={week.completionRate === null ? '—' : Math.round(week.completionRate * 100)}
+          unit={week.completionRate === null ? '' : '%'}
+          hint={`${week.doneCount} of ${week.count} tasks`}
+        />
+      </div>
+
+      {pinned.length > 0 && (
+        <section aria-label="Pinned">
+          <div className="section-head">
+            <h2 className="section-head__title">Pinned</h2>
+          </div>
+          <ul>
+            {pinned.map((task) => (
+              <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {goalTags.length > 0 && (
+        <section aria-label="Weekly goals">
+          <div className="section-head">
+            <h2 className="section-head__title">Weekly goals</h2>
+          </div>
+          <ul className="tag-bars">
+            {goalTags.map((tag) => {
+              const plannedMin = weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0
+              const pct = Math.min(100, Math.round((plannedMin / tag.goalMinutes) * 100))
+              return (
+                <li key={tag.id} className="tag-bars__row">
+                  <span className="tag-bars__name">
+                    <span className="tag-bars__dot" style={{ background: tag.color }} aria-hidden="true" />
+                    {tag.name}
+                  </span>
+                  <span className="tag-bars__track">
+                    <span className="tag-bars__fill" style={{ width: `${pct}%`, background: tag.color }} />
+                  </span>
+                  <span className="tag-bars__value">
+                    {toHours(plannedMin)}h / {toHours(tag.goalMinutes)}h
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* The two task queues side by side. Next up leads because it is always
+          there — a column that keeps its place is easier to read than one that
+          slides left whenever nothing is overdue. Overdue joins it on the
+          right when it exists, and Next up takes the full width when it does
+          not, which auto-fit handles without a second rule. */}
+      <div className="queue-row divided-row">
+        <section aria-label="Next up">
+          <div className="section-head">
+            <h2 className="section-head__title">Next up</h2>
+          </div>
+          {next.length === 0 ? (
+            <p className="empty empty--sm">Nothing scheduled ahead. Enjoy the clear run.</p>
+          ) : (
+            <ul>
+              {next.map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {overdue.length > 0 && (
+          <section aria-label="Overdue">
+            <div className="section-head">
+              <h2 className="section-head__title">
+                Overdue <span className="count-pill count-pill--critical">{overdue.length}</span>
+              </h2>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => onFocusDay(overdue[0].date)}
+              >
+                Go to {relativeDayLabel(overdue[0].date)}
+              </button>
+            </div>
+            <ul>
+              {overdue.slice(0, 5).map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate showQuickActions />
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+
+      <div className="section-head">
+        <h2 className="section-head__title">Trends</h2>
+        <div className="filter-row" role="group" aria-label="Time range">
+          {RANGES.map((range) => (
+            <button
+              key={range.id}
+              type="button"
+              className={`filter-chip${days === range.id ? ' filter-chip--on' : ''}`}
+              aria-pressed={days === range.id}
+              onClick={() => setDays(range.id)}
+            >
+              {range.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tile-row divided-row">
+        <StatTile
+          icon={ClockIcon}
+          label="Hours planned"
+          value={toHours(rangeTotals.plannedMin)}
+          unit="h"
+          hint={`across ${activeDays} active day${activeDays === 1 ? '' : 's'}`}
+        />
+        <StatTile
+          icon={CheckIcon}
+          label="Hours completed"
+          value={toHours(rangeTotals.completedMin)}
+          unit="h"
+          hint={
+            rangeTotals.hourRate === null
+              ? 'Nothing planned yet'
+              : `${Math.round(rangeTotals.hourRate * 100)}% of planned time`
+          }
+        />
+        <StatTile
+          icon={CheckIcon}
+          label="Tasks done"
+          value={rangeTotals.doneCount}
+          hint={`of ${rangeTotals.count} scheduled`}
+        />
+        <StatTile
+          icon={TrendIcon}
+          label="Completion rate"
+          value={rangeTotals.completionRate === null ? '—' : Math.round(rangeTotals.completionRate * 100)}
+          unit={rangeTotals.completionRate === null ? '' : '%'}
+          tone={
+            rangeTotals.completionRate !== null && rangeTotals.completionRate >= 0.7 ? 'good' : 'neutral'
+          }
+          hint="Share of scheduled tasks ticked off"
+        />
+      </div>
+
+      <section>
+        <BarChart
+          rows={rangeRows}
+          label={`Planned versus completed — last ${days} days`}
+          emptyText="Nothing scheduled in this range yet."
+        />
+      </section>
+
+      <div className="chart-row divided-row">
+        <section>
+          <TagBars rows={rangeByTag} label={`Time by tag — last ${days} days`} />
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2 className="section-head__title">What this says</h2>
+          </div>
+          <ul className="notes-list">
+            <li>
+              You planned <strong>{durationLabel(rangeTotals.plannedMin)}</strong> and completed{' '}
+              <strong>{durationLabel(rangeTotals.completedMin)}</strong>
+              {rangeTotals.hourRate !== null && <> — {Math.round(rangeTotals.hourRate * 100)}% of it.</>}
+            </li>
+            {activeDays > 0 && (
+              <li>
+                That averages{' '}
+                <strong>{toHours(rangeTotals.plannedMin / activeDays)}h</strong> on the days you
+                planned anything.
+              </li>
+            )}
+            {best && best.rate > 0 && (
+              <li>
+                <strong>{DAY_LONG[best.day]}</strong> is where you follow through most — you tick
+                off {Math.round(best.rate * 100)}% of what lands on it. Worth putting the work you
+                keep postponing there.
+              </li>
+            )}
+            {weakest && (
+              <li>
+                <strong>{weakest.tag.name}</strong> is the tag you finish least often —{' '}
+                {Math.round(weakest.rate * 100)}% of its planned time. Either the estimates are
+                optimistic or the slots are in the wrong part of the day.
+              </li>
+            )}
+            {rangeTotals.count === 0 && <li>Schedule a few tasks and this fills in.</li>}
+          </ul>
+        </section>
+      </div>
+    </div>
+  )
+}

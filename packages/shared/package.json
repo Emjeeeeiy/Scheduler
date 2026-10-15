@@ -1,0 +1,24 @@
+{
+  "name": "@cadence/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./date.js": "./src/date.js",
+    "./recurrence.js": "./src/recurrence.js",
+    "./stats.js": "./src/stats.js",
+    "./slots.js": "./src/slots.js",
+    "./spans.js": "./src/spans.js",
+    "./layout.js": "./src/layout.js",
+    "./autoSchedule.js": "./src/autoSchedule.js",
+    "./parseQuickAdd.js": "./src/parseQuickAdd.js",
+    "./suggestTag.js": "./src/suggestTag.js",
+    "./exportFormats.js": "./src/exportFormats.js",
+    "./normalize.js": "./src/normalize.js"
+  },
+  "scripts": {
+    "test": "node --test ../../tests/"
+  }
+}
