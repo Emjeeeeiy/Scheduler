@@ -859,12 +859,45 @@
 /* min-width: 0 keeps the column inside its 320px track. A grid item defaults
    to min-width: auto, so a single long task title would otherwise widen the
    whole inbox past the track and push the page into horizontal scroll. */
+.day-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  position: sticky;
+  top: 16px;
+}
+
+.day-side .inbox {
+  position: static;
+}
+
 .inbox {
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 16px;
   min-width: 0;
+}
+
+/* Checklist of the day in view, under the inbox: the same tasks the grid
+   shows, as tickable rows so a busy day can be marked done without opening
+   each block. Separated from the inbox by its own hairline. */
+.today-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+}
+
+.today-list__list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 /* The Ink Invert drop-target idiom, same as `.day-column__draft`: a dashed

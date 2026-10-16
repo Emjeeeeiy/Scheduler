@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { DEFAULT_SHORTCUTS, SHORTCUT_ACTIONS, useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
+import { useTheme } from '../../lib/useTheme.js'
 import { useInstallPrompt } from '../../lib/useInstallPrompt.js'
 import { usePushNotifications } from '../../lib/usePushNotifications.js'
 import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
@@ -13,6 +14,12 @@ import { CloseIcon, DownloadIcon, UploadIcon } from '../icons.jsx'
 const WEEK_START_OPTIONS = [
   { value: 0, label: 'Sunday' },
   { value: 1, label: 'Monday' },
+]
+
+const THEME_OPTIONS = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
 ]
 
 const LANDING_VIEW_OPTIONS = [
@@ -70,6 +77,7 @@ export function SettingsModal({ onClose }) {
   const { tasks, events, tags, templates, importData, removeTemplate, profile, updateDigestPreference } =
     useSchedule()
   const { settings, updateSetting } = useSettings()
+  const { theme, setTheme } = useTheme()
   const { pushError, pushSuccess } = useToast()
   const { canInstall, installed, promptInstall } = useInstallPrompt()
   const push = usePushNotifications()
@@ -212,6 +220,24 @@ export function SettingsModal({ onClose }) {
         </div>
 
         <div className="profile stack">
+          <section className="profile__section field">
+            <span className="field__label">Theme</span>
+            <p className="field__hint">System follows your OS; Light and Dark override it.</p>
+            <div className="filter-row" role="group" aria-label="Theme">
+              {THEME_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`filter-chip${theme === option.value ? ' filter-chip--on' : ''}`}
+                  aria-pressed={theme === option.value}
+                  onClick={() => setTheme(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="profile__section field">
             <span className="field__label">Week starts on</span>
             <p className="field__hint">Which day leads the Week and Month grids.</p>

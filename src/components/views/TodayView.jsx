@@ -112,6 +112,12 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
      happen *at* a time. */
   const railEvents = events.filter((e) => !Number.isFinite(e.startMin) || isMultiDay(e))
 
+  /* Right-side checklist: the same tasks the grid shows, as tickable rows.
+     The grid blocks open the editor on click — there is no checkbox there —
+     so marking a busy day done meant opening every task one by one. */
+  const dayList = [...allDay, ...[...timed].sort((a, b) => a.startMin - b.startMin)]
+  const dayOpen = dayList.filter((t) => !t.done).length
+
   /* One chronological sequence for agenda mode: all-day tasks first, then
      everything with a clock time. Deliberately excludes the rail's events —
      they are already on screen directly above, and listing them twice makes
@@ -499,12 +505,33 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
         )}
       </section>
 
-      <TaskInbox
-        focusKey={focusKey}
-        onEdit={onEdit}
-        onCreate={onCreate}
-        onCreateEvent={onCreateEvent}
-      />
+      <div className="day-side">
+        <TaskInbox
+          focusKey={focusKey}
+          onEdit={onEdit}
+          onCreate={onCreate}
+          onCreateEvent={onCreateEvent}
+        />
+
+        <section className="today-list" aria-label={isToday ? "Today's tasks" : 'Tasks on this day'}>
+          <div className="section-head">
+            <h2 className="section-head__title">
+              {isToday ? "Today's tasks" : 'Tasks on this day'}{' '}
+              <span className="count-pill">{dayOpen}</span>
+            </h2>
+          </div>
+
+          {dayList.length === 0 ? (
+            <p className="empty empty--sm">Nothing scheduled yet.</p>
+          ) : (
+            <ul className="today-list__list">
+              {dayList.map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showTime showDate={false} />
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

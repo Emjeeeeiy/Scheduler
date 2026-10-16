@@ -5,7 +5,6 @@ import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
 import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
-import { useTheme } from './lib/useTheme.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { dismissBootSplash } from './lib/bootSplash.js'
@@ -64,9 +63,6 @@ import {
   SettingsIcon,
   SpanIcon,
   TagIcon,
-  ThemeDarkIcon,
-  ThemeLightIcon,
-  ThemeSystemIcon,
   TrendIcon,
   WarningIcon,
   WeekIcon,
@@ -141,12 +137,8 @@ const DATE_NAV = {
   review: (key, n) => addDays(key, n * 7),
 }
 
-const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
-const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
-
 function AppShell() {
   const { loading, error, templates, tasks, events } = useSchedule()
-  const { theme, cycleTheme } = useTheme()
   const { settings } = useSettings()
   const { push, pushError, dismiss } = useToast()
   const shortcuts = settings.shortcuts
@@ -403,8 +395,6 @@ function AppShell() {
     if (view === 'month') return formatMonthLabel(focusKey)
     return relativeDayLabel(focusKey)
   }, [view, focusKey, settings.weekStartsOn])
-
-  const ThemeIcon = THEME_ICON[theme]
 
   /* Built from the same handlers the sidebar buttons and keyboard shortcuts
      already call — a palette entry can't drift from what its equivalent
@@ -801,15 +791,6 @@ function AppShell() {
 
         <div className="sidebar__footer">
           <NotificationBell onEdit={openEdit} />
-          <button
-            type="button"
-            className="icon-button"
-            onClick={cycleTheme}
-            aria-label={`Theme: ${THEME_LABEL[theme]}. Click to change.`}
-            title={`Theme: ${THEME_LABEL[theme]}`}
-          >
-            <ThemeIcon />
-          </button>
           <AccountMenu
             onNewTask={() => openCreate({})}
             onOpenTodo={() => setTodoOpen(true)}

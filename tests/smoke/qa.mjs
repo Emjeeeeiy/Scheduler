@@ -66,10 +66,12 @@ await page.screenshot({ path: `${OUT}/rd-08-modal-dark.png` })
 console.log('modal (dark) captured')
 await page.click('button[aria-label="Close"]')
 
-// Switch to light and confirm it's untouched/still available.
-await page.click('button[title^="Theme:"]') // dark -> system
-await page.click('button[title^="Theme:"]') // system -> light
+// Switch to light via Settings → Theme and confirm it's untouched/still available.
+await page.click('button[title="Settings"]')
+await page.waitForSelector('[role="dialog"][aria-label="Settings"]')
+await page.click('[role="group"][aria-label="Theme"] button:has-text("Light")')
 await page.waitForTimeout(100)
+await page.click('[role="dialog"][aria-label="Settings"] button[aria-label="Close"]')
 await page.click('button[title="Dashboard"]')
 await page.waitForSelector('.hero')
 await page.screenshot({ path: `${OUT}/rd-09-dashboard-light.png`, fullPage: true })
