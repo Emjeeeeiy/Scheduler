@@ -65,6 +65,13 @@ vi.mock('../src/lib/useInstallPrompt.js', () => ({
   useInstallPrompt: () => ({ canInstall: false, installed: false, promptInstall: vi.fn() }),
 }))
 
+/* The modal renders the theme chips, which read the app-wide ThemeContext.
+   Stubbed like the contexts above: what it would stamp on the test document
+   is irrelevant to the push toggle these tests are about. */
+vi.mock('../src/state/ThemeContext.jsx', () => ({
+  useTheme: () => ({ theme: 'dark', setTheme: vi.fn() }),
+}))
+
 import { SettingsModal } from '../src/components/shell/SettingsModal.jsx'
 
 function resetPushStub() {

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
 import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
+import { ThemeProvider } from './state/ThemeContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
@@ -1025,14 +1026,18 @@ export default function App() {
     <ErrorBoundary>
       <LiveFavicon />
       <BootSplash />
-      <ToastProvider>
-        <SettingsProvider>
-          <AuthProvider>
-            <Gate />
-          </AuthProvider>
-        </SettingsProvider>
-        <ToastStack />
-      </ToastProvider>
+      {/* Above every screen, not inside one: the theme is a property of the
+          session, so it can't depend on which view happens to be mounted. */}
+      <ThemeProvider>
+        <ToastProvider>
+          <SettingsProvider>
+            <AuthProvider>
+              <Gate />
+            </AuthProvider>
+          </SettingsProvider>
+          <ToastStack />
+        </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   )
 }

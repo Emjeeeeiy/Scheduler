@@ -1,20 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
-import { useTheme } from '../../lib/useTheme.js'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
-import {
-  ClockIcon,
-  GoogleIcon,
-  ListIcon,
-  ThemeDarkIcon,
-  ThemeLightIcon,
-  ThemeSystemIcon,
-  TrendIcon,
-  WarningIcon,
-} from '../icons.jsx'
+import { ClockIcon, GoogleIcon, ListIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 const HOW_IT_WORKS = [
   { icon: ListIcon, term: 'Capture', detail: 'what needs doing' },
@@ -22,23 +12,19 @@ const HOW_IT_WORKS = [
   { icon: TrendIcon, term: 'Review', detail: 'where the hours went' },
 ]
 
-const THEME_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
-const THEME_ICON = { system: ThemeSystemIcon, light: ThemeLightIcon, dark: ThemeDarkIcon }
-
 /** A two-column entry screen — brand and pitch on the left, the actual form
     on the right — built entirely from lines, not boxes: a top bar rules off
-    the brand and theme toggle, a single hairline divides the two columns,
-    and a drawn cross marks each corner of the content frame. No panel ever
-    gets a fill color of its own; every color comes from the same neutral
-    tokens as the rest of the app, so this screen follows the light/dark
-    toggle instead of carrying a fixed palette. */
+    the brand, a single hairline divides the two columns, and a drawn cross
+    marks each corner of the content frame. No panel ever gets a fill color of
+    its own. The whole screen is fixed to light (see the .auth-shell token
+    block in auth.css) and offers no theme toggle: entry is where you arrive,
+    not where you configure, and the choice belongs to the app you haven't
+    entered yet. Settings still owns it once you're in. */
 export function SignIn() {
   const { signIn, error, clearError } = useAuth()
-  const { theme, cycleTheme } = useTheme()
   const [mode, setMode] = useState('login')
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
-  const ThemeIcon = THEME_ICON[theme]
 
   function switchTo(nextMode) {
     clearError()
@@ -52,15 +38,6 @@ export function SignIn() {
           <ClockIcon className="auth-hero__mark" />
           <span className="auth-hero__name">Cadence</span>
         </div>
-        <button
-          type="button"
-          className="icon-button"
-          onClick={cycleTheme}
-          aria-label={`Theme: ${THEME_LABEL[theme]}. Click to change.`}
-          title={`Theme: ${THEME_LABEL[theme]}`}
-        >
-          <ThemeIcon />
-        </button>
       </header>
 
       <div className="auth-body">

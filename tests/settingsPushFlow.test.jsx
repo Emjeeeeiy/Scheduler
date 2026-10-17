@@ -76,6 +76,13 @@ vi.mock('../src/lib/useInstallPrompt.js', () => ({
   useInstallPrompt: () => ({ canInstall: false, installed: false, promptInstall: vi.fn() }),
 }))
 
+/* The modal renders the theme chips, which read the app-wide ThemeContext.
+   Real here too would just stamp data-theme on the test document; the chips
+   are the same either way, so the state is stubbed to match a fresh visitor. */
+vi.mock('../src/state/ThemeContext.jsx', () => ({
+  useTheme: () => ({ theme: 'dark', setTheme: vi.fn() }),
+}))
+
 import { SettingsModal } from '../src/components/shell/SettingsModal.jsx'
 
 beforeEach(() => {
