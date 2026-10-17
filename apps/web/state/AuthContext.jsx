@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
       setLoading(false)
-      // The signed_in hint for the boot splash and Gate (see sessionHint.js).
+      // The signed_in hint for Gate (see sessionHint.js).
       noteSession(nextUser)
     })
   }, [])

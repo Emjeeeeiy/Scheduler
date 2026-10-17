@@ -1,10 +1,10 @@
 /* The signed_in hint: whether the previous visit ended with a live session.
-   Two readers, one writer. index.html's head script reads the raw key before
-   first paint (a module can't load that early) to decide whether the boot
-   splash may show at all; Gate reads hadSession() to decide whether the auth
-   check deserves the skeleton or should go straight to sign-in. AuthContext
-   is the only writer, from onAuthStateChanged — the one place every sign-in
-   (all methods) and sign-out flows through. */
+   One reader (Gate), one writer. Gate reads hadSession() to decide whether
+   the auth check deserves the skeleton or should go straight to sign-in.
+   AuthContext is the only writer, from onAuthStateChanged — the one place
+   every sign-in (all methods) and sign-out flows through. The boot splash
+   used to read the raw key too, to skip itself for returning users; it plays
+   unconditionally now, so this is purely about the auth gate. */
 
 export const SIGNED_IN_KEY = 'cadence-app:signed_in'
 
@@ -21,6 +21,6 @@ export function noteSession(user) {
     if (user) localStorage.setItem(SIGNED_IN_KEY, 'true')
     else localStorage.removeItem(SIGNED_IN_KEY)
   } catch {
-    /* storage blocked — splash and skeleton fall back to always showing */
+    /* storage blocked — the gate falls back to the sign-in form */
   }
 }

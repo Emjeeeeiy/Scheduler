@@ -1009,7 +1009,7 @@ function LiveFavicon() {
 
 /** Removes index.html's boot splash on first paint — the effect runs after
     React's first commit, which is exactly when the launch screen's job (take
-    over from Android's own white+logo frame with the live clock and the
+    over from Android's own white+logo frame with the sweeping clock and the
     animated Cadence title) is done. Same null-component shape as LiveFavicon
     above, mounted unconditionally for the same reason. */
 function BootSplash() {
