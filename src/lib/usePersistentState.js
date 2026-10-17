@@ -10,7 +10,14 @@ import { useEffect, useState } from 'react'
     lets a caller correct a stale persisted value exactly once, on mount,
     without the correction re-applying to everything the user does afterwards.
     Keep a `revive` total: it runs inside the try, so throwing would discard
-    the stored value and fall back to `initial`. */
+    the stored value and fall back to `initial`.
+
+    The setter it returns is a plain `useState` setter, so it is referentially
+    stable for the life of the component exactly as one would be — safe to leave
+    out of a `useMemo`/`useCallback` dep list, and safe to put in. Lint rules
+    that special-case `useState`'s own setter don't know that about this one, so
+    a `usePersistentState` setter used inside a memo may still need naming
+    explicitly to satisfy exhaustive-deps. */
 export function usePersistentState(key, initial, revive) {
   const [value, setValue] = useState(() => {
     try {

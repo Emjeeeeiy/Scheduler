@@ -1008,11 +1008,11 @@ button.avatar:hover {
 /* ===================================================== session skeleton == */
 
 /* What Gate renders while the session check runs: the app shell's own
-   silhouette (rail + content) in shimmer blocks, so a refresh reads as the
-   app arriving rather than a dead page with one line of text. Dimensions echo
-   the real rail/brand/nav/content metrics above, so the swap to the real
-   shell doesn't jump. Surface tokens throughout, so both themes get a
-   readable shimmer for free. */
+   silhouette — a rail, and the page that is coming drawn in its own layout
+   (components/shell/ViewSkeleton.jsx) — so a refresh reads as the app arriving
+   rather than a dead page with one line of text. Dimensions echo the real
+   rail/brand/nav metrics above, so the swap to the real shell doesn't jump.
+   Surface tokens throughout, so both themes get a readable shimmer for free. */
 .session-skeleton {
   display: flex;
   align-items: stretch;
@@ -1042,6 +1042,8 @@ button.avatar:hover {
   gap: 6px;
 }
 
+/* Three rows, because the rail's nav has three entries (see NAV_ITEMS in
+   App.jsx) — a fourth block would have been a promise the real rail breaks. */
 .session-skeleton__nav .skel {
   height: 34px;
 }
@@ -1051,10 +1053,6 @@ button.avatar:hover {
 }
 
 .session-skeleton__nav .skel:nth-child(3) {
-  width: 94%;
-}
-
-.session-skeleton__nav .skel:nth-child(4) {
   width: 64%;
 }
 
@@ -1080,41 +1078,9 @@ button.avatar:hover {
   gap: 18px;
 }
 
-.session-skeleton__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 16px;
-}
-
-.session-skeleton__cards {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.session-skeleton__cards .skel {
-  height: 128px;
-}
-
-.session-skeleton__cards .skel:last-child {
-  height: 84px;
-}
-
 .session-skeleton__action {
   height: 32px;
   margin-bottom: 6px;
-}
-
-.session-skeleton__title {
-  width: min(220px, 40%);
-  height: 22px;
-}
-
-.session-skeleton__tabs {
-  width: min(300px, 45%);
-  height: 38px;
 }
 
 /* One shimmer grammar for every block: a slow diagonal sweep across the two
@@ -1174,4 +1140,297 @@ button.avatar:hover {
     animation: none;
     background: var(--color-surface-2);
   }
+}
+
+/* ======================================================== view skeletons == */
+
+/* What a page shows while it's loading (components/shell/ViewSkeleton.jsx).
+ *
+ * Every rule here is scoped under `.view-skeleton`, and the elements they
+ * target are the real view's own classes — `.stat-tile__value`, `.month__cell`,
+ * `.chart__bar` and so on. That's the whole trick: the skeleton borrows the
+ * page's layout instead of describing it, so a card is a card because the card
+ * CSS says so. Two consequences worth stating, because they are why this isn't
+ * scoped more tightly per element type:
+ *
+ *   1. Nothing here can reach a live view. `.view-skeleton` exists only on the
+ *      skeleton root, and the real views never carry it.
+ *   2. When a view's layout changes, its skeleton changes with it for free.
+ *      There is no second set of measurements to remember to update.
+ *
+ * What remains is only what a real element can't express on its own: the size
+ * of a text run with no text in it, and the minimum height of a cell whose
+ * real height comes from content that hasn't loaded. */
+.view-skeleton .skel {
+  /* A bare block with no content collapses, so every shim needs a height or a
+     fixed dimension; width is left to the rule that placed it. */
+  flex: none;
+}
+
+/* ---- text runs: one height per role -------------------------------------- */
+
+.skel--section-title {
+  width: 116px;
+  height: 19px;
+}
+.skel--section-title--wide {
+  width: 190px;
+}
+.skel--section-sub {
+  width: 168px;
+  height: 13px;
+  margin-top: 7px;
+}
+.skel--section-sub--wide {
+  width: 240px;
+}
+.skel--note {
+  height: 13px;
+}
+
+/* ---- stat tiles ---------------------------------------------------------- */
+
+.view-skeleton .stat-tile__value {
+  display: flex;
+  align-items: baseline;
+}
+.skel--tile-label {
+  width: 78px;
+  height: 12px;
+}
+.skel--tile-value {
+  width: 58px;
+  height: 30px;
+}
+.skel--tile-hint {
+  width: 116px;
+  height: 11px;
+}
+.skel--icon {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+}
+
+/* ---- task rows ----------------------------------------------------------- */
+
+.view-skeleton .task-row__body {
+  display: block;
+}
+.view-skeleton .task-row__title-row,
+.view-skeleton .task-row__meta {
+  display: flex;
+  align-items: center;
+}
+.skel--checkbox {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+}
+.skel--task-title {
+  width: 62%;
+  height: 13px;
+}
+.skel--task-when {
+  width: 74px;
+  height: 11px;
+}
+
+/* ---- buttons ------------------------------------------------------------- */
+
+.skel--primary-button {
+  width: 178px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+}
+.skel--primary-button--lg {
+  width: 156px;
+  height: 46px;
+}
+.skel--ghost-button {
+  width: 112px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+.skel--ghost-button--tall {
+  height: 46px;
+  width: 96px;
+}
+.skel--chip {
+  width: 66px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+}
+.skel--chip--on {
+  /* The selected Grid chip is a filled pill in the real view; matching that
+     means the toggle reads as already-on-grid rather than as two blanks. */
+  opacity: 0.55;
+}
+.skel--input {
+  width: 100%;
+  height: 38px;
+  border-radius: var(--radius-sm);
+}
+.skel--field-label {
+  width: 74px;
+  height: 12px;
+}
+
+/* ---- dashboard hero + mini calendar -------------------------------------- */
+
+.skel--hero-label {
+  width: 96px;
+  height: 12px;
+}
+.skel--hero-value {
+  width: 108px;
+  height: 46px;
+}
+.skel--hero-unit {
+  width: 12px;
+  height: 18px;
+  margin-left: 6px;
+}
+.skel--pixeltype {
+  width: 132px;
+  height: 34px;
+}
+.skel--hero-note {
+  width: 168px;
+  height: 12px;
+  margin-top: 8px;
+}
+.skel--hero-hint {
+  width: min(260px, 60%);
+  height: 12px;
+}
+.skel--mini-label {
+  width: 128px;
+  height: 16px;
+}
+.skel--dow-letter {
+  width: 9px;
+  height: 9px;
+}
+.skel--dow-letter--wide {
+  width: 22px;
+  height: 11px;
+}
+.skel--cal-cell {
+  aspect-ratio: 1;
+  border-radius: 2px;
+}
+
+/* ---- week ---------------------------------------------------------------- */
+
+.skel--week-summary {
+  width: 210px;
+  height: 13px;
+}
+.skel--week-date {
+  width: 20px;
+  height: 15px;
+}
+.skel--week-load {
+  width: 70%;
+  height: 3px;
+  border-radius: 2px;
+}
+.skel--allday-chip {
+  width: 82%;
+  height: 17px;
+  border-radius: var(--radius-sm);
+}
+.skel--week-hint {
+  width: min(420px, 70%);
+  height: 11px;
+}
+
+/* ---- time grid ----------------------------------------------------------- */
+
+.skel--gutter-mark {
+  width: 34px;
+  height: 11px;
+}
+.skel--column {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+/* The day columns have no blocks in them yet, so without a floor the grid
+   would be one empty band tall and the load would look like an error rather
+   than a day awaiting its tasks. */
+.view-skeleton .day-column__surface {
+  min-height: 320px;
+}
+
+/* ---- month --------------------------------------------------------------- */
+
+.skel--daynum {
+  width: 17px;
+  height: 13px;
+}
+.skel--month-load {
+  width: 34px;
+  height: 10px;
+  margin-left: auto;
+}
+.skel--month-chip {
+  height: 17px;
+  border-radius: var(--radius-sm);
+}
+/* A month cell's real height comes from its chips. Two lanes' worth is what
+   the view reserves in the common case, and matching it is what stops the grid
+   jumping a row-height when the chips land. */
+.view-skeleton .month__cell {
+  min-height: 104px;
+}
+
+/* ---- review: chart + tag bars -------------------------------------------- */
+
+.skel--chart-title {
+  width: 210px;
+  height: 13px;
+}
+.skel--axis-tick {
+  width: 22px;
+  height: 10px;
+}
+.skel--chart-label {
+  width: 22px;
+  height: 10px;
+}
+.view-skeleton .chart__bar {
+  width: 62%;
+}
+.skel--dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.skel--tag-name {
+  width: 84px;
+  height: 12px;
+}
+.skel--tag-value {
+  width: 46px;
+  height: 11px;
+}
+.view-skeleton .tag-bars__fill {
+  height: 100%;
+}
+
+/* ---- focus --------------------------------------------------------------- */
+
+.skel--phase {
+  width: 118px;
+  height: 12px;
+}
+.skel--clock {
+  width: 210px;
+  height: 72px;
+}
+.view-skeleton .hero__load-fill {
+  width: 100%;
+  height: 100%;
 }

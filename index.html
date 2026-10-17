@@ -28,6 +28,16 @@
         if (bootTheme === 'light' || bootTheme === 'dark') {
           document.documentElement.setAttribute('data-theme', bootTheme)
         }
+        /* The splash introduces the app, and the app's front door is sign-in —
+           so a returning session skips it entirely and goes straight to its
+           own page. What plays in place of it there is a skeleton drawn in that
+           page's own layout (see components/shell/ViewSkeleton.jsx); a launch
+           screen on top of that would be a second, wrong-shaped wait. The key's
+           home is lib/sessionHint.js (written by AuthContext); duplicated here
+           because a module can't load before first paint. */
+        if (localStorage.getItem('cadence-app:signed_in') === 'true') {
+          document.documentElement.className += ' boot-skip-splash'
+        }
       } catch (e) {
         /* No storage access: <html> stays unstamped, the media query owns the
            theme, and ThemeContext settles it on mount. */
@@ -47,11 +57,11 @@
          the fade can never begin while something is still moving, and drops it
          to 0 under prefers-reduced-motion, where nothing animates at all.
 
-         Unconditional: every cold start plays it, signed-in reload included.
-         It introduces the app the same way for everyone, and the session hint
-         it used to key off only ever saved ~1.8s in front of someone already
-         waiting for it. Gate still reads that hint — for the skeleton, not
-         for this.
+         Unconditional on the sign-in path: every cold start into login or
+         register plays it, because that screen is the app's front door and a
+         brand mark is what a front door owes you. A returning session is the
+         exception — it skips straight to its page (see the head script above),
+         which has its own per-page skeleton for the wait.
 
          Fixed light, like the auth screen it hands over to — entry is one
          continuous light frame, and a launch screen that flipped with the OS
@@ -83,6 +93,11 @@
       #boot-splash.boot-splash--hide {
         opacity: 0;
         pointer-events: none;
+      }
+      /* Set pre-paint by the script above when a session is already live:
+         the splash never renders a frame, so there is nothing to fade. */
+      html.boot-skip-splash #boot-splash {
+        display: none;
       }
       /* vw-based so the mark holds its share of a phone's width instead of
          sitting small in the middle of it, with a ceiling so it stays a mark

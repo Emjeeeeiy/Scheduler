@@ -9,7 +9,7 @@ import { usePersistentState } from './lib/usePersistentState.js'
 import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { dismissBootSplash } from './lib/bootSplash.js'
-import { hadSession } from './lib/sessionHint.js'
+import { hadSession, lastView, LAST_VIEW_KEY } from './lib/sessionHint.js'
 import {
   addDays,
   durationLabel,
@@ -46,6 +46,7 @@ import { CommandPalette } from './components/shell/CommandPalette.jsx'
 import { AiChatModal } from './components/shell/AiChatModal.jsx'
 import { AgendaModal } from './components/calendar/AgendaModal.jsx'
 import { SessionSkeleton } from './components/shell/SessionSkeleton.jsx'
+import { ViewSkeleton } from './components/shell/ViewSkeleton.jsx'
 import {
   BulbIcon,
   ChevronLeftIcon,
@@ -98,6 +99,15 @@ const SCHEDULE_TABS = [
 ]
 const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
 
+/** Whether `value` names a page the shell can actually render. The same
+    predicate decides what `?view=` in a manifest shortcut is allowed to ask
+    for, what a remembered page is allowed to revive, and — by living in one
+    place — keeps those two from drifting apart. Note that 'schedule' is a nav
+    entry but never a view id: the sidebar routes it to whichever of Day/Week/
+    Month/Review is already open. */
+const isViewId = (value) =>
+  value === 'dashboard' || value === 'focus' || SCHEDULE_VIEWS.includes(value)
+
 /** How many matching tasks (and, separately, events) the palette's search
     offers. A cap rather than a scroll: past a handful, refining the query is
     faster than reading further down a list. */
@@ -124,9 +134,34 @@ const launch = (() => {
   window.history.replaceState({}, '', window.location.pathname)
   return {
     create: wants === 'task' || wants === 'event' ? wants : null,
-    view: view === 'dashboard' || view === 'focus' || SCHEDULE_VIEWS.includes(view) ? view : null,
+    view: isViewId(view) ? view : null,
   }
 })()
+
+/** The page a session opens on, and it is three different questions:
+      1. An explicit request — the "Focus" home-screen shortcut (?view=). A
+         deliberate instruction, so it beats anything remembered.
+      2. A returning session — you were here, keep your place. Only ever
+         reachable because noteSession(null) clears the key on sign-out, which
+         is what separates a refresh from a fresh sign-in without having to ask
+         the auth layer which of the two it was doing.
+      3. Neither — open the door: the configured landing view.
+    That third case is every genuine sign-in, which is how the landing view
+    keeps doing its job without ever hijacking a refresh.
+    Shared by the shell and by the gate's skeleton so they can't disagree: a
+    skeleton that drew the landing view and then swapped to last session's page
+    would be exactly the jump these exist to remove. */
+function openingView(landingView) {
+  return launch.view ?? rememberedView() ?? landingView
+}
+
+/** The remembered page, but only if it's still one we can render — a stored
+    value can be from an older build, or edited by hand, and the alternative is
+    a shell with no page in it. */
+function rememberedView() {
+  const stored = lastView()
+  return isViewId(stored) ? stored : null
+}
 
 /** Which views carry a date cursor, and how far one arrow press moves it.
     Review shares Week's own step — a retrospective moves one week at a time,
@@ -145,11 +180,15 @@ function AppShell() {
   const shortcuts = settings.shortcuts
   useTimeZoneSync()
 
-  // Not persisted across navigation on purpose: every sign-in — and every
-  // fresh mount of the app shell — starts back on the configured landing
-  // view (Settings → default: Dashboard) rather than wherever you left off
-  // last time you switched views.
-  const [view, setView] = useState(launch.view ?? settings.landingView)
+  /* Which page you land on — see openingView above. Persisted rather than held
+     in memory so that a refresh resumes here instead of bouncing to the
+     dashboard; the persistence is a no-op on a genuine sign-in, because the
+     key was cleared when the previous session ended. */
+  const [view, setView] = usePersistentState(
+    LAST_VIEW_KEY,
+    openingView(settings.landingView),
+    () => openingView(settings.landingView),
+  )
   /* Keeping your place across a refresh is useful; being dropped on yesterday
      when you open the app the next morning is not. So a cursor restored from a
      previous session snaps forward — but that correction belongs to the
@@ -478,7 +517,7 @@ function AppShell() {
           }),
       })),
     ],
-    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, setFocusKey],
+    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, setFocusKey, setView],
   )
 
   /* Typing "lunch with Ana tomorrow 1pm" into the palette offers to create
@@ -861,9 +900,10 @@ function AppShell() {
         )}
 
         <main className="app__main">
-          {loading ? (
-            <p className="empty">Loading your schedule…</p>
-          ) : (
+          {/* Skeleton, not a line of text: the view is already chosen, so the
+              wait can be drawn in that page's own layout and the swap lands on
+              the right shapes. See ViewSkeleton.jsx. */}
+          {loading ? <ViewSkeleton view={view} /> : (
             <>
               {view === 'dashboard' && (
                 <Dashboard
@@ -977,6 +1017,7 @@ function AppShell() {
 /** Auth gate: config first, then the session, then the app. */
 function Gate() {
   const { user, loading } = useAuth()
+  const { settings } = useSettings()
   /* Snapshot once per mount: a visit that *started* with a session hint is a
      returning user, and the skeleton covers Firebase restoring it. Without
      the hint there is almost certainly no session coming, so the check goes
@@ -986,7 +1027,11 @@ function Gate() {
 
   if (loading) {
     if (!returning) return <SignIn />
-    return <SessionSkeleton />
+    /* The page this wait belongs to: the same resolution the shell will make
+       once it's up, so the skeleton is already the right shape. A manifest
+       shortcut or a schedule sub-tab can still override it, and the shell
+       simply re-renders into the new page when it does. */
+    return <SessionSkeleton view={openingView(settings.landingView)} />
   }
 
   if (!user) return <SignIn />
