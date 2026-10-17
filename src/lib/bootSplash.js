@@ -1,10 +1,11 @@
-/* Dismisses index.html's boot splash (the clock mark's single turn, then the
-   rising word mark) once React has painted its first frame. It holds first,
-   until the splash's own deadline has passed, so the hand turn and the last
-   letter are never cut off mid-flight — then fades out over CSS and removes
-   the node. Under prefers-reduced-motion nothing animates, so it is removed
-   immediately with no hold and no fade. Safe to call when the splash is
-   already gone (returns false). */
+/* Dismisses index.html's boot splash (the clock mark's two hands taking a full
+   turn each, then the rising word mark) once React has painted its
+   first frame. It holds first,
+   until the splash's own deadline has passed, so the slower hand landing and
+   the last letter are never cut off mid-flight — then fades out over CSS and
+   removes the node. Under prefers-reduced-motion nothing animates, so it is
+   removed immediately with no hold and no fade. Safe to call when the splash
+   is already gone (returns false). */
 
 export const BOOT_SPLASH_ID = 'boot-splash'
 export const BOOT_SPLASH_HIDE_CLASS = 'boot-splash--hide'

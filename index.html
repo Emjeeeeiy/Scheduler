@@ -28,14 +28,6 @@
         if (bootTheme === 'light' || bootTheme === 'dark') {
           document.documentElement.setAttribute('data-theme', bootTheme)
         }
-        /* Returning session? Skip the launch screen entirely — signed-in
-           visits go straight to the skeleton, never watching the splash for
-           an app they're already inside. The key's home is lib/sessionHint.js
-           (written by AuthContext); duplicated here because a module can't
-           load before first paint. */
-        if (localStorage.getItem('cadence-app:signed_in') === 'true') {
-          document.documentElement.className += ' boot-skip-splash'
-        }
       } catch (e) {
         /* No storage access: <html> stays unstamped, the media query owns the
            theme, and ThemeContext settles it on mount. */
@@ -45,14 +37,21 @@
       /* Boot splash: the launch screen that follows Android's own white+logo
          frame the moment our page takes over. Plain CSS in <head> (not the
          bundle) so it renders the instant the HTML arrives. One beat of
-         theatre and then out of the way: the clock hands sweep a single fast
-         turn off the real local time, and only once they come to rest does
-         the word mark rise. No spinner and no shimmer bar — a splash that
-         introduces itself and gets out of the way.
+         theatre and then out of the way: the hands take a full turn each — the long
+         minute hand well ahead of the short hour one — and only once both have
+         come to rest does the word mark rise. No spinner and no shimmer bar —
+         a splash that introduces itself and gets out of the way.
          --boot-settle is the contract with lib/bootSplash.js: the moment the
-         last letter has landed. JS reads it back so the fade can never begin
-         while something is still moving, and drops it to 0 under
-         prefers-reduced-motion, where nothing animates at all.
+         last letter has landed, and by construction after the slower hand has
+         finished its turn (1400ms against 1800ms here). JS reads it back so
+         the fade can never begin while something is still moving, and drops it
+         to 0 under prefers-reduced-motion, where nothing animates at all.
+
+         Unconditional: every cold start plays it, signed-in reload included.
+         It introduces the app the same way for everyone, and the session hint
+         it used to key off only ever saved ~1.8s in front of someone already
+         waiting for it. Gate still reads that hint — for the skeleton, not
+         for this.
 
          Fixed light, like the auth screen it hands over to — entry is one
          continuous light frame, and a launch screen that flipped with the OS
@@ -85,11 +84,6 @@
         opacity: 0;
         pointer-events: none;
       }
-      /* Set pre-paint by the script above when a session is already live:
-         the splash never renders a frame, so there is nothing to fade. */
-      html.boot-skip-splash #boot-splash {
-        display: none;
-      }
       /* vw-based so the mark holds its share of a phone's width instead of
          sitting small in the middle of it, with a ceiling so it stays a mark
          rather than becoming the subject on a desktop window. */
@@ -97,18 +91,34 @@
         width: clamp(140px, 36vw, 210px);
         height: clamp(140px, 36vw, 210px);
       }
-      /* One turn of the hands, then a dead stop — the whole turn is a single
-         iteration, and `both` keeps the resting pose. transform-box: view-box
-         resolves `center` to the viewBox midpoint (12 12), so the group pivots
-         on the clock's own axis at any rendered size. The rotation lands on
-         top of the per-hand rotate() the script below sets, which is what
-         makes the turn start from the real local time and finish back on it. */
-      .boot-splash__hands {
+      /* Two hands, two speeds, and that difference is the whole animation: the long
+         minute hand takes a full turn in 850ms while the short hour hand
+         needs 1400ms for the same ground, so it visibly lags behind and the
+         mark reads as a clock rather than as a badge spinning. Deliberately
+         not a live timepiece — nothing here reads the wall clock, so a splash
+         never has to carry a time-correct pose or re-solve itself for the
+         visitor's timezone.
+
+         One iteration, not a loop, and `forwards` holds the landing pose. The
+         hands have to arrive somewhere: a sweep the fade merely interrupts
+         reads as an app that cut the animation off, and this one finishes — at
+         1400ms, well clear of the 1800ms settle below — then sits at twelve
+         while the word mark finishes landing. The ease-out is what makes them
+         look like they arrived rather than stopped.
+         transform-box: view-box resolves `center` to the viewBox midpoint
+         (12 12), so each hand pivots on the clock's own axis at any rendered
+         size, and the two are separate groups precisely so one duration can
+         override the other — the single group this replaced could only ever
+         spin both at the same rate. */
+      .boot-splash__hand {
         transform-box: view-box;
         transform-origin: center;
-        animation: boot-turn 950ms cubic-bezier(0.3, 0.85, 0.4, 1) both;
+        animation: boot-sweep 850ms cubic-bezier(0.33, 1, 0.68, 1) 1 forwards;
       }
-      @keyframes boot-turn {
+      .boot-splash__hand--hour {
+        animation-duration: 1400ms;
+      }
+      @keyframes boot-sweep {
         from {
           transform: rotate(0deg);
         }
@@ -116,8 +126,9 @@
           transform: rotate(360deg);
         }
       }
-      /* Held off until the hands have stopped (950ms turn + a 100ms beat), so
-         the name only ever arrives as the consequence of the clock. */
+      /* Held off until both hands have come to rest (1400ms) and the mark has had
+         a beat of its own, so the name arrives as the settling of the
+         composition rather than on top of it. */
       .boot-splash__title {
         margin: 0;
         font-size: clamp(21px, 5.5vw, 29px);
@@ -162,7 +173,7 @@
           --boot-settle: 0ms;
           transition: none;
         }
-        .boot-splash__hands,
+        .boot-splash__hand,
         .boot-splash__title span {
           animation: none;
         }
@@ -192,35 +203,16 @@
         stroke-linejoin="round"
       >
         <circle cx="12" cy="12" r="9" />
-        <g class="boot-splash__hands">
-          <line id="boot-hour" x1="12" y1="12" x2="12" y2="7.3" />
-          <line id="boot-minute" x1="12" y1="12" x2="12" y2="7.3" />
-          <circle cx="12" cy="12" r="1.05" fill="currentColor" stroke="none" />
+        <g class="boot-splash__hand boot-splash__hand--minute">
+          <line x1="12" y1="12" x2="12" y2="6.4" />
         </g>
+        <g class="boot-splash__hand boot-splash__hand--hour">
+          <line x1="12" y1="12" x2="12" y2="8.6" />
+        </g>
+        <circle cx="12" cy="12" r="1.05" fill="currentColor" stroke="none" />
       </svg>
       <p class="boot-splash__title"><span>c</span><span>a</span><span>d</span><span>e</span><span>n</span><span>c</span><span>e</span></p>
     </div>
-    <script>
-      /* Point the splash hands at the real local time (same sweep math as
-         ClockIcon's clockHandAngles). Runs synchronously during parse, right
-         after the markup above, so the mark is already correct on first
-         paint; the CSS turn on the enclosing group carries both hands round
-         exactly once from there. */
-      try {
-        var bootNow = new Date()
-        var bootS = bootNow.getSeconds() + bootNow.getMilliseconds() / 1000
-        var bootM = bootNow.getMinutes() + bootS / 60
-        var bootH = (bootNow.getHours() % 12) + bootM / 60
-        var bootSet = function (id, deg) {
-          var el = document.getElementById(id)
-          if (el) el.setAttribute('transform', 'rotate(' + deg + ' 12 12)')
-        }
-        bootSet('boot-hour', bootH * 30)
-        bootSet('boot-minute', bootM * 6)
-      } catch (e) {
-        /* Hands stay pointing up — still the brand mark, just not live. */
-      }
-    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

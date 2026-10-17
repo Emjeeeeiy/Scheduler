@@ -4,6 +4,26 @@
     "slug": "cadence",
     "version": "0.1.0",
     "orientation": "portrait",
-    "primaryColor": "#0b0b0b"
+    "primaryColor": "#0b0b0b",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f9f9f7",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f9f9f7",
+      "imageWidth": 180
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f9f9f7",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ]
+    ]
   }
 }
