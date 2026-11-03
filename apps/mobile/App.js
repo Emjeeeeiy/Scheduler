@@ -8,8 +8,8 @@ import {
   StyleSheet,
 } from 'react-native'
 import * as NativeSplashScreen from 'expo-splash-screen'
-import { todayKey, relativeDayLabel } from '@cadence/shared/src/date.js'
-import { colors, BREAKPOINT_NARROW } from './theme.js'
+import { todayKey, relativeDayLabel } from '@cadence/shared/date.js'
+import { colors, BREAKPOINT_NARROW } from './src/theme.js'
 import SplashScreenAnimation from './src/SplashScreenAnimation.js'
 
 // Expo shell: same IA as src/App.jsx (Dashboard/Day/Week/Month/Review/Focus).

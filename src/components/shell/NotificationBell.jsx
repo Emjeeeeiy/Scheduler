@@ -6,7 +6,7 @@ import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
 import { useAppBadge } from '../../lib/useAppBadge.js'
-import { buildNotifications, describeNotification } from '../../lib/notifications.js'
+import { buildNotifications, describeNotification } from '@cadence/shared/notifications.js'
 import { BellIcon, CloseIcon } from '../icons.jsx'
 
 const PANEL_WIDTH = 300

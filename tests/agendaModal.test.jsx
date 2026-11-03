@@ -18,7 +18,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AgendaModal } from '../src/components/calendar/AgendaModal.jsx'
-import { monthGrid, monthOf, weekKeys } from '../src/lib/date.js'
+import { monthGrid, monthOf, weekKeys } from '@cadence/shared/date.js'
 
 const TODAY = '2026-08-24'
 const WEEK_STARTS_ON = 1

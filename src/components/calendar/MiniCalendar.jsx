@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
-import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
+import { HEAVY_DAY_MIN, dayStats } from '@cadence/shared/stats.js'
 import {
   dayOfMonth,
   durationLabel,
@@ -12,7 +12,7 @@ import {
   shiftMonth,
   todayKey,
   weekdayHeaders,
-} from '../../lib/date.js'
+} from '@cadence/shared/date.js'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 
 /* The same "heavy day" reference the week and month load bars use. Reusing it

@@ -10,8 +10,8 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { addDays, monthGrid, todayKey } from '../../src/lib/date.js'
-import { occursOn } from '../../src/lib/recurrence.js'
+import { addDays, monthGrid, todayKey } from '@cadence/shared/date.js'
+import { occursOn } from '@cadence/shared/recurrence.js'
 import { ToastProvider } from '../../src/state/ToastContext.jsx'
 import { SettingsProvider } from '../../src/state/SettingsContext.jsx'
 import { ThemeProvider } from '../../src/state/ThemeContext.jsx'

@@ -1,4 +1,4 @@
-import { minToLabel, relativeDayLabel } from '../../lib/date.js'
+import { minToLabel, relativeDayLabel } from '@cadence/shared/date.js'
 
 /** The single place TaskEditor's three newer AI suggestions surface — a
     time slot, a checklist, and notes — as one review-before-you-commit

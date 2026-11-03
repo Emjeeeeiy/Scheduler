@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { nowMin, todayKey } from './date.js'
+import { nowMin, todayKey } from '@cadence/shared/date.js'
 
 /** Live clock for the now-line, ticking on the minute boundary rather than
     every 60s from mount, so the line moves when the minute actually changes.

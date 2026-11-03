@@ -1,8 +1,8 @@
 /* Stand-in for state/ScheduleContext.jsx during the smoke render. Aliased in by
    tests/smoke/vite.config.js so no production code knows this file exists. */
 
-import { addDays, todayKey } from '../../src/lib/date.js'
-import { WEEKDAYS, eventOccurrenceOn, occurrenceOn } from '../../src/lib/recurrence.js'
+import { addDays, todayKey } from '@cadence/shared/date.js'
+import { WEEKDAYS, eventOccurrenceOn, occurrenceOn } from '@cadence/shared/recurrence.js'
 
 export const DEFAULT_DURATION_MIN = 30
 

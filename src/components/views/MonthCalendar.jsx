@@ -4,7 +4,7 @@ import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
-import { packSpans } from '../../lib/spans.js'
+import { packSpans } from '@cadence/shared/spans.js'
 import {
   dayOfMonth,
   daysBetween,
@@ -14,9 +14,9 @@ import {
   monthOf,
   monthGrid,
   weekdayHeaders,
-} from '../../lib/date.js'
-import { dayStats } from '../../lib/stats.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
+} from '@cadence/shared/date.js'
+import { dayStats } from '@cadence/shared/stats.js'
+import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 import { DayPeek } from '../calendar/DayPeek.jsx'

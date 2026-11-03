@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
-import { formatDayLabel, durationLabel, minToLabel } from '../../lib/date.js'
-import { eventSpanDays, isMultiDay } from '../../lib/spans.js'
+import { formatDayLabel, durationLabel, minToLabel } from '@cadence/shared/date.js'
+import { eventSpanDays, isMultiDay } from '@cadence/shared/spans.js'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 const PANEL_WIDTH = 260

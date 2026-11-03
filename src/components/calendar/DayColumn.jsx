@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
-import { layoutDay, minToPercent, ratioToMin } from '../../lib/layout.js'
+import { layoutDay, minToPercent, ratioToMin } from '@cadence/shared/layout.js'
 import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
-import { durationLabel, minToLabel, snapMin } from '../../lib/date.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
+import { durationLabel, minToLabel, snapMin } from '@cadence/shared/date.js'
+import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { RepeatIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 

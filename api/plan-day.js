@@ -18,7 +18,7 @@
 
 import { verifyRequest, AuthError } from './_lib/auth.js'
 import { generateJson, GeminiError } from './_lib/gemini.js'
-import { isValidAiPlan } from '../src/lib/autoSchedule.js'
+import { isValidAiPlan } from '@cadence/shared/autoSchedule.js'
 
 const MODEL = process.env.GEMINI_MODEL_PLAN ?? 'gemini-3.5-flash'
 

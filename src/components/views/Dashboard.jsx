@@ -14,7 +14,7 @@ import {
   tagBreakdown,
   upcomingTasks,
   weakestTag,
-} from '../../lib/stats.js'
+} from '@cadence/shared/stats.js'
 import {
   DAY_LONG,
   addDays,
@@ -25,7 +25,7 @@ import {
   relativeDayLabel,
   toHours,
   weekKeys,
-} from '../../lib/date.js'
+} from '@cadence/shared/date.js'
 import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'

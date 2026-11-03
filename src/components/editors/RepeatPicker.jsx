@@ -1,5 +1,5 @@
-import { DAY_LONG, DAY_SHORT, weekdayOrder, weekdayOf } from '../../lib/date.js'
-import { INTERVAL, LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '../../lib/recurrence.js'
+import { DAY_LONG, DAY_SHORT, weekdayOrder, weekdayOf } from '@cadence/shared/date.js'
+import { INTERVAL, LAST, MONTHLY, WEEKLY, presetOf, recurrenceForPreset } from '@cadence/shared/recurrence.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 
 const PRESETS = [

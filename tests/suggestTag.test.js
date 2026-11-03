@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { buildTagModel, significantWords, suggestTag } from '../src/lib/suggestTag.js'
+import { buildTagModel, significantWords, suggestTag } from '@cadence/shared/suggestTag.js'
 
 const task = (title, tagId) => ({ title, tagId })
 

@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { durationLabel, toHours } from '../../lib/date.js'
+import { durationLabel, toHours } from '@cadence/shared/date.js'
 import { CloseIcon } from '../icons.jsx'
 
 /* Round the axis top to a clean number so ticks read 0 / 2 / 4 rather than

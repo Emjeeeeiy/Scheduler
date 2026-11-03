@@ -1,8 +1,8 @@
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
-import { addDays, durationLabel, minToLabel, relativeDayLabel, todayKey } from '../../lib/date.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
-import { isSeriesTemplate, openBlockers } from '../../lib/stats.js'
+import { addDays, durationLabel, minToLabel, relativeDayLabel, todayKey } from '@cadence/shared/date.js'
+import { recurrenceLabel } from '@cadence/shared/recurrence.js'
+import { isSeriesTemplate, openBlockers } from '@cadence/shared/stats.js'
 import { PinIcon, RepeatIcon, WarningIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 

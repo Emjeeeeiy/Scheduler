@@ -11,8 +11,8 @@ import {
   normalizeTag,
   normalizeTask,
   normalizeTemplate,
-} from '../src/lib/normalize.js'
-import { addDays } from '../src/lib/date.js'
+} from '@cadence/shared/normalize.js'
+import { addDays } from '@cadence/shared/date.js'
 
 const DAY = '2026-08-24'
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { isValidAiPlan, planDay, suggestSlots } from '../src/lib/autoSchedule.js'
-import { addDays } from '../src/lib/date.js'
+import { isValidAiPlan, planDay, suggestSlots } from '@cadence/shared/autoSchedule.js'
+import { addDays } from '@cadence/shared/date.js'
 
 const START = '2026-08-24'
 
