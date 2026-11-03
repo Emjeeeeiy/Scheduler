@@ -1,0 +1,9 @@
+# One line-ending convention for every checkout (Windows included). Without
+# this, the same file can be CRLF in one working tree and LF in another, which
+# showed up as a 692-line "diff" between two otherwise identical copies.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.wav binary
+*.ico binary
+*.webp binary

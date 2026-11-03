@@ -13,13 +13,13 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { useAuth } from './AuthContext.jsx'
-import { addDays, clampMin, daysBetween, isValidKey } from '../lib/date.js'
+import { addDays, clampMin, daysBetween, isValidKey } from '@cadence/shared/date.js'
 import {
   eventOccurrenceOn,
   normalizeRecurrence,
   occurrenceOn,
   parseOccurrenceId,
-} from '../lib/recurrence.js'
+} from '@cadence/shared/recurrence.js'
 import {
   DEFAULT_DURATION_MIN,
   DEFAULT_EVENT_DURATION_MIN,
@@ -30,7 +30,7 @@ import {
   normalizeTag,
   normalizeTask,
   normalizeTemplate,
-} from '../lib/normalize.js'
+} from '@cadence/shared/normalize.js'
 
 const ScheduleContext = createContext(null)
 

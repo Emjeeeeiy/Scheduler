@@ -1,8 +1,8 @@
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
-import { rangeStats } from '../../lib/stats.js'
-import { WEEK_STARTS_ON, formatDayLabel, lastNDays, weekdayOf } from '../../lib/date.js'
+import { rangeStats } from '@cadence/shared/stats.js'
+import { WEEK_STARTS_ON, formatDayLabel, lastNDays, weekdayOf } from '@cadence/shared/date.js'
 
 const TOTAL_DAYS = 91 // 13 full weeks — a GitHub-style trailing window
 

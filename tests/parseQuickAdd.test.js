@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseQuickAdd } from '../src/lib/parseQuickAdd.js'
-import { addDays, weekdayOf } from '../src/lib/date.js'
+import { parseQuickAdd } from '@cadence/shared/parseQuickAdd.js'
+import { addDays, weekdayOf } from '@cadence/shared/date.js'
 
 /* A Monday, chosen so every weekday case has somewhere unambiguous to land.
    Asserted rather than assumed — a fixture that quietly stops being a Monday

@@ -7,8 +7,8 @@ import {
   summarize,
   tagBreakdown,
   weakestTag,
-} from '../../lib/stats.js'
-import { durationLabel, formatDayLabel, formatWeekLabel, toHours, weekKeys } from '../../lib/date.js'
+} from '@cadence/shared/stats.js'
+import { durationLabel, formatDayLabel, formatWeekLabel, toHours, weekKeys } from '@cadence/shared/date.js'
 import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'

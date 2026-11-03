@@ -21,8 +21,8 @@ import {
   presetOf,
   recurrenceForPreset,
   recurrenceLabel,
-} from '../src/lib/recurrence.js'
-import { addDays, daysBetween } from '../src/lib/date.js'
+} from '@cadence/shared/recurrence.js'
+import { addDays, daysBetween } from '@cadence/shared/date.js'
 
 // 2026-08-24 is a Monday; the week that follows it is used throughout.
 const MON = '2026-08-24'

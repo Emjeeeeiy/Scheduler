@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePersistentState } from './usePersistentState.js'
-import { describeNotification, showLocalNotification } from './notifications.js'
+import { describeNotification, showLocalNotification } from '@cadence/shared/notifications.js'
 
 const ENABLED_KEY = 'cadence-app:desktop-notifications'
 const SEEN_KEY = 'cadence-app:desktop-notifications-seen'

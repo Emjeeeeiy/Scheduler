@@ -7,7 +7,7 @@ import { useToast } from '../../state/ToastContext.jsx'
    not exist. Events have no inbox, because an undated thing that runs for
    three days is a task, not an event. */
 import { DRAG_TASK, readDrag } from '../../lib/dnd.js'
-import { todayKey } from '../../lib/date.js'
+import { todayKey } from '@cadence/shared/date.js'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
 /**

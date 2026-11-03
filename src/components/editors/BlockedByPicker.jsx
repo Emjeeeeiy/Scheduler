@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
-import { isSeriesTemplate } from '../../lib/stats.js'
+import { isSeriesTemplate } from '@cadence/shared/stats.js'
 import { CloseIcon } from '../icons.jsx'
 
 const MAX_SUGGESTIONS = 8

@@ -1,9 +1,7 @@
-'use client'
-
 import { useCallback, useState } from 'react'
 
-// The editor slot from src/App.jsx, extracted verbatim so every Next.js route
-// shares one create/view/edit flow. `editor` holds either kind; `mode` is
+// The editor slot, extracted so App.jsx and any view that opens an editor
+// share one create/view/edit flow. `editor` holds either kind; `mode` is
 // create | view | edit. Clicking an item opens read-only 'view' (ItemDetail);
 // its Edit button promotes to 'edit'. Explicit Edit affordances skip 'view'.
 export function useEditorStack() {

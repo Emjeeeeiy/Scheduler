@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { toCsv, toIcs } from '../src/lib/exportFormats.js'
-import { normalizeEvent, normalizeTask } from '../src/lib/normalize.js'
-import { LAST, recurrenceLabel } from '../src/lib/recurrence.js'
+import { toCsv, toIcs } from '@cadence/shared/exportFormats.js'
+import { normalizeEvent, normalizeTask } from '@cadence/shared/normalize.js'
+import { LAST, recurrenceLabel } from '@cadence/shared/recurrence.js'
 
 const DAY = '2026-08-24'
 const STAMP = Date.UTC(2026, 7, 24, 9, 30, 0)

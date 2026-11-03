@@ -13,8 +13,8 @@ import {
   summarize,
   tagBreakdown,
   upcomingTasks,
-} from '../src/lib/stats.js'
-import { weekdayOf } from '../src/lib/date.js'
+} from '@cadence/shared/stats.js'
+import { weekdayOf } from '@cadence/shared/date.js'
 
 const timed = (id, date, startMin, durationMin, done = false, tagId = null) => ({
   id,

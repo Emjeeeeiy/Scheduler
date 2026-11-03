@@ -14,7 +14,7 @@ import {
   timeValueToMin,
   toKey,
   weekKeys,
-} from '../src/lib/date.js'
+} from '@cadence/shared/date.js'
 
 describe('day keys', () => {
   it('round-trips through a local Date', () => {

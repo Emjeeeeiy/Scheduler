@@ -4,19 +4,19 @@ import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
-import { hourMarks, visibleWindow } from '../../lib/layout.js'
-import { isValidAiPlan, planDay, planningSlots } from '../../lib/autoSchedule.js'
+import { hourMarks, visibleWindow } from '@cadence/shared/layout.js'
+import { isValidAiPlan, planDay, planningSlots } from '@cadence/shared/autoSchedule.js'
 import { planDayAi } from '../../lib/aiClient.js'
-import { freeSlots } from '../../lib/slots.js'
-import { dayOfSpan, eventSpanDays, isMultiDay } from '../../lib/spans.js'
-import { dayStats, upcomingTasks } from '../../lib/stats.js'
+import { freeSlots } from '@cadence/shared/slots.js'
+import { dayOfSpan, eventSpanDays, isMultiDay } from '@cadence/shared/spans.js'
+import { dayStats, upcomingTasks } from '@cadence/shared/stats.js'
 import {
   durationLabel,
   formatFullDayLabel,
   minToLabel,
   minToShortLabel,
   toHours,
-} from '../../lib/date.js'
+} from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { TaskInbox } from '../calendar/TaskInbox.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'

@@ -6,9 +6,9 @@ import { useModalA11y } from '../../lib/useModalA11y.js'
 import { useTheme } from '../../state/ThemeContext.jsx'
 import { useInstallPrompt } from '../../lib/useInstallPrompt.js'
 import { usePushNotifications } from '../../lib/usePushNotifications.js'
-import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '../../lib/date.js'
-import { recurrenceLabel } from '../../lib/recurrence.js'
-import { toCsv, toIcs } from '../../lib/exportFormats.js'
+import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '@cadence/shared/date.js'
+import { recurrenceLabel } from '@cadence/shared/recurrence.js'
+import { toCsv, toIcs } from '@cadence/shared/exportFormats.js'
 import { CloseIcon, DownloadIcon, UploadIcon } from '../icons.jsx'
 
 const WEEK_START_OPTIONS = [

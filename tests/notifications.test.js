@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { SOON_WINDOW_MIN, buildNotifications } from '../src/lib/notifications.js'
+import { SOON_WINDOW_MIN, buildNotifications } from '@cadence/shared/notifications.js'
 
 const timed = (id, date, startMin, durationMin, done = false) => ({
   id,

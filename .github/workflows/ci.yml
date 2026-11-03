@@ -25,6 +25,15 @@ jobs:
       # Firebase project needed, since these never touch the network.
       - run: npm test
 
+      # Component/hook behaviour under jsdom, plus the api/ handler glue.
+      - run: npm run test:dom
+
+      # Cloud Functions logic. Its pretest hook copies the shared modules into
+      # functions/shared/ first (gitignored build output, so a fresh checkout
+      # has none). Needs no `npm ci` inside functions/: the tested modules
+      # import nothing but each other.
+      - run: npm run test:functions
+
       # SSR-renders every view against mock data. Needs no live Firebase
       # project either — ScheduleContext/AuthContext are aliased to fixtures
       # for this build (see tests/smoke/vite.config.js).

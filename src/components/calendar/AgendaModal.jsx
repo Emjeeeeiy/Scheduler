@@ -13,7 +13,7 @@ import {
   monthOf,
   todayKey,
   weekKeys,
-} from '../../lib/date.js'
+} from '@cadence/shared/date.js'
 import { CloseIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 

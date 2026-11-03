@@ -10,12 +10,14 @@
     "lint": "oxlint",
     "icons": "node scripts/makeIcons.mjs",
     "icons:mobile": "node scripts/makeMobileAssets.mjs",
-    "test": "node --test",
+    "test": "node --test \"tests/**/*.test.js\"",
+    "test:functions": "npm --prefix functions test",
     "test:dom": "vitest run",
     "test:render": "vite build --config tests/smoke/vite.config.js && node node_modules/.smoke/entry.js",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cadence/shared": "0.1.0",
     "@google/genai": "^2.21.0",
     "firebase": "^12.8.0",
     "jose": "^6.2.11",

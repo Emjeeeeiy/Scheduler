@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { dayOfSpan, eventSpanDays, isMultiDay, packSpans } from '../src/lib/spans.js'
-import { weekKeys } from '../src/lib/date.js'
+import { dayOfSpan, eventSpanDays, isMultiDay, packSpans } from '@cadence/shared/spans.js'
+import { weekKeys } from '@cadence/shared/date.js'
 
 /* A fixed Monday, so every case reads against a known week rather than
    whatever day the suite happens to run on. */

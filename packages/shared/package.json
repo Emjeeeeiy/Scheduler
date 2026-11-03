@@ -16,7 +16,8 @@
     "./parseQuickAdd.js": "./src/parseQuickAdd.js",
     "./suggestTag.js": "./src/suggestTag.js",
     "./exportFormats.js": "./src/exportFormats.js",
-    "./normalize.js": "./src/normalize.js"
+    "./normalize.js": "./src/normalize.js",
+    "./notifications.js": "./src/notifications.js"
   },
   "scripts": {
     "test": "node --test ../../tests/"

@@ -20,8 +20,8 @@ import {
   relativeDayLabel,
   shiftMonth,
   todayKey,
-} from './lib/date.js'
-import { parseQuickAdd } from './lib/parseQuickAdd.js'
+} from '@cadence/shared/date.js'
+import { parseQuickAdd } from '@cadence/shared/parseQuickAdd.js'
 import { parseTaskAi } from './lib/aiClient.js'
 import { SetupNotice } from './components/shell/SetupNotice.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'

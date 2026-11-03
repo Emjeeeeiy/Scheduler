@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { freeSlots } from '../src/lib/slots.js'
+import { freeSlots } from '@cadence/shared/slots.js'
 
 const DAY_START = 9 * 60 // 9:00
 const DAY_END = 17 * 60 // 17:00

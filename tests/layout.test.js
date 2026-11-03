@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { hourMarks, layoutDay, ratioToMin, visibleWindow } from '../src/lib/layout.js'
+import { hourMarks, layoutDay, ratioToMin, visibleWindow } from '@cadence/shared/layout.js'
 
 const task = (id, startMin, durationMin) => ({ id, startMin, durationMin })
 

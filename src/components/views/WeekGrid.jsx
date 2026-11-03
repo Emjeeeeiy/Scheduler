@@ -3,9 +3,9 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
-import { hourMarks, visibleWindow } from '../../lib/layout.js'
-import { HEAVY_DAY_MIN, dayStats } from '../../lib/stats.js'
-import { packSpans } from '../../lib/spans.js'
+import { hourMarks, visibleWindow } from '@cadence/shared/layout.js'
+import { HEAVY_DAY_MIN, dayStats } from '@cadence/shared/stats.js'
+import { packSpans } from '@cadence/shared/spans.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import {
   dayOfMonth,
@@ -15,7 +15,7 @@ import {
   minToShortLabel,
   weekKeys,
   weekdayHeaders,
-} from '../../lib/date.js'
+} from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
