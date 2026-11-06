@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS = {
   // reference like the other three: there is no prior hardcoded working-hours
   // concept in this app to mirror, so "off" is the only safe default.
   workingHours: null, // { startMin, endMin } once set
+  journalPaper: null, // the paper new Journal notes start on; null = the built-in default
   /* The single-key shortcuts App.jsx's window listener answers to. The
      defaults are exactly the keys that were hardcoded there before this was
      a setting, so someone who never opens Settings notices no change.

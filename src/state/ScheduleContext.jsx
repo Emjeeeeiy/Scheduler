@@ -12,6 +12,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase.js'
+import { deleteAllJournal } from './journalData.js'
 import { useAuth } from './AuthContext.jsx'
 import { addDays, clampMin, daysBetween, isValidKey } from '@cadence/shared/date.js'
 import {
@@ -885,6 +886,9 @@ export function ScheduleProvider({ children }) {
           for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
           await batch.commit()
         }
+        // Notes live in a subcollection, which deleting the profile document
+        // below would leave behind, unreachable but still stored.
+        await deleteAllJournal(db, uid)
         return deleteDoc(doc(db, 'users', uid))
       },
 

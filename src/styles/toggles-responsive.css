@@ -325,7 +325,8 @@
   /* Keeps the tab-bar clearance the 900px block set — a padding shorthand
      here would quietly drop it and let the last card hide behind the bar. */
   .app-content {
-    padding: 14px 12px calc(76px + env(safe-area-inset-bottom));
+    --content-pad-x: 12px;
+    padding: 14px var(--content-pad-x) calc(76px + env(safe-area-inset-bottom));
   }
 
   .app__header {

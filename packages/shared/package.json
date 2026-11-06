@@ -18,7 +18,8 @@
     "./exportFormats.js": "./src/exportFormats.js",
     "./normalize.js": "./src/normalize.js",
     "./notifications.js": "./src/notifications.js",
-    "./reminders.js": "./src/reminders.js"
+    "./reminders.js": "./src/reminders.js",
+    "./journal.js": "./src/journal.js"
   },
   "scripts": {
     "test": "node --test ../../tests/"

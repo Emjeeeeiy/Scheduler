@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
@@ -56,6 +56,7 @@ import {
   DayIcon,
   FocusIcon,
   InboxIcon,
+  JournalIcon,
   ListIcon,
   LogOutIcon,
   MonthIcon,
@@ -84,10 +85,24 @@ import './styles/toggles-responsive.css'
 import './styles/calendar-dnd.css'
 import './styles/review.css'
 
+/* The Journal is its own chunk: the rich-text editor is by far the heaviest
+   thing in the app, and most visits never open it. `loadJournal` is shared so
+   the idle prefetch below and the lazy import resolve to the very same module. */
+const loadJournal = () =>
+  import('./components/views/JournalView.jsx').then((module) => ({ default: module.JournalView }))
+let JournalView = lazy(loadJournal)
+
+/* React.lazy remembers a failed import for good, so a plain re-render would fail
+   the same way. A fresh lazy() makes the next attempt actually ask the network. */
+const retryJournal = () => {
+  JournalView = lazy(loadJournal)
+}
+
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { id: 'schedule', label: 'Schedule', Icon: MonthIcon },
   { id: 'focus', label: 'Focus', Icon: FocusIcon },
+  { id: 'journal', label: 'Journal', Icon: JournalIcon },
 ]
 
 /** The schedule page's four sub-views, and the tab shown for each. */
@@ -106,7 +121,7 @@ const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
     entry but never a view id: the sidebar routes it to whichever of Day/Week/
     Month/Review is already open. */
 const isViewId = (value) =>
-  value === 'dashboard' || value === 'focus' || SCHEDULE_VIEWS.includes(value)
+  value === 'dashboard' || value === 'focus' || value === 'journal' || SCHEDULE_VIEWS.includes(value)
 
 /** How many matching tasks (and, separately, events) the palette's search
     offers. A cap rather than a scroll: past a handful, refining the query is
@@ -182,6 +197,18 @@ function AppShell() {
   // app closed or signed out. A no-op until this device turns push on.
   useReminderSync()
 
+  /* Fetch the Journal once the app has settled, so it opens at once — and opens
+     at all offline, because the service worker caches a chunk the first time it
+     is fetched. Left alone on Save-Data or while offline: on a metered
+     connection the person should choose to spend it by opening the page. */
+  useEffect(() => {
+    if (!navigator.onLine || navigator.connection?.saveData) return undefined
+    const schedule = window.requestIdleCallback ?? ((callback) => setTimeout(callback, 2500))
+    const cancel = window.cancelIdleCallback ?? clearTimeout
+    const handle = schedule(() => loadJournal().catch(() => {}), { timeout: 8000 })
+    return () => cancel(handle)
+  }, [])
+
   /* Which page you land on — see openingView above. Persisted rather than held
      in memory so that a refresh resumes here instead of bouncing to the
      dashboard; the persistence is a no-op on a genuine sign-in, because the
@@ -226,6 +253,10 @@ function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  // What the Journal should do the moment it is showing ('new' = start a note).
+  const [journalIntent, setJournalIntent] = useState(null)
+  // Bumped to retry a Journal chunk that failed to load (see retryJournal).
+  const [journalAttempt, setJournalAttempt] = useState(0)
   // Which of the three "what's on" palette commands (Today / This week /
   // This month) opened AgendaModal, or null when it's closed — one modal,
   // parameterised, rather than three near-identical booleans.
@@ -378,6 +409,9 @@ function AppShell() {
          other shortcut here), and pressing it again while the palette is
          already open closes it — a plain toggle. */
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        // The Journal's editor answers Ctrl/Cmd+K itself (insert link) and has
+        // already prevented the default by the time it reaches here.
+        if (event.defaultPrevented) return
         if (modalOpen && !paletteOpen) return
         event.preventDefault()
         setPaletteOpen((v) => !v)
@@ -460,6 +494,19 @@ function AppShell() {
       { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => setView('month') },
       { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => setView('review') },
       { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
+      { id: 'view-journal', label: 'Go to Journal', Icon: JournalIcon, onRun: () => setView('journal') },
+      {
+        id: 'new-note',
+        label: 'New note',
+        hint: 'Journal',
+        Icon: JournalIcon,
+        // Left as an intent rather than done here: the Journal may not be
+        // loaded yet, and it creates the note once it is.
+        onRun: () => {
+          setView('journal')
+          setJournalIntent('new')
+        },
+      },
       // Distinct from "Go to Day/Week/Month" above: those navigate the app to
       // a view, these open a quick read-only peek at what's scheduled without
       // leaving whichever view you're already on. AgendaModal does the actual
@@ -843,7 +890,7 @@ function AppShell() {
         </div>
       </aside>
 
-      <div className="app-content">
+      <div className={`app-content${view === 'journal' ? ' app-content--wide' : ''}`}>
         <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
           {step ? (
             <>
@@ -952,6 +999,33 @@ function AppShell() {
               <div hidden={view !== 'focus'}>
                 <FocusMode onEdit={openEdit} />
               </div>
+              {/* Mounted only while open, unlike Focus: it holds no running
+                  timer, and keeping an editor alive off-screen would keep a
+                  Firestore listener and an autosave timer alive with it. */}
+              {view === 'journal' && (
+                <ErrorBoundary
+                  key={`journal-${journalAttempt}`}
+                  fallback={() => (
+                    <div className="empty">
+                      <p>The Journal couldn’t load. Check your connection and try again.</p>
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => {
+                          retryJournal()
+                          setJournalAttempt((n) => n + 1)
+                        }}
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+                >
+                  <Suspense fallback={<ViewSkeleton view="journal" label="Loading your journal" />}>
+                    <JournalView intent={journalIntent} onIntentHandled={() => setJournalIntent(null)} />
+                  </Suspense>
+                </ErrorBoundary>
+              )}
             </>
           )}
         </main>

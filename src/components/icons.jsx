@@ -8,7 +8,9 @@
 import { useEffect, useState } from 'react'
 import { clockHandAngles } from '../lib/liveFavicon.js'
 
-function Icon({ children, ...props }) {
+/* Exported so feature-specific icon sets (the Journal editor's, which ship in a
+   lazy chunk) share this one stroke grammar instead of redefining it. */
+export function Icon({ children, ...props }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -780,6 +782,20 @@ export function UploadIcon(props) {
     <Icon {...props}>
       <path d="M12 20.5v-12M7 12.5l5-5 5 5" />
       <path d="M4.5 19.5h15" />
+    </Icon>
+  )
+}
+
+/** A ring-bound notebook — the Journal page. */
+export function JournalIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M7 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7Z" />
+      <path d="M3.5 7H8" />
+      <path d="M3.5 12H8" />
+      <path d="M3.5 17H8" />
+      <path d="M12 8h4" />
+      <path d="M12 12h4" />
     </Icon>
   )
 }

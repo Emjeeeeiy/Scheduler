@@ -22,9 +22,9 @@ describe('SessionSkeleton', () => {
     const { container } = render(<SessionSkeleton />)
     expect(container.querySelector('.session-skeleton__rail')).toBeTruthy()
     expect(container.querySelector('.session-skeleton__main')).toBeTruthy()
-    // NAV_ITEMS has three entries; a fourth block would promise a row the real
-    // rail never draws.
-    expect(container.querySelectorAll('.session-skeleton__nav .skel').length).toBe(3)
+    // NAV_ITEMS has four entries (Dashboard, Schedule, Focus, Journal); a fifth
+    // block would promise a row the real rail never draws.
+    expect(container.querySelectorAll('.session-skeleton__nav .skel').length).toBe(4)
   })
 
   it('draws the content half in the layout of the view it is given', () => {

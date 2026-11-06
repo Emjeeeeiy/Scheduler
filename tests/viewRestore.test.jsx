@@ -12,7 +12,7 @@
  * sub-pages report as the Schedule nav entry; Dashboard and Focus report as
  * their own.
  */
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../src/firebase.js', () => ({
@@ -69,6 +69,7 @@ const VIEWS = [
   ['week', 'Schedule'],
   ['month', 'Schedule'],
   ['review', 'Schedule'],
+  ['journal', 'Journal'],
 ]
 
 /* The views, plus the two shell chrome components that pull their own slice of
@@ -80,6 +81,7 @@ vi.mock('../src/components/views/WeekGrid.jsx', () => ({ WeekGrid: () => <div cl
 vi.mock('../src/components/views/MonthCalendar.jsx', () => ({ MonthCalendar: () => <div className="view-month" /> }))
 vi.mock('../src/components/views/ReviewView.jsx', () => ({ ReviewView: () => <div className="view-review" /> }))
 vi.mock('../src/components/views/FocusMode.jsx', () => ({ FocusMode: () => <div className="view-focus" /> }))
+vi.mock('../src/components/views/JournalView.jsx', () => ({ JournalView: () => <div className="view-journal" /> }))
 vi.mock('../src/components/shell/NotificationBell.jsx', () => ({ NotificationBell: () => null }))
 vi.mock('../src/components/shell/AccountMenu.jsx', () => ({ AccountMenu: () => null }))
 
@@ -106,12 +108,19 @@ beforeEach(() => {
 })
 
 describe('which page the app opens on', () => {
-  it.each(VIEWS)('a refresh resumes on %s rather than bouncing to the landing view', (view, navLabel) => {
+  // Async because the Journal is lazy-loaded: its page arrives a tick after the shell.
+  it.each(VIEWS)('a refresh resumes on %s rather than bouncing to the landing view', async (view, navLabel) => {
     landingView.current = 'dashboard'
     localStorage.setItem(LAST_VIEW_KEY, JSON.stringify(view))
     const container = refresh()
     expect(activePage()).toBe(navLabel)
-    expect(container.querySelector(`.view-${view}`)).toBeTruthy()
+    await waitFor(() => expect(container.querySelector(`.view-${view}`)).toBeTruthy())
+  })
+
+  it('puts the Journal directly under Focus in the sidebar', () => {
+    const container = refresh()
+    const labels = [...container.querySelectorAll('.sidebar__nav .sidebar__label')].map((el) => el.textContent)
+    expect(labels).toEqual(['Dashboard', 'Schedule', 'Focus', 'Journal'])
   })
 
   it('honours the landing view when there is nothing remembered', () => {

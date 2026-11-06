@@ -28,6 +28,11 @@ import { TagManager } from '../../src/components/editors/TagManager.jsx'
 import { ItemManager } from '../../src/components/editors/ItemManager.jsx'
 import { TaskInbox } from '../../src/components/calendar/TaskInbox.jsx'
 import { FocusMode } from '../../src/components/views/FocusMode.jsx'
+import { JournalView } from '../../src/components/views/JournalView.jsx'
+import { NoteEditor } from '../../src/components/journal/NoteEditor.jsx'
+import { ShortcutsHelp } from '../../src/components/journal/ShortcutsHelp.jsx'
+import { ViewSkeleton } from '../../src/components/shell/ViewSkeleton.jsx'
+import { normalizeNote } from '@cadence/shared/journal.js'
 import { SignIn } from '../../src/components/auth/SignIn.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
@@ -90,6 +95,21 @@ const cases = [
   ['ReviewView', <ReviewView focusKey={KEY} />],
   ['TaskInbox', <TaskInbox focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['FocusMode', <FocusMode onEdit={noop} />],
+  ['JournalView', <JournalView />],
+  [
+    'NoteEditor',
+    <NoteEditor
+      note={normalizeNote('n1', { title: 'Trip to Cebu', createdAt: 1, updatedAt: 1 })}
+      actions={{}}
+      defaultPaper={undefined}
+      onBack={noop}
+      onPin={noop}
+      onTrash={noop}
+      onUseForNew={noop}
+    />,
+  ],
+  ['ShortcutsHelp', <ShortcutsHelp onClose={noop} />],
+  ['ViewSkeleton (journal)', <ViewSkeleton view="journal" />],
   ['TagManager', <TagManager onClose={noop} />],
   ['ItemManager', <ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
@@ -133,6 +153,7 @@ const html = {
   week: render(<WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />),
   month: render(<MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />),
   dashboard: render(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
+  journal: render(<JournalView />),
 }
 
 const expect = (name, condition) => checks.push([name, Boolean(condition)])
@@ -148,6 +169,12 @@ expect('Month view renders 42 cells', (html.month.match(/class="month__cell[" ]/
 expect('Dashboard hero shows planned hours', html.dashboard.includes('hero__value'))
 expect('Dashboard hero carries the pixel ticker', html.dashboard.includes('hero__pixel'))
 expect('Dashboard surfaces the overdue task', html.dashboard.includes('Overdue thing'))
+expect('Journal lists the live notes', html.journal.includes('Trip to Cebu') && html.journal.includes('Reading list'))
+expect('Journal keeps trashed notes out of the main list', !html.journal.includes('Old draft'))
+expect('Journal puts the pinned note first', html.journal.indexOf('Trip to Cebu') < html.journal.indexOf('Reading list'))
+expect('Journal names an untitled note', html.journal.includes('>Untitled<'))
+expect('Journal counts the notes and the trash', html.journal.includes('3 notes') && /Trash[^<]*<span[^>]*count-pill[^>]*>1</.test(html.journal))
+expect('Journal offers search, New note and Today', html.journal.includes('Search notes') && html.journal.includes('New note') && html.journal.includes('>Today<'))
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
 expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))

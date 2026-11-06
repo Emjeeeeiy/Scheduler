@@ -1,0 +1,1363 @@
+/* The Journal page. Imported by JournalView, so it ships with the lazy Journal
+   chunk and costs the rest of the app nothing.
+
+   Chrome (the list, the toolbar, the menus) follows the app's neutral system:
+   hairlines, Hover Surface, Ink Invert for "on", a shadow only on floating
+   panels. The SHEET is different on purpose — its colours, fonts and patterns are
+   the writer's own content, the same carve-out tag colours have, and are drawn
+   from --paper / --note-ink / --pattern-* custom properties set per note by
+   paperStyle() (src/lib/journalPaper.js). */
+
+/* ================================================================ layout == */
+
+.journal__layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* With a note open the list can be hidden, giving the page the whole width.
+   Only while a note is open: hiding it from the empty state would leave no way
+   to reach the notes. */
+.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.journal[data-list-hidden='true'][data-note-open='true'] .note-list {
+  display: none;
+}
+
+.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 0;
+  padding-left: 0;
+}
+
+/* Same device as .day-layout: the divider is the second column's own border. */
+.journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  border-left: 1px solid var(--color-border);
+  padding-left: 18px;
+}
+
+.journal__main {
+  min-width: 0;
+}
+
+.journal__empty {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 46dvh;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.journal__empty-title {
+  font-size: var(--text-title);
+  font-weight: var(--font-weight-title);
+}
+
+.journal__empty-text {
+  color: var(--color-text-secondary);
+  font-size: var(--text-item);
+}
+
+.journal__empty-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ============================================================ notes list == */
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-right: 18px;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100dvh - 120px);
+}
+
+.note-list .section-head {
+  margin-bottom: 0;
+}
+
+.note-list__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The app-wide `.filter-chip:hover` rule out-ranks `.filter-chip--on`, so a
+   selected chip goes dark-on-dark while the pointer is over it. Within the
+   Journal it steps to Soft Ink instead, as every other filled control does. */
+.note-list .filter-chip--on:hover:not(:disabled),
+.paper-chips .filter-chip--on:hover:not(:disabled) {
+  background: var(--color-text-secondary);
+}
+
+/* Three chips and their counts have to fit the 300px column on one row. */
+.note-list .filter-row {
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.note-list .filter-chip {
+  padding: 4px 10px;
+  gap: 5px;
+}
+
+.note-list__actions .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-list__search {
+  position: relative;
+}
+
+.note-list__search .input {
+  padding-left: 32px;
+}
+
+.note-list__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.note-list__trash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.note-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.note-row {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-md);
+}
+
+.note-row:hover,
+.note-row--selected {
+  background: var(--color-surface-2);
+}
+
+.note-row__open {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-row__open--static {
+  cursor: default;
+}
+
+/* Name versus detail, by weight and colour rather than size. */
+.note-row__title {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-row--selected .note-row__title {
+  font-weight: var(--font-weight-title);
+}
+
+.note-row__excerpt {
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.note-row__glyph {
+  width: 13px;
+  height: 13px;
+}
+
+.note-row__pin {
+  align-self: flex-start;
+  margin: 6px 4px 0 0;
+  color: var(--color-text-muted);
+}
+
+.note-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 8px 0;
+  flex: none;
+}
+
+.note-row--trash {
+  flex-wrap: wrap;
+}
+
+.icon-button--on {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+}
+
+.icon-button--on:hover {
+  background: var(--color-text-secondary);
+}
+
+/* ============================================================= note page == */
+
+.note-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.note-surface--loading {
+  gap: 12px;
+}
+
+.note-skeleton__sheet {
+  display: block;
+  width: 100%;
+  height: 52dvh;
+  border-radius: var(--radius-md);
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-head__back {
+  display: none;
+}
+
+.note-head__actions {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+
+.note-title {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-headline);
+  font-weight: var(--font-weight-figure);
+}
+
+.note-title:hover:not(:focus) {
+  border-bottom-color: var(--color-border);
+}
+
+.note-title::placeholder {
+  color: var(--color-text-muted);
+}
+
+.note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.note-surface .banner {
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.banner--note {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+}
+
+.banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* =============================================================== toolbar == */
+
+.journal-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 2px;
+  padding: 6px 0;
+  background: var(--color-page);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Holds the toolbar's place (two rows on a desktop, one scrolling row on a
+   phone) for the frame before the editor exists. */
+.journal-toolbar--pending {
+  min-height: 84px;
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tb-sep {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 4px;
+  background: var(--color-border);
+}
+
+.tb-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.tb-btn:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+/* "On" is the system's one selected idiom: Ink fill, Paper text. */
+.tb-btn--on {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+}
+
+.tb-btn--on:hover:not(:disabled) {
+  background: var(--color-text-secondary);
+  color: var(--color-page);
+}
+
+.tb-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tb-btn--menu {
+  padding: 0 4px 0 6px;
+}
+
+.tb-btn--wide {
+  min-width: 112px;
+  justify-content: space-between;
+}
+
+.tb-btn__text {
+  max-width: 108px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.tb-chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  opacity: 0.7;
+}
+
+/* The current colour, under the A / marker glyph. */
+.tb-colorbar {
+  position: absolute;
+  left: 7px;
+  bottom: 3px;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bar, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.tb-size {
+  display: flex;
+  align-items: center;
+}
+
+.tb-size__input {
+  width: 38px;
+  height: 26px;
+  padding: 0 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  text-align: center;
+}
+
+/* ================================================================ popovers == */
+
+.tb-pop {
+  z-index: 40;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.tb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--text-item);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tb-item:hover,
+.tb-item:focus-visible {
+  background: var(--color-surface-2);
+}
+
+.tb-item--on {
+  font-weight: var(--font-weight-title);
+}
+
+.tb-item__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-item__keys {
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-micro);
+}
+
+.tb-item__check {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.picker {
+  display: grid;
+  gap: 8px;
+}
+
+.picker__label {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-micro);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+  padding: 2px 4px;
+}
+
+.swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 28%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--swatch);
+  cursor: pointer;
+}
+
+.swatch--on {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 1px;
+}
+
+.swatch--faint {
+  opacity: 0.35;
+}
+
+.picker__custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 6px 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+.picker__custom input {
+  width: 36px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.link-form {
+  display: grid;
+  gap: 8px;
+  padding: 6px;
+}
+
+.link-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+a.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* --------------------------------------------------------- paper picker -- */
+
+.tb-pop--paper {
+  padding: 12px;
+}
+
+.paper-form {
+  display: grid;
+  gap: 14px;
+}
+
+.paper-section {
+  display: grid;
+  gap: 8px;
+}
+
+.paper-section__title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+}
+
+.paper-presets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 8px;
+}
+
+.paper-preset {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.paper-preset--on {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-item);
+}
+
+.paper-preset--on .note-sheet--thumb {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 1px;
+}
+
+.paper-chips .filter-chip {
+  padding: 3px 10px;
+}
+
+.paper-slider {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+}
+
+.paper-slider input {
+  width: 100%;
+  accent-color: var(--color-text-primary);
+}
+
+.paper-slider output {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  text-align: right;
+}
+
+.paper-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-item);
+}
+
+.paper-check input {
+  accent-color: var(--color-text-primary);
+}
+
+.paper-actions {
+  position: sticky;
+  bottom: -12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 0;
+  background: var(--color-surface-1);
+  border-top: 1px solid var(--color-border);
+}
+
+.paper-actions .primary-button {
+  margin-left: auto;
+}
+
+/* =================================================================== sheet == */
+
+/* The page fills its column, up to a width that still reads comfortably — about
+   a hundred characters a line at the default size, not the whole of a wide
+   monitor. */
+.note-sheet-wrap {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.note-sheet {
+  --pad-top: 56px;
+  /* Page margins grow with the screen, the way a larger page has larger ones. */
+  --pad-x: clamp(40px, 5vw, 88px);
+  --pad-left: var(--pad-x);
+  --margin-x: 72px;
+
+  position: relative;
+  width: 100%;
+  /* A whole page tall — down to the bottom of the screen and a little beyond,
+     so it reads as a page to write on rather than a box that happens to fit. */
+  min-height: max(calc(100dvh - 130px), 760px);
+  padding: var(--pad-top) var(--pad-x) 96px var(--pad-left);
+  background-color: var(--paper);
+  color: var(--note-ink);
+  border: 1px solid var(--color-border);
+}
+
+/* Lined and grid-like papers snap the first line to the second rule, leaving the
+   top row empty like the header of a notebook page. */
+.note-sheet[data-snap='on'] {
+  --pad-top: var(--rule);
+}
+
+.note-sheet[data-margin='single'],
+.note-sheet[data-margin='double'] {
+  --pad-left: calc(var(--margin-x) + 20px);
+}
+
+.note-sheet[data-margin='cornell'] {
+  --pad-left: calc(28% + 18px);
+}
+
+/* The pattern: a flat colour seen through the SVG tile. The mask's alpha is the
+   pattern; --pattern-color and --pattern-opacity are the writer's choices. */
+.note-sheet::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pattern-color);
+  opacity: var(--pattern-opacity, 1);
+  -webkit-mask-image: var(--pattern-mask, none);
+  mask-image: var(--pattern-mask, none);
+  -webkit-mask-size: var(--pattern-size, auto);
+  mask-size: var(--pattern-size, auto);
+  -webkit-mask-position: var(--pattern-offset, 0 0);
+  mask-position: var(--pattern-offset, 0 0);
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  pointer-events: none;
+}
+
+/* Margin rules: one or two vertical lines, or Cornell's cue column and summary
+   rule. Gradients, not borders, so they run the sheet's full height. */
+.note-sheet::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.note-sheet[data-margin='single']::after {
+  background-image: linear-gradient(var(--margin-color), var(--margin-color));
+  background-size: 1.5px 100%;
+  background-position: var(--margin-x) 0;
+}
+
+.note-sheet[data-margin='double']::after {
+  background-image:
+    linear-gradient(var(--margin-color), var(--margin-color)),
+    linear-gradient(var(--margin-color), var(--margin-color));
+  background-size: 1.5px 100%, 1.5px 100%;
+  background-position: var(--margin-x) 0, calc(var(--margin-x) + 4px) 0;
+}
+
+.note-sheet[data-margin='cornell']::after {
+  background-image:
+    linear-gradient(var(--margin-color), var(--margin-color)),
+    linear-gradient(var(--margin-color), var(--margin-color));
+  background-size: 1.5px 100%, 100% 1.5px;
+  background-position: 28% 0, 0 calc(100% - 112px);
+}
+
+/* Everything the writer types sits above both decorative layers. */
+.note-sheet > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The same sheet at thumbnail size, for the paper picker. Doubled class so the
+   responsive `.note-sheet { min-height }` further down can never out-rank it —
+   on a phone it once did, and every thumbnail came out 56dvh tall. */
+.note-sheet.note-sheet--thumb {
+  display: block;
+  width: auto;
+  min-height: 0;
+  height: 52px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* ================================================================= content == */
+
+.note-content {
+  min-height: 44dvh;
+  outline: none;
+  font-size: 12pt;
+  line-height: 1.55;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+}
+
+.note-content > :first-child {
+  margin-top: 0;
+}
+
+.note-content p {
+  margin: 0 0 0.55em;
+}
+
+.note-content h1,
+.note-content h2,
+.note-content h3 {
+  margin: 0.8em 0 0.3em;
+  font-weight: var(--font-weight-figure);
+  line-height: 1.25;
+}
+
+.note-content h1 {
+  font-size: 26pt;
+}
+
+.note-content h2 {
+  font-size: 20pt;
+}
+
+.note-content h3 {
+  font-size: 15pt;
+}
+
+/* Tailwind's reset strips list markers, so they are restored for note text. */
+.note-content ul,
+.note-content ol {
+  margin: 0 0 0.55em;
+  padding-left: 1.7em;
+}
+
+.note-content ul {
+  list-style: disc;
+}
+
+.note-content ul ul {
+  list-style: circle;
+}
+
+.note-content ul ul ul {
+  list-style: square;
+}
+
+.note-content ol {
+  list-style: decimal;
+}
+
+.note-content ol ol {
+  list-style: lower-alpha;
+}
+
+.note-content ol ol ol {
+  list-style: lower-roman;
+}
+
+.note-content li > p {
+  margin: 0;
+}
+
+.note-content ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.2em;
+}
+
+.note-content ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+}
+
+.note-content ul[data-type='taskList'] li > label {
+  flex: none;
+  margin-top: 0.32em;
+  user-select: none;
+}
+
+.note-content ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-content ul[data-type='taskList'] li[data-checked='true'] > div {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.note-content input[type='checkbox'] {
+  width: 1em;
+  height: 1em;
+  accent-color: var(--note-ink);
+  cursor: pointer;
+}
+
+.note-content blockquote {
+  margin: 0 0 0.55em;
+  padding-left: 1em;
+  border-left: 3px solid color-mix(in srgb, var(--note-ink) 35%, transparent);
+  color: color-mix(in srgb, var(--note-ink) 82%, transparent);
+}
+
+.note-content code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--note-ink) 9%, transparent);
+  font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+  font-size: 0.92em;
+}
+
+.note-content pre {
+  margin: 0 0 0.55em;
+  padding: 0.7em 0.9em;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--note-ink) 9%, transparent);
+  font-family: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+.note-content pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.note-content hr {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--note-ink) 30%, transparent);
+}
+
+.note-content a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--note-ink) 55%, transparent);
+  text-underline-offset: 2px;
+}
+
+/* A marker keeps the text colour it sits on — the editor writes `color:
+   inherit` on it, restated here so a pasted <mark> cannot override it. */
+.note-content mark {
+  border-radius: 2px;
+  color: inherit;
+}
+
+.note-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: color-mix(in srgb, var(--note-ink) 40%, transparent);
+  pointer-events: none;
+}
+
+.ProseMirror-selectednode {
+  outline: 2px solid var(--note-ink);
+  outline-offset: 2px;
+}
+
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.ProseMirror-gapcursor::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid var(--note-ink);
+  animation: note-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+@keyframes note-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror-gapcursor::after {
+    animation: none;
+  }
+}
+
+/* "Snap text to the lines": every line box is a whole number of rules tall, so
+   text sits on the paper's rules however the sizes vary. The plain declaration is
+   the fallback for browsers without round(); the !important beats the inline
+   line-height a paragraph's own spacing setting writes. */
+.note-sheet[data-snap='on'] .note-content {
+  line-height: var(--rule);
+}
+
+.note-sheet[data-snap='on'] .note-content :is(p, h1, h2, h3, ul, ol, blockquote, pre) {
+  margin-block: 0;
+}
+
+@supports (line-height: round(up, 1em, 10px)) {
+  .note-sheet[data-snap='on'] .note-content :is(p, h1, h2, h3, li, pre, blockquote) {
+    line-height: round(up, 1.3em, var(--rule)) !important;
+  }
+}
+
+/* ================================================================ drawing == */
+
+/* ProseMirror marks the selected node's outer container; the canvas draws the
+   selection itself, so the generic outline is dropped here. */
+.drawing-view.ProseMirror-selectednode {
+  outline: none;
+}
+
+.drawing {
+  position: relative;
+  margin: 0.6em 0;
+  color: inherit;
+  white-space: normal;
+}
+
+/* The tool strip is app chrome, not paper: it keeps the app's own colours even
+   though it sits inside the sheet. */
+.drawing__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  line-height: 1.4;
+}
+
+.drawing__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.drawing__group[aria-label='Ink color'] {
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 340px;
+}
+
+.drawing__group--end {
+  margin-left: auto;
+}
+
+.drawing__tools .swatch {
+  width: 20px;
+  height: 20px;
+  aspect-ratio: auto;
+  flex: none;
+}
+
+/* "Automatic": half ink, half paper — the colour that always shows. */
+.swatch--auto {
+  background: linear-gradient(135deg, var(--note-ink) 50%, var(--paper) 50%);
+}
+
+.drawing__custom {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+
+.drawing__dot {
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.drawing__confirm {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.drawing__hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+}
+
+.drawing__label {
+  flex: 1 1 100%;
+}
+
+.drawing__label-input {
+  width: 100%;
+  font-size: var(--text-label);
+}
+
+.drawing__canvas {
+  position: relative;
+  border-radius: var(--radius-sm);
+  outline: 1px dashed transparent;
+  outline-offset: 2px;
+  transition: outline-color 120ms ease;
+}
+
+.drawing:hover .drawing__canvas,
+.drawing--selected .drawing__canvas {
+  outline-color: color-mix(in srgb, var(--note-ink) 35%, transparent);
+}
+
+/* Drawing mode is the stronger state: a solid line, not a dashed hint. */
+.drawing__canvas[data-draw='true'] {
+  outline: 1px solid color-mix(in srgb, var(--note-ink) 60%, transparent);
+}
+
+/* The sheet shows through: the drawing has no background of its own. */
+.drawing__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: inherit;
+  cursor: default;
+  user-select: none;
+  /* A finger over an inactive drawing still scrolls the page… */
+  touch-action: pan-y;
+}
+
+/* …and over an active one it draws instead. */
+.drawing__canvas[data-draw='true'] .drawing__svg {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.drawing__canvas[data-draw='true'][data-tool='eraser'] .drawing__svg {
+  cursor: cell;
+}
+
+.drawing__resize {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.drawing__resize::before {
+  content: '';
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--note-ink) 35%, transparent);
+}
+
+.drawing__resize:hover::before,
+.drawing__resize:focus-visible::before {
+  background: color-mix(in srgb, var(--note-ink) 65%, transparent);
+}
+
+/* ============================================================= shortcuts == */
+
+.modal__panel.shortcuts {
+  width: 100%;
+  max-width: 1000px;
+  max-height: 86dvh;
+  overflow-y: auto;
+}
+
+/* Four groups side by side where there is room, so the whole sheet fits without
+   scrolling; they stack on a narrow screen. */
+.shortcuts__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 28px;
+  align-items: start;
+}
+
+.shortcuts__title {
+  margin: 10px 0 6px;
+  color: var(--color-text-secondary);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+}
+
+.shortcuts__list {
+  margin: 0;
+}
+
+.shortcuts__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-item);
+}
+
+.shortcuts__row dd {
+  margin: 0;
+  flex: none;
+}
+
+.shortcuts__row kbd {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+}
+
+/* ============================================================== responsive == */
+
+@media (max-width: 900px) {
+  /* Edge to edge. The page is the screen, not a card inside a padded frame: the
+     frame drops its side padding and cancels the app's own (--content-pad-x, set
+     on .app-content), so the sheet runs to the edges of the display. Text keeps
+     a gutter of its own (--gutter) where it needs one. */
+  .journal {
+    --gutter: 24px;
+  }
+
+  .journal.frame {
+    margin-inline: calc(var(--content-pad-x) * -1);
+    padding-inline: 0;
+  }
+
+  /* The frame's corner marks would sit at the corners of the display. */
+  .journal > .frame-tick {
+    display: none;
+  }
+
+  .note-list,
+  .note-head,
+  .note-meta,
+  .journal__empty,
+  .note-surface--loading {
+    padding-inline: var(--gutter);
+  }
+
+  .note-surface .banner {
+    margin-inline: var(--gutter);
+  }
+
+  .note-skeleton__sheet {
+    width: calc(100% + var(--gutter) * 2);
+    margin-inline: calc(var(--gutter) * -1);
+    border-radius: 0;
+  }
+
+  .note-head__panel {
+    display: none;
+  }
+
+  .journal__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  /* One screen at a time: the list, or the open note with a way back. */
+  .note-list {
+    position: static;
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .journal[data-note-open='true'] .note-list,
+  .journal[data-note-open='false'] .journal__main {
+    display: none;
+  }
+
+  .note-head__back {
+    display: inline-flex;
+  }
+
+  /* Below the sticky top bar, and one scrolling row rather than several. */
+  .journal-toolbar {
+    top: 62px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-inline: 12px;
+  }
+
+  .journal-toolbar > * {
+    flex: none;
+  }
+
+  .journal-toolbar--pending {
+    min-height: 43px;
+  }
+
+  .note-sheet {
+    --pad-top: 28px;
+    --pad-x: 20px;
+    --margin-x: 40px;
+    /* Down to the bottom of the screen, above the tab bar. */
+    min-height: calc(100dvh - 250px);
+    padding-bottom: 72px;
+    border-inline: 0;
+  }
+
+  .note-sheet[data-margin='cornell'] {
+    --pad-left: calc(28% + 12px);
+  }
+}
+
+@media (max-width: 640px) {
+  .journal {
+    --gutter: 16px;
+  }
+
+  .paper-presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .note-title {
+    font-size: var(--text-title);
+  }
+}

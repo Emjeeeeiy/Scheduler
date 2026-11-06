@@ -19,8 +19,15 @@ export class ErrorBoundary extends Component {
     console.error('Cadence crashed.', caught, info)
   }
 
+  /* Clears the error so the children render again. Only useful with a custom
+     `fallback`: the default one can offer nothing but a reload. */
+  reset = () => this.setState({ caught: null })
+
   render() {
     if (!this.state.caught) return this.props.children
+    // A boundary around one page can say something more specific than "reload
+    // the whole app": `fallback({ error, reset })` draws it in place.
+    if (this.props.fallback) return this.props.fallback({ error: this.state.caught, reset: this.reset })
     return (
       <div className="centered">
         <div

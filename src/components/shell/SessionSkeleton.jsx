@@ -26,6 +26,7 @@ export function SessionSkeleton({ view }) {
           <span className="skel" />
           <span className="skel" />
           <span className="skel" />
+          <span className="skel" />
         </div>
         <div className="session-skeleton__spacer" />
         <div className="session-skeleton__foot">

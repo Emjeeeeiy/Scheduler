@@ -18,6 +18,8 @@ export default defineConfig({
     alias: [
       { find: /^.*\/state\/ScheduleContext\.jsx$/, replacement: here('./mockSchedule.jsx') },
       { find: /^.*\/state\/AuthContext\.jsx$/, replacement: here('./mockAuth.jsx') },
+      // The Journal's Firestore hooks, swapped for an in-memory store.
+      { find: /^.*\/state\/useJournal\.js$/, replacement: here('./mockJournal.js') },
     ],
   },
   build: {

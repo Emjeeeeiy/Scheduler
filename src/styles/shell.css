@@ -390,11 +390,15 @@
 }
 
 .app-content {
+  /* The side padding, as a variable, so a page that wants to run edge to edge
+     (the Journal's sheet on a phone) can cancel exactly this much instead of
+     repeating the number — see journal.css. */
+  --content-pad-x: 24px;
   flex: 1;
   min-width: 0;
   max-width: 1320px;
   margin: 0 auto;
-  padding: 20px 24px 64px;
+  padding: 20px var(--content-pad-x) 64px;
   position: relative;
   z-index: 1;
 }
@@ -420,6 +424,12 @@
 
 .app__main {
   margin-top: 18px;
+}
+
+/* The Journal is a writing surface, and a page wants more room than a dashboard
+   does: the cap is lifted for it so the sheet can grow with a large screen. */
+.app-content--wide {
+  max-width: 1680px;
 }
 
 .centered {
@@ -1042,8 +1052,8 @@ button.avatar:hover {
   gap: 6px;
 }
 
-/* Three rows, because the rail's nav has three entries (see NAV_ITEMS in
-   App.jsx) — a fourth block would have been a promise the real rail breaks. */
+/* Four rows, because the rail's nav has four entries (see NAV_ITEMS in
+   App.jsx) — a fifth block would have been a promise the real rail breaks. */
 .session-skeleton__nav .skel {
   height: 34px;
 }
@@ -1054,6 +1064,10 @@ button.avatar:hover {
 
 .session-skeleton__nav .skel:nth-child(3) {
   width: 64%;
+}
+
+.session-skeleton__nav .skel:nth-child(4) {
+  width: 76%;
 }
 
 .session-skeleton__spacer {
@@ -1433,4 +1447,45 @@ button.avatar:hover {
 .view-skeleton .hero__load-fill {
   width: 100%;
   height: 100%;
+}
+
+/* ---- journal ------------------------------------------------------------- */
+
+/* The Journal's own stylesheet is part of its lazy chunk, so this — what is
+   drawn while that chunk loads — has to live here in the main one. Same split as
+   the page: a list column, then the note. */
+.journal-skel {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+}
+.journal-skel__list {
+  display: grid;
+  gap: 12px;
+  padding-right: 18px;
+}
+.journal-skel__row {
+  height: 62px;
+  border-radius: var(--radius-md);
+}
+.journal-skel__page {
+  display: grid;
+  gap: 12px;
+  padding-left: 18px;
+  border-left: 1px solid var(--color-border);
+}
+.journal-skel__sheet {
+  height: 52dvh;
+  border-radius: var(--radius-md);
+}
+@media (max-width: 900px) {
+  .journal-skel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .journal-skel__list {
+    padding-right: 0;
+  }
+  .journal-skel__page {
+    display: none;
+  }
 }

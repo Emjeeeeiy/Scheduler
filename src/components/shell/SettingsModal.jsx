@@ -28,6 +28,7 @@ const LANDING_VIEW_OPTIONS = [
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
   { value: 'focus', label: 'Focus' },
+  { value: 'journal', label: 'Journal' },
 ]
 
 const LEAD_TIME_OPTIONS = [15, 30, 60, 120]

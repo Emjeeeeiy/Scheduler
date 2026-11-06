@@ -528,6 +528,40 @@ function FocusSkeleton() {
   )
 }
 
+/** Journal: the list of notes beside the page they open onto. The list rows and
+    the sheet are plain blocks — what is in them depends on the account. */
+function JournalSkeleton() {
+  return (
+    <div className="view-skeleton frame stack">
+      <FrameTicks />
+      <div className="journal-skel">
+        <div className="journal-skel__list">
+          <div className="section-head">
+            <div>
+              <h2 className="section-head__title">
+                <span className="skel skel--section-title" />
+              </h2>
+              <p className="section-head__sub">
+                <span className="skel skel--section-sub" />
+              </p>
+            </div>
+          </div>
+          <span className="skel skel--input" />
+          <span className="skel skel--input" />
+          {Array.from({ length: 4 }, (_, i) => (
+            <span key={i} className="skel journal-skel__row" />
+          ))}
+        </div>
+        <div className="journal-skel__page">
+          <span className="skel skel--section-title skel--section-title--wide" />
+          <span className="skel skel--input" />
+          <span className="skel journal-skel__sheet" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const SKELETONS = {
   dashboard: DashboardSkeleton,
   today: TodaySkeleton,
@@ -535,6 +569,7 @@ const SKELETONS = {
   month: MonthSkeleton,
   review: ReviewSkeleton,
   focus: FocusSkeleton,
+  journal: JournalSkeleton,
 }
 
 /**
