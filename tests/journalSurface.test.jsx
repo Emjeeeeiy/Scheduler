@@ -182,7 +182,7 @@ describe('autosave', () => {
   it('reports a write the server refuses, and offers to try again', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const actions = makeActions()
-    actions.saveNote.mockReturnValue(Promise.reject(Object.assign(new Error('nope'), { code: 'permission-denied' })))
+    actions.saveNote.mockImplementation(() => Promise.reject(Object.assign(new Error('nope'), { code: 'permission-denied' })))
     const { container } = mount({ actions })
     const editor = await editorOf(container)
     vi.useFakeTimers()
