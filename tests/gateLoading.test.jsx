@@ -20,9 +20,6 @@ vi.mock('../src/firebase.js', () => ({
   requestPasswordReset: vi.fn(),
   signInWithGoogle: vi.fn(),
   signInWithUsernameOrEmail: vi.fn(),
-  disablePush: vi.fn(),
-  enablePush: vi.fn(),
-  isFcmSubscribed: vi.fn(),
 }))
 
 let mockAuthState = { user: null, loading: true }

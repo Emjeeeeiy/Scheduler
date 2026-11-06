@@ -1,34 +1,41 @@
-/* Cloud Functions for Cadence.
+/* Cloud Functions for Cadence — currently just the daily digest email, the
+ * one Phase 6 piece that needs a server at all. Everything else the app
+ * does stays exactly what it was, client + Firestore.
  *
- * - sendDailyDigest: Phase 6 email digest.
- * - sendPushNotifications: Web Push via FCM (every 5 min), timeZone-aware.
- * - pruneSharedPushToken: ownership guard for push tokens (on document
- *   created) — a token identifies a device, not an account, so a new
- *   registration under one uid deletes the same token under any other uid.
- *   This is what keeps push working after logout WITHOUT leaking Account A's
- *   notifications to Account B on a shared device.
+ * Push notifications were also built here at one point, but pulled back out
+ * — the Web Push/FCM setup (Google Cloud API enablement, VAPID keys,
+ * service-worker subscription) turned out to be more setup friction than it
+ * was worth for now. See git history if that's ever worth revisiting;
+ * nothing about the digest below depended on it.
  *
- * All three are thin wrappers around testable lib modules
- * (runDailyDigest / runPushNotifications / reconcilePushToken) that take
- * Admin SDK deps as arguments. See README-functions.md before deploying.
+ * Deliberately thin: sendDailyDigest is just onSchedule(...) wrapped around
+ * runDailyDigest from functions/lib/, which takes the Admin SDK/fetch as
+ * arguments instead of importing them directly. That split is what makes
+ * the actual orchestration testable at all — see
+ * functions/test/runDailyDigest.test.js, which runs the real logic against
+ * a small in-memory Firestore/email stand-in. Nothing in THIS file is
+ * covered by those tests, or by anything else — it is a few lines of
+ * wiring, and the one part of this whole phase that genuinely needs a live
+ * project to confirm. See README-functions.md before deploying.
+ *
+ * KNOWN LIMITATION: the schedule runs in one fixed timezone (UTC by
+ * default) — there is no per-user timezone stored anywhere yet, so the
+ * digest's send time is UTC-relative. Fine for one person who knows that
+ * going in; would need a real per-user timezone field before this could
+ * serve more than one.
  */
 
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
-import { getMessaging } from 'firebase-admin/messaging'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions'
 
 import { toKey } from './shared/lib/date.js'
 import { runDailyDigest } from './lib/runDailyDigest.js'
-import { runPushNotifications } from './lib/runPushNotifications.js'
-import { reconcilePushToken } from './lib/reconcilePushToken.js'
 
 initializeApp()
 const db = getFirestore()
-const messaging = getMessaging()
 
 const sendgridApiKey = defineSecret('SENDGRID_API_KEY')
 /* The address digest emails claim to come FROM. SendGrid (like every
@@ -74,29 +81,3 @@ export const sendDailyDigest = onSchedule(
     logger.info('sendDailyDigest', result)
   },
 )
-
-/** Web Push: ~every 5 min, per-user local clock (see functions/lib/timeZone.js).
- *  May arrive up to ~5 min after the target "soon/now" window opens — this is
- *  Cloud Scheduler granularity, not per-task Cloud Tasks. No queue needed at this scale.
- */
-export const sendPushNotifications = onSchedule(
-  { schedule: 'every 5 minutes', timeZone: 'Etc/UTC' },
-  async () => {
-    const result = await runPushNotifications({ db, messaging, now: new Date(), logger })
-    logger.info('sendPushNotifications', result)
-  },
-)
-
-/** Fires on every users/{uid}/fcmTokens/{tokenId} create — i.e. exactly when
- *  a device opts in. Removes the same token string under any OTHER uid, so
- *  the newest registration owns the device and a previous owner's pushes
- *  stop arriving there. Runs with Admin SDK privileges precisely because a
- *  client must never be allowed to delete another uid's docs (see
- *  firestore.rules). Idempotent: re-runs and same-owner docs are no-ops. */
-export const pruneSharedPushToken = onDocumentCreated('users/{uid}/fcmTokens/{tokenId}', async (event) => {
-  const uid = event.params.uid
-  const token = event.data?.data()?.token
-  if (!token) return
-  const result = await reconcilePushToken({ db, uid, token, logger })
-  logger.info('pruneSharedPushToken', { uid, ...result })
-})

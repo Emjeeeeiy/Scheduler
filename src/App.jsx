@@ -6,8 +6,8 @@ import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { ThemeProvider } from './state/ThemeContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
-import { useTimeZoneSync } from './lib/useTimeZoneSync.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
+import { useReminderSync } from './lib/useReminderSync.js'
 import { dismissBootSplash } from './lib/bootSplash.js'
 import { hadSession, lastView, LAST_VIEW_KEY } from './lib/sessionHint.js'
 import {
@@ -178,7 +178,9 @@ function AppShell() {
   const { settings } = useSettings()
   const { push, pushError, dismiss } = useToast()
   const shortcuts = settings.shortcuts
-  useTimeZoneSync()
+  // Keeps the server's reminder schedule current so push still arrives with the
+  // app closed or signed out. A no-op until this device turns push on.
+  useReminderSync()
 
   /* Which page you land on — see openingView above. Persisted rather than held
      in memory so that a refresh resumes here instead of bouncing to the

@@ -17,7 +17,8 @@
     "./suggestTag.js": "./src/suggestTag.js",
     "./exportFormats.js": "./src/exportFormats.js",
     "./normalize.js": "./src/normalize.js",
-    "./notifications.js": "./src/notifications.js"
+    "./notifications.js": "./src/notifications.js",
+    "./reminders.js": "./src/reminders.js"
   },
   "scripts": {
     "test": "node --test ../../tests/"

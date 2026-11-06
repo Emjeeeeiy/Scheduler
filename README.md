@@ -234,6 +234,11 @@ Two steps are **not** in the config, and sign-in fails without either:
 
 Firestore rules are not deployed from here either — see step 6 of Setup.
 
+**Push notifications** (reminders with the app closed or signed out) are an
+optional extra with their own setup — an Upstash Redis database, a VAPID key
+pair, and a once-a-minute cron call. See [README-push.md](README-push.md).
+Nothing else needs it, and the app behaves exactly as before until it's set up.
+
 ## Not built yet
 
 Browser reminders and JSON export were deliberately left out.

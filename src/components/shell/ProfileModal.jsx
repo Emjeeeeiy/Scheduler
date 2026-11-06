@@ -3,6 +3,7 @@ import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { fileToAvatarDataUri } from '../../lib/image.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
+import { unsubscribePush } from '../../lib/pushSubscription.js'
 import { CameraIcon, CheckIcon, CloseIcon, GoogleIcon, TrashIcon } from '../icons.jsx'
 
 const PROVIDER_LABEL = {
@@ -97,6 +98,15 @@ export function ProfileModal({ onClose }) {
         await reauthenticate(password)
       } else {
         await reauthenticate()
+      }
+      /* Reminders are keyed by account and outlive a sign-out on purpose, so
+         deleting the account has to take them with it — while a session still
+         exists to authorise that. Best effort: failing to reach the server
+         must not stand between someone and deleting their account. */
+      try {
+        await unsubscribePush({ everywhere: true })
+      } catch (caught) {
+        console.warn('Could not clear push reminders before deleting the account.', caught)
       }
       await deleteAllData()
       await deleteAccount()

@@ -18,7 +18,7 @@ import { configDefaults, defineConfig } from 'vitest/config'
      needs Node's web globals (ReadableStream), which a vm context does not
      get. They run on the plain forks pool. */
 const testFiles = ['tests/**/*.test.jsx']
-const apiTests = 'tests/apiHandlers.test.jsx'
+const apiTests = ['tests/apiHandlers.test.jsx', 'tests/pushHandlers.test.jsx']
 
 export default defineConfig({
   plugins: [react()],
@@ -32,7 +32,7 @@ export default defineConfig({
           environment: 'jsdom',
           pool: 'vmThreads',
           include: testFiles,
-          exclude: [...configDefaults.exclude, apiTests],
+          exclude: [...configDefaults.exclude, ...apiTests],
         },
       },
       {
@@ -40,7 +40,7 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: [apiTests],
+          include: apiTests,
         },
       },
     ],

@@ -1,133 +1,120 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAuth } from '../state/AuthContext.jsx'
-import { disablePush, enablePush, isFcmSubscribed } from '../firebase.js'
+import {
+  PUSH_CHANGED_EVENT,
+  getLocalSubscription,
+  isPushSupported,
+  pushPermission,
+  subscribePush,
+  unsubscribePush,
+} from './pushSubscription.js'
 
-function hasBasicPushSupport() {
-  return typeof Notification !== 'undefined' && 'serviceWorker' in navigator
-}
-
+/**
+ * The state behind Settings' "Push notifications" toggle, and the sign-in
+ * screen's "reminders are still on" notice.
+ *
+ * `subscribed` is read from the browser itself (does this device hold a push
+ * subscription, and is permission still granted), never from a stored flag —
+ * permission can be revoked from the address bar and a subscription can be
+ * dropped by the browser, neither of which a flag would notice. It is
+ * re-checked when the tab regains focus for exactly that reason.
+ *
+ * Needs no signed-in user to read or to turn OFF; turning ON registers the
+ * device against an account, so that part fails cleanly when signed out.
+ */
 export function usePushNotifications() {
-  const { user } = useAuth()
-  const [supported, setSupported] = useState(() => (hasBasicPushSupport() ? null : false))
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
-  const [permission, setPermission] = useState(() =>
-    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
-  )
+  const supported = isPushSupported()
+  const [permission, setPermission] = useState(pushPermission)
   const [subscribed, setSubscribed] = useState(false)
-  /* Generation guard for the check below: a slow isFcmSubscribed() started
-     before an enable()/disable() must not overwrite that fresh intent when
-     it lands late (seen as the button flipping back right after the toast
-     on slow devices). Bumped by both mutations; the effect only applies a
-     result from the current generation. */
-  const seqRef = useRef(0)
+  const [checking, setChecking] = useState(supported)
+  const [busy, setBusy] = useState(false)
+
+  /* A check that started before an enable()/disable() must not overwrite what
+     that call just established when it lands late — seen before as the button
+     flipping back right after its toast. Every mutation bumps this and a
+     check only applies its result if no one has bumped it since. */
+  const generation = useRef(0)
+  const alive = useRef(true)
 
   useEffect(() => {
-    if (!hasBasicPushSupport()) return undefined
-    let cancelled = false
-    import('firebase/messaging')
-      .then(({ isSupported }) => isSupported())
-      .then((ok) => {
-        if (!cancelled) setSupported(ok)
-      })
-      .catch(() => {
-        if (!cancelled) setSupported(false)
-      })
+    alive.current = true
     return () => {
-      cancelled = true
+      alive.current = false
     }
   }, [])
 
-  // Authoritative subscribed state via Firestore, not permission or localStorage.
-  // Handles: permission granted but no token doc → subscribed stays false (shows Turn on).
-  useEffect(() => {
-    if (!user || supported !== true || permission !== 'granted') {
-      setSubscribed(false)
-      return undefined
-    }
-    let cancelled = false
-    const mySeq = seqRef.current
-    isFcmSubscribed(user.uid)
-      .then((val) => {
-        if (!cancelled && seqRef.current === mySeq) setSubscribed(val)
-      })
-      .catch(() => {
-        if (!cancelled && seqRef.current === mySeq) setSubscribed(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [user, supported, permission])
+  const refresh = useCallback(async () => {
+    const mine = ++generation.current
+    const nextPermission = pushPermission()
+    const on = nextPermission === 'granted' && Boolean(await getLocalSubscription())
+    if (!alive.current || mine !== generation.current) return
+    setPermission(nextPermission)
+    setSubscribed(on)
+  }, [])
 
-  /* Resolves to a result object — never a bare boolean — so the caller toasts
-     exactly what happened. Reading push.denied/push.error after the await
-     would see the pre-click render's stale values, misattributing dismissals
-     as failures and vice versa. Reasons: 'denied' (browser-blocked),
-     'dismissed' (prompt left undecided), 'error' (anything thrown). */
+  useEffect(() => {
+    if (!supported) return undefined
+    refresh().finally(() => {
+      if (alive.current) setChecking(false)
+    })
+    const recheck = () => {
+      if (document.visibilityState !== 'hidden') void refresh()
+    }
+    document.addEventListener('visibilitychange', recheck)
+    window.addEventListener('focus', recheck)
+    window.addEventListener(PUSH_CHANGED_EVENT, recheck)
+    return () => {
+      document.removeEventListener('visibilitychange', recheck)
+      window.removeEventListener('focus', recheck)
+      window.removeEventListener(PUSH_CHANGED_EVENT, recheck)
+    }
+  }, [supported, refresh])
+
+  /* Resolves to `{ ok }` or `{ ok: false, reason }` — never a bare boolean —
+     so the caller toasts exactly what happened. Reading `denied` off this hook
+     after the await would see the pre-click render's stale value. */
   const enable = useCallback(async () => {
-    if (!user) return { ok: false, reason: 'error' }
     setBusy(true)
-    setError(null)
-    seqRef.current += 1
+    generation.current += 1
     try {
-      const token = await enablePush(user.uid)
-      const permissionNow =
-        typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
-      setPermission(permissionNow)
-      if (token !== null) {
-        setSubscribed(true)
-        return { ok: true }
+      const result = await subscribePush()
+      if (alive.current) {
+        setPermission(pushPermission())
+        if (result.ok) setSubscribed(true)
       }
-      // Null means "no token": a dismissal only while permission is still
-      // undecided — denied, or granted-but-empty, are real failures.
-      if (permissionNow === 'denied') return { ok: false, reason: 'denied' }
-      if (permissionNow === 'granted') return { ok: false, reason: 'error' }
-      return { ok: false, reason: 'dismissed' }
+      return result
     } catch (caught) {
-      console.error('Could not enable push notifications.', caught)
-      setError(caught)
+      console.error('Could not turn on push notifications.', caught)
       return { ok: false, reason: 'error' }
     } finally {
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
-  }, [user])
+  }, [])
 
   const disable = useCallback(async () => {
-    if (!user) return false
     setBusy(true)
-    setError(null)
-    seqRef.current += 1
+    generation.current += 1
     try {
-      const deleted = await disablePush(user.uid)
-      if (!deleted) {
-        // disablePush swallows its own failures, so a false means "unknown" —
-        // read back the ground truth rather than claiming the token is gone.
-        // A failed read stays conservative (still subscribed).
-        const still = await isFcmSubscribed(user.uid).catch(() => true)
-        setSubscribed(still)
-        if (still) return false
-      } else {
-        setSubscribed(false)
+      const off = await unsubscribePush()
+      if (alive.current) {
+        setPermission(pushPermission())
+        if (off) setSubscribed(false)
       }
-      // permission stays granted at browser level; keep reading actual permission so "denied" note still works.
-      setPermission(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
-      return true
+      return off
     } catch (caught) {
-      console.error('Could not disable push notifications.', caught)
-      setError(caught)
+      console.error('Could not turn off push notifications.', caught)
       return false
     } finally {
-      setBusy(false)
+      if (alive.current) setBusy(false)
     }
-  }, [user])
+  }, [])
 
   return {
     supported,
-    subscribed,
-    enabled: permission === 'granted',
+    permission,
     denied: permission === 'denied',
+    subscribed,
+    checking,
     busy,
-    error,
     enable,
     disable,
   }

@@ -162,45 +162,80 @@ self.addEventListener('fetch', (event) => {
   )
 })
 
-/* ------------------------------------------------------------ push -- */
+/* ------------------------------------------------------------------ push -- */
 
-/* Push notifications via FCM — handled in THIS worker, not a second
- * firebase-messaging-sw.js. Two workers at "/" can't coexist: the second
- * would replace sw.js and break the offline shell (see src/firebase.js
- * enablePush). FCM delivers as a normal `push` event here.
+/* Web Push from our own server (api/push/tick.js, VAPID-signed — no Firebase).
+ * The browser wakes THIS worker for a `push` event even with every Cadence tab
+ * closed, which is what lets a reminder arrive on a closed PWA or a signed-out
+ * device. Subscribing happens in src/lib/pushSubscription.js.
  *
- * Suppress the OS notification when a Cadence tab is already visible —
- * the foreground NotificationBell/useDesktopNotifications path already
- * showed the in-app alert, so showing a second system toast would
- * duplicate it.
+ * It ALWAYS shows a notification. The subscription is created with
+ * userVisibleOnly — a promise to the browser that every push is visible. Break
+ * it and Chrome shows its own generic "this site has been updated in the
+ * background", while Safari revokes the subscription after a few silent
+ * pushes. So even a payload that can't be read becomes a plain "Cadence".
  */
 self.addEventListener('push', (event) => {
-  if (!event.data) return
-  let payload
+  let payload = {}
   try {
-    payload = event.data.json()
+    payload = event.data ? event.data.json() : {}
   } catch {
-    return
+    payload = {}
   }
 
-  const title = payload.notification?.title ?? payload.data?.title ?? 'Cadence'
-  const body = payload.notification?.body ?? payload.data?.body ?? ''
-  const url = payload.fcmOptions?.link ?? payload.data?.link ?? '/'
+  const title = typeof payload.title === 'string' && payload.title ? payload.title : 'Cadence'
+  const options = {
+    body: typeof payload.body === 'string' ? payload.body : '',
+    icon: '/notif-icon-192.png',
+    badge: '/icon-192.png',
+    // Same-site paths only; the server already enforces this, and the worker
+    // doesn't take its word for it.
+    data: { url: typeof payload.url === 'string' && /^\/(?![/\\])/.test(payload.url) ? payload.url : '/' },
+  }
+  // The same tags the in-app desktop alerts use, so a push and an alert for
+  // one task replace each other instead of stacking.
+  if (typeof payload.tag === 'string' && payload.tag) options.tag = payload.tag
 
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+/* A browser can rotate a subscription on its own (storage cleared, key expiry).
+ * The old endpoint then goes dead and, with nothing done, reminders stop
+ * silently. There is no signed-in page to ask for a token here, so the server
+ * accepts the OLD endpoint as proof of ownership (api/push/subscribe.js) and
+ * moves the account's device to the new one. */
+self.addEventListener('pushsubscriptionchange', (event) => {
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      if (clients.some((c) => c.visibilityState === 'visible')) return undefined
-      return self.registration.showNotification(title, {
-        body,
-        icon: '/notif-icon-192.png',
-        badge: '/icon-192.png',
-        data: { url },
-        tag: payload.data?.tag,
+    (async () => {
+      const oldEndpoint = event.oldSubscription?.endpoint
+      if (!oldEndpoint) return
+
+      let subscription = event.newSubscription ?? null
+      if (!subscription) {
+        const applicationServerKey = event.oldSubscription.options?.applicationServerKey
+        if (!applicationServerKey) return
+        subscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        })
+      }
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldEndpoint, subscription: subscription.toJSON() }),
       })
-    }),
+    })().catch(() => undefined),
   )
 })
 
+/* ------------------------------------------------- notification clicks -- */
+
+/* Clicks on anything raised through registration.showNotification — the push
+ * handler above, and the in-app desktop alerts (showLocalNotification in
+ * packages/shared/src/notifications.js) — land here: focus an open Cadence
+ * window, else open one.
+ */
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url ?? '/'
