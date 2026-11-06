@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { TITLE_MAX, bodyBytes, bodyLimitState, normalizePaper, summarizeDoc } from '@cadence/shared/journal.js'
 import { downloadText } from '../../lib/download.js'
+import { fileToNoteImage } from '../../lib/image.js'
+import { exportFilename, noteToHtmlDocument, noteToText } from '../../lib/journalExport.js'
 import { formatBytes, formatEdited } from '../../lib/journalFormat.js'
 import { paperStyle, resolvePaperHex } from '../../lib/journalPaper.js'
 import { useOnline } from '../../lib/useOnline.js'
@@ -92,6 +94,9 @@ export function NoteSurface({
   const [title, setTitle] = useState(note.title)
 
   const editorRef = useRef(null)
+  const imageInputRef = useRef(null)
+  const insertImageRef = useRef(null)
+  const [imageError, setImageError] = useState(null)
   const titleValue = useRef(note.title)
   const lastSaved = useRef(initial.json) // the stored JSON the editor is known to match
   const remoteHandler = useRef(null)
@@ -168,6 +173,21 @@ export function NoteSurface({
             return true
           }
           return false
+        },
+        // A pasted screenshot or a dropped photo becomes an image in the note.
+        handlePaste: (view, event) => {
+          const file = [...(event.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'))
+          if (!file) return false
+          event.preventDefault()
+          insertImageRef.current?.(file)
+          return true
+        },
+        handleDrop: (view, event) => {
+          const file = [...(event.dataTransfer?.files ?? [])].find((f) => f.type.startsWith('image/'))
+          if (!file) return false
+          event.preventDefault()
+          insertImageRef.current?.(file)
+          return true
         },
         handleClick: (view, pos, event) => {
           // Links do not open on a plain click — that is how you place the caret
@@ -294,6 +314,41 @@ export function NoteSurface({
   const sheet = useMemo(() => paperStyle(paper), [paper])
   const paperHex = resolvePaperHex(paper, dark)
 
+  /* ------------------------------------------------------ images, export -- */
+
+  /** Shrinks an image to fit inside a note (see lib/image.js), then inserts it. */
+  async function insertImage(file) {
+    setImageError(null)
+    try {
+      const src = await fileToNoteImage(file)
+      editorRef.current?.chain().focus().setImage({ src, alt: '' }).run()
+    } catch (caught) {
+      setImageError(caught.message || 'Could not add that image.')
+    }
+  }
+
+  useEffect(() => {
+    insertImageRef.current = insertImage
+  })
+
+  function exportNote(kind) {
+    const instance = editorRef.current
+    if (!instance) return
+    const name = titleValue.current
+    if (kind === 'html') {
+      downloadText(
+        exportFilename(name, 'html'),
+        noteToHtmlDocument({ title: name, html: instance.getHTML() }),
+        'text/html;charset=utf-8',
+      )
+    } else {
+      downloadText(
+        exportFilename(name, 'txt'),
+        noteToText({ title: name, text: instance.getText({ blockSeparator: '\n\n' }) }),
+      )
+    }
+  }
+
   /* ---------------------------------------------------------------- status -- */
 
   const syncing = useDelayedFlag(Boolean(bodyState.hasPendingWrites) && autosave.status === 'saved', 2500)
@@ -403,6 +458,18 @@ export function NoteSurface({
           This note was changed on another device while you were editing.
         </Banner>
       ) : null}
+      {imageError ? (
+        <Banner
+          tone="error"
+          actions={
+            <button type="button" className="ghost-button ghost-button--sm" onClick={() => setImageError(null)}>
+              Dismiss
+            </button>
+          }
+        >
+          {imageError}
+        </Banner>
+      ) : null}
       {saveError ? (
         <Banner tone="error" actions={<button type="button" className="ghost-button ghost-button--sm" onClick={autosave.markDirty}>Try again</button>}>
           {saveError} Your text is still here.
@@ -425,6 +492,9 @@ export function NoteSurface({
         // No .focus() in the chain: TipTap re-focuses the text a frame later,
         // which would take focus back from the drawing it just selected.
         onInsertDrawing={() => editorRef.current?.commands.insertDrawing()}
+        onInsertImage={() => imageInputRef.current?.click()}
+        onPrint={() => window.print()}
+        onExport={exportNote}
         paperProps={{
           paper,
           disabled: contentError,
@@ -433,6 +503,23 @@ export function NoteSurface({
           onReset: () => changePaper(defaultPaper),
         }}
       />
+
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="visually-hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = '' // the same file picked twice still fires onChange
+          if (file) insertImage(file)
+        }}
+      />
+
+      {/* Shown only when printing (see journal.css): the page's name above its text. */}
+      <h1 className="note-print-title">{title.trim() || 'Untitled'}</h1>
 
       <div className="note-sheet-wrap">
         <div ref={sheetRef} className="note-sheet" style={sheet.style} {...sheet.attrs}>

@@ -127,10 +127,10 @@ describe('inline formatting', () => {
     const editor = make()
     selectAll(editor)
     editor.commands.setColor('#e03131')
-    editor.commands.setHighlight({ color: '#ffd43b99' })
+    editor.commands.setHighlight({ color: '#fab21999' })
     const html = editor.getHTML()
     expect(html).toContain('<mark')
-    expect(html).toContain('#ffd43b99')
+    expect(html).toContain('#fab21999')
     expect(html).toMatch(/color: (#e03131|rgb\(224, 49, 49\))/)
     // The marker must not recolour the text it sits on: that is what keeps
     // coloured text readable on a highlight, and white text readable on dark paper.
@@ -379,5 +379,97 @@ describe('content check', () => {
   it('throws from setContent for invalid content when the check is on, so a remote change can be refused', () => {
     const editor = make('<p>x</p>', { enableContentCheck: true })
     expect(() => editor.commands.setContent(alien, { emitUpdate: false })).toThrow()
+  })
+})
+
+describe('tables', () => {
+  const rowsOf = (editor) => editor.getJSON().content.find((node) => node.type === 'table').content
+
+  it('inserts a 3 × 3 table with a header row and puts the caret in it', () => {
+    const editor = make('<p>before</p>')
+    editor.commands.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+    const rows = rowsOf(editor)
+    expect(rows).toHaveLength(3)
+    expect(rows[0].content.map((cell) => cell.type)).toEqual(['tableHeader', 'tableHeader', 'tableHeader'])
+    expect(rows[1].content.map((cell) => cell.type)).toEqual(['tableCell', 'tableCell', 'tableCell'])
+    expect(editor.isActive('table')).toBe(true)
+  })
+
+  it('adds and removes rows and columns, and deletes the whole table', () => {
+    const editor = make('<p>x</p>')
+    editor.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: false })
+    editor.commands.addRowAfter()
+    editor.commands.addColumnAfter()
+    expect(rowsOf(editor)).toHaveLength(3)
+    expect(rowsOf(editor)[0].content).toHaveLength(3)
+    editor.commands.deleteRow()
+    editor.commands.deleteColumn()
+    expect(rowsOf(editor)).toHaveLength(2)
+    expect(rowsOf(editor)[0].content).toHaveLength(2)
+    editor.commands.deleteTable()
+    expect(editor.isActive('table')).toBe(false)
+    expect(editor.getJSON().content.some((node) => node.type === 'table')).toBe(false)
+  })
+
+  it('leaves Tab to the table — it moves between cells instead of indenting', () => {
+    const editor = make('<p>x</p>')
+    editor.commands.insertTable({ rows: 2, cols: 2, withHeaderRow: false })
+    const before = editor.state.selection.from
+    editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    expect(editor.state.selection.from).toBeGreaterThan(before)
+    expect(JSON.stringify(editor.getJSON())).not.toContain('"indent":1')
+    expect(editor.getHTML()).not.toContain('data-indent')
+  })
+
+  it('still indents ordinary text with Tab', () => {
+    const editor = make('<p>plain</p>')
+    editor.commands.focus('end')
+    editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    expect(editor.getJSON().content[0].attrs.indent).toBe(1)
+  })
+
+  it('survives a JSON round trip', () => {
+    const editor = make('<p>x</p>')
+    editor.commands.insertTable({ rows: 2, cols: 3, withHeaderRow: true })
+    const stored = JSON.stringify(editor.getJSON())
+    expect(JSON.stringify(make(JSON.parse(stored)).getJSON())).toBe(stored)
+  })
+})
+
+describe('images', () => {
+  const PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+  const imagesIn = (editor) => {
+    const found = []
+    editor.state.doc.descendants((node) => {
+      if (node.type.name === 'image') found.push(node.attrs.src)
+    })
+    return found
+  }
+
+  it('accepts an image stored as a data URI', () => {
+    const editor = make(`<p>a</p><img src="${PNG}" alt="dot">`)
+    expect(imagesIn(editor)).toEqual([PNG])
+  })
+
+  it('drops an image that points at another server — opening a note must not fetch anything', () => {
+    const editor = make('<p>a</p><img src="https://tracker.example/pixel.gif"><img src="http://example.com/a.png">')
+    expect(imagesIn(editor)).toEqual([])
+  })
+
+  it('drops script and non-raster sources', () => {
+    const editor = make(
+      '<p>a</p><img src="javascript:alert(1)"><img src="data:text/html;base64,PHNjcmlwdD4="><img src="data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=">',
+    )
+    expect(imagesIn(editor)).toEqual([])
+  })
+
+  it('inserts through the command and round-trips through JSON', () => {
+    const editor = make('<p>a</p>')
+    editor.commands.setImage({ src: PNG, alt: '' })
+    expect(imagesIn(editor)).toEqual([PNG])
+    const stored = JSON.stringify(editor.getJSON())
+    expect(imagesIn(make(JSON.parse(stored)))).toEqual([PNG])
   })
 })

@@ -303,3 +303,63 @@ export function bodyLimitState(bytes) {
   if (bytes > BODY_SOFT_LIMIT) return 'warn'
   return 'ok'
 }
+
+/* --------------------------------------------------------------- backup -- */
+
+/** The most notes one import will take. A file claiming more than this is not a
+    backup of a notebook; it is a mistake or an attack on the write quota. */
+export const MAX_IMPORT_NOTES = 500
+
+/** A note as it goes into a JSON backup: what is the writer's, nothing that is
+    the database's. Ids, the excerpt, the size and the drawing flag are all
+    rebuilt from the body on import, so they are left out rather than trusted.
+    `body` is the stored JSON string exactly as it was — even one that does not
+    parse is kept, so a backup never loses text it could not read. */
+export function noteToBackup(note, body) {
+  return {
+    title: note.title,
+    dayKey: note.dayKey,
+    pinned: note.pinned,
+    paper: note.paper,
+    createdAt: note.createdAt,
+    updatedAt: note.updatedAt,
+    deletedAt: note.deletedAt,
+    schemaVersion: body.schemaVersion,
+    body: body.json,
+  }
+}
+
+/** One note out of a backup file -> what to write, or why it cannot be. The
+    file is untrusted input (hand-edited, truncated, from another build), so it
+    gets the same treatment a Firestore snapshot gets: the metadata is
+    normalized, and the body must parse as a document, be one this build
+    understands, and fit under the size limit — a note that does not is skipped
+    and counted, never written half-valid. A note with no body at all is an empty
+    note. */
+export function noteFromBackup(raw, stamp) {
+  if (!raw || typeof raw !== 'object') return { error: 'unreadable' }
+  // A body that is there but not a string would normalize to "empty" — a note
+  // that imports fine and has quietly lost its text. Refuse it instead.
+  if (raw.body !== undefined && raw.body !== null && typeof raw.body !== 'string') return { error: 'unreadable' }
+  const body = normalizeNoteBody({ json: raw.body, schemaVersion: raw.schemaVersion })
+  if (!body.valid) return { error: 'unreadable' }
+  if (!body.supported) return { error: 'newer' }
+  const json = body.json || JSON.stringify(emptyDoc())
+  const bytes = bodyBytes(json)
+  if (bodyLimitState(bytes) === 'full') return { error: 'too-large' }
+
+  const { id: _id, ...note } = normalizeNote('imported', raw)
+  const { excerpt, hasDrawing } = summarizeDoc(body.doc)
+  return {
+    meta: {
+      ...note,
+      excerpt,
+      hasDrawing,
+      bytes,
+      createdAt: note.createdAt || stamp,
+      updatedAt: note.updatedAt || stamp,
+    },
+    json,
+    schemaVersion: SCHEMA_VERSION,
+  }
+}

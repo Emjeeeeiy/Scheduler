@@ -3,6 +3,7 @@ import { TextStyleKit } from '@tiptap/extension-text-style'
 import { Highlight } from '@tiptap/extension-highlight'
 import { TextAlign } from '@tiptap/extension-text-align'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
+import { TableKit } from '@tiptap/extension-table'
 import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { CharacterCount, Placeholder } from '@tiptap/extensions'
@@ -10,6 +11,7 @@ import { ClearFormatting } from './clearFormatting.js'
 import { EditorShortcuts } from './editorShortcuts.js'
 import { FontSizeStep } from './fontSizeStep.js'
 import { Indent } from './indent.js'
+import { JournalImage } from './image.js'
 import { LineSpacing } from './lineSpacing.js'
 
 /** Only these may be linked to. A `javascript:` URL typed or pasted into a link
@@ -42,6 +44,10 @@ export function buildExtensions({ onLink, onHelp, placeholder = 'Start writingâ€
     TaskItem.configure({ nested: true }),
     Subscript,
     Superscript,
+    /* Columns can be dragged to resize; the last one cannot, so a table never
+       grows wider than the page by accident. */
+    TableKit.configure({ table: { resizable: true, lastColumnResizable: false } }),
+    JournalImage,
     Placeholder.configure({ placeholder }),
     CharacterCount,
     LineSpacing,

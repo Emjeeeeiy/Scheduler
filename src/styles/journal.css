@@ -12,7 +12,7 @@
 
 .journal__layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -1194,6 +1194,163 @@ a.ghost-button {
 .drawing__resize:hover::before,
 .drawing__resize:focus-visible::before {
   background: color-mix(in srgb, var(--note-ink) 65%, transparent);
+}
+
+/* ================================================================= tables == */
+
+.note-content .tableWrapper {
+  margin: 0 0 0.7em;
+  overflow-x: auto;
+}
+
+.note-content table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.note-content th,
+.note-content td {
+  position: relative;
+  min-width: 3em;
+  padding: 0.35em 0.6em;
+  border: 1px solid color-mix(in srgb, var(--note-ink) 32%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.note-content th {
+  background: color-mix(in srgb, var(--note-ink) 9%, transparent);
+  font-weight: var(--font-weight-title);
+}
+
+.note-content td > p,
+.note-content th > p {
+  margin: 0;
+}
+
+/* Cells the writer has dragged across, for merging and deleting. */
+.note-content .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--note-ink) 16%, transparent);
+  pointer-events: none;
+}
+
+.note-content .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -1px;
+  width: 4px;
+  background: color-mix(in srgb, var(--note-ink) 55%, transparent);
+  pointer-events: none;
+}
+
+.note-content.resize-cursor {
+  cursor: col-resize;
+}
+
+/* ================================================================= images == */
+
+.note-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.4em 0;
+}
+
+.note-content [data-resize-container] {
+  max-width: 100%;
+}
+
+/* ================================================================== print == */
+
+/* Print and "Save as PDF" print the page and nothing else: no sidebar, list,
+   toolbar or tool strips — just the title and the sheet, on white unless the
+   writer chose a coloured paper (those are printed as they are, which is why
+   colours are forced to print exactly rather than being dropped to save ink). */
+.note-print-title {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  .sidebar,
+  .app__header,
+  .journal > .frame-tick,
+  .note-list,
+  .note-head,
+  .note-meta,
+  .journal-toolbar,
+  .note-surface .banner,
+  .drawing__tools,
+  .drawing__resize,
+  .tb-pop,
+  .toast-stack,
+  .modal {
+    display: none !important;
+  }
+
+  .app-shell,
+  .app-content,
+  .app__main,
+  .journal,
+  .journal__layout,
+  .journal__main,
+  .note-surface {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    border: 0 !important;
+    background: none !important;
+  }
+
+  /* A light colour scheme too: with the dark theme on screen, the browser draws
+     native controls (the checklist boxes) for a dark page — solid dark squares
+     on white paper. */
+  html,
+  body {
+    background: #fff !important;
+    color-scheme: light !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .note-print-title {
+    display: block;
+    margin: 0 0 12px;
+    color: #0b0b0b;
+    font-size: 22px;
+    font-weight: 650;
+  }
+
+  .note-sheet-wrap {
+    max-width: none;
+  }
+
+  /* Theme paper prints on white with dark ink, whatever theme is on screen. */
+  .note-sheet {
+    --color-surface-1: #ffffff;
+    --color-text-primary: #0b0b0b;
+    min-height: 0 !important;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .drawing__canvas,
+  .drawing--selected .drawing__canvas {
+    outline: none !important;
+  }
 }
 
 /* ============================================================= shortcuts == */

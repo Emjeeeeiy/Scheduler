@@ -9,7 +9,16 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { defaultPaper, emptyDoc, normalizeNote, normalizeNoteBody } from '@cadence/shared/journal.js'
 import { NoteSurface } from '../src/components/journal/NoteSurface.jsx'
 import { ThemeProvider } from '../src/state/ThemeContext.jsx'
+import { downloadText } from '../src/lib/download.js'
+import { fileToNoteImage } from '../src/lib/image.js'
 import { installProseMirrorDom } from './helpers/prosemirrorDom.js'
+
+/* jsdom cannot decode an image or save a file; these two are the edges. */
+vi.mock('../src/lib/download.js', () => ({ downloadText: vi.fn() }))
+vi.mock('../src/lib/image.js', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fileToNoteImage: vi.fn(),
+}))
 
 /* A tiny size limit, so "too large to save" is reachable without writing a
    megabyte into jsdom. Everything else in the module is the real thing. */
@@ -362,5 +371,119 @@ describe('paper', () => {
     })
     expect(actions.updateNoteMeta).toHaveBeenCalledTimes(1)
     expect(actions.updateNoteMeta.mock.calls[0][1].paper).toMatchObject({ pattern: 'lined', paperColor: '#fff6a8' })
+  })
+})
+
+describe('tables, images, printing and export', () => {
+  const PNG =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+  const openMenu = async (name) => {
+    fireEvent.click(screen.getByRole('button', { name }))
+    return screen
+  }
+  const readyToolbar = async (container) => {
+    const editor = await editorOf(container)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Insert' }).disabled).toBe(false))
+    return editor
+  }
+
+  it('inserts a table from the Insert menu, and offers table tools only while the caret is in it', async () => {
+    const { container } = mount()
+    const editor = await readyToolbar(container)
+    expect(screen.queryByRole('button', { name: 'Table options' })).toBeNull()
+
+    await openMenu('Insert')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Table/ }))
+    await waitFor(() => expect(container.querySelector('.ProseMirror table')).toBeTruthy())
+    expect(container.querySelectorAll('.ProseMirror table tr')).toHaveLength(3)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Table options' })).toBeTruthy())
+    await openMenu('Table options')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Add row below' }))
+    await waitFor(() => expect(container.querySelectorAll('.ProseMirror table tr')).toHaveLength(4))
+
+    // Leaving the table takes the control away again.
+    act(() => {
+      editor.commands.focus('end')
+    })
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Table options' })).toBeNull())
+  })
+
+  it('puts a chosen image into the note, shrunk, and saves it with the text', async () => {
+    fileToNoteImage.mockResolvedValue(PNG)
+    const { container, actions } = mount()
+    await readyToolbar(container)
+    const input = container.querySelector('input[type="file"][accept="image/*"]')
+    expect(input).toBeTruthy()
+
+    const file = new File(['x'], 'cat.png', { type: 'image/png' })
+    vi.useFakeTimers()
+    fireEvent.change(input, { target: { files: [file] } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000)
+    })
+    expect(fileToNoteImage).toHaveBeenCalledWith(file)
+    expect(container.querySelector('.ProseMirror img')?.getAttribute('src')).toBe(PNG)
+    const saved = jsonOf(actions.saveNote.mock.calls.at(-1)[1])
+    expect(JSON.stringify(saved)).toContain(PNG)
+  })
+
+  it('takes a pasted screenshot as an image instead of dropping it', async () => {
+    fileToNoteImage.mockResolvedValue(PNG)
+    const { container } = mount()
+    const editor = await readyToolbar(container)
+    const file = new File(['x'], 'shot.png', { type: 'image/png' })
+    fireEvent.paste(editor.view.dom, { clipboardData: { files: [file], getData: () => '', types: ['Files'] } })
+    await waitFor(() => expect(container.querySelector('.ProseMirror img')).toBeTruthy())
+    expect(fileToNoteImage).toHaveBeenCalledWith(file)
+  })
+
+  it('says why an image could not be added, and lets the message be dismissed', async () => {
+    fileToNoteImage.mockRejectedValue(new Error('That image is too large for a note, even shrunk. Try a smaller one.'))
+    const { container } = mount()
+    await readyToolbar(container)
+    const input = container.querySelector('input[type="file"][accept="image/*"]')
+    fireEvent.change(input, { target: { files: [new File(['x'], 'huge.png', { type: 'image/png' })] } })
+    await screen.findByText(/too large for a note/)
+    expect(container.querySelector('.ProseMirror img')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(screen.queryByText(/too large for a note/)).toBeNull())
+  })
+
+  it('prints through the browser', async () => {
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    const { container } = mount()
+    await readyToolbar(container)
+    await openMenu('More options')
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Print/ }))
+    expect(print).toHaveBeenCalledTimes(1)
+    // The page's name is in the document for the print stylesheet to show.
+    expect(container.querySelector('.note-print-title')?.textContent).toBe('My note')
+    print.mockRestore()
+  })
+
+  it('downloads the note as plain text, named after it', async () => {
+    const { container } = mount({ doc: docOf(para('hello world')) })
+    await readyToolbar(container)
+    await openMenu('More options')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Download as text' }))
+    expect(downloadText).toHaveBeenCalledTimes(1)
+    const [filename, text] = downloadText.mock.calls[0]
+    expect(filename).toMatch(/^my-note-\d{4}-\d{2}-\d{2}\.txt$/)
+    expect(text).toBe(['My note', '=======', '', 'hello world', ''].join('\n'))
+  })
+
+  it('downloads the note as a web page', async () => {
+    downloadText.mockClear()
+    const { container } = mount({ doc: docOf(para('hello world')) })
+    await readyToolbar(container)
+    await openMenu('More options')
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Download as web page' }))
+    const [filename, html, type] = downloadText.mock.calls[0]
+    expect(filename).toMatch(/\.html$/)
+    expect(type).toContain('text/html')
+    expect(html).toContain('<title>My note</title>')
+    expect(html).toContain('<p>hello world</p>')
   })
 })

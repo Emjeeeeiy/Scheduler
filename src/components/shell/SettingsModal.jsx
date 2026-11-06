@@ -75,11 +75,20 @@ function keyLabel(key) {
  * entry point."
  */
 export function SettingsModal({ onClose }) {
-  const { tasks, events, tags, templates, importData, removeTemplate, profile, updateDigestPreference } =
-    useSchedule()
+  const {
+    tasks,
+    events,
+    tags,
+    templates,
+    importData,
+    exportJournal,
+    removeTemplate,
+    profile,
+    updateDigestPreference,
+  } = useSchedule()
   const { settings, updateSetting } = useSettings()
   const { theme, setTheme } = useTheme()
-  const { pushError, pushSuccess } = useToast()
+  const { pushError, pushSuccess, pushWarning } = useToast()
   const { canInstall, installed, promptInstall } = useInstallPrompt()
   const push = usePushNotifications()
   const [digestBusy, setDigestBusy] = useState(false)
@@ -87,6 +96,7 @@ export function SettingsModal({ onClose }) {
   useModalA11y(panelRef, { onClose })
 
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [capturing, setCapturing] = useState(null)
   const fileInputRef = useRef(null)
 
@@ -121,12 +131,34 @@ export function SettingsModal({ onClose }) {
     setCapturing(null)
   }
 
-  function onExport() {
+  async function onExport() {
+    setExporting(true)
+    /* The journal is read on demand (note bodies are not held in memory). If
+       that fails the rest is still worth saving — but the file must not pass
+       for a complete backup, so the gap is reported, not hidden. */
+    let journal = []
+    let missing = 0
+    try {
+      const result = await exportJournal()
+      journal = result.notes
+      missing = result.unreadable
+    } catch (caught) {
+      console.error('Could not read the journal for the export.', caught)
+      missing = -1
+    }
     download(
       `cadence-export-${todayKey()}.json`,
-      JSON.stringify({ exportedAt: new Date().toISOString(), tasks, events, tags }, null, 2),
+      JSON.stringify({ exportedAt: new Date().toISOString(), tasks, events, tags, journal }, null, 2),
       'application/json',
     )
+    setExporting(false)
+    if (missing === -1) {
+      pushWarning('Exported your tasks, events and tags — but your journal could not be read, so it is not in the file.')
+    } else if (missing > 0) {
+      pushWarning(
+        `Exported, but ${missing} journal note${missing === 1 ? '' : 's'} could not be read (open ${missing === 1 ? 'it' : 'them'} once while online, then export again).`,
+      )
+    }
   }
 
   function onExportCsv() {
@@ -149,12 +181,18 @@ export function SettingsModal({ onClose }) {
     try {
       const text = await file.text()
       const parsed = JSON.parse(text)
-      const count = await importData({
+      const { count, skippedNotes } = await importData({
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
         events: Array.isArray(parsed.events) ? parsed.events : [],
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+        journal: Array.isArray(parsed.journal) ? parsed.journal : [],
       })
       pushSuccess(`Imported ${count} item${count === 1 ? '' : 's'}.`)
+      if (skippedNotes > 0) {
+        pushWarning(
+          `${skippedNotes} journal note${skippedNotes === 1 ? ' was' : 's were'} skipped — unreadable, too large, or from a newer version of Cadence.`,
+        )
+      }
     } catch (caught) {
       console.error('Could not import data.', caught)
       pushError(
@@ -496,13 +534,18 @@ export function SettingsModal({ onClose }) {
           <section className="profile__section field">
             <span className="field__label">Your data</span>
             <p className="field__hint">
-              Every task, event, and tag, as a plain JSON file — a backup, or a way to move
-              between accounts.
+              Every task, event, tag, and journal note, as a plain JSON file — a backup, or a way
+              to move between accounts.
             </p>
             <div className="tag-list__confirm">
-              <button type="button" className="ghost-button ghost-button--sm button--icon-label" onClick={onExport}>
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm button--icon-label"
+                onClick={onExport}
+                disabled={exporting}
+              >
                 <DownloadIcon className="button-icon" />
-                Export
+                {exporting ? 'Exporting…' : 'Export'}
               </button>
               <button
                 type="button"

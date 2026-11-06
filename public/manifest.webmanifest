@@ -50,6 +50,13 @@
       "description": "Start a focus session",
       "url": "/?view=focus",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Journal",
+      "short_name": "Journal",
+      "description": "Open your notes",
+      "url": "/?view=journal",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

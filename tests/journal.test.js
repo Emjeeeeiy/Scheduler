@@ -4,6 +4,7 @@ import {
   BODY_HARD_LIMIT,
   BODY_SOFT_LIMIT,
   EXCERPT_MAX,
+  MAX_IMPORT_NOTES,
   PAPER_PATTERNS,
   PAPER_SPACING,
   SCHEMA_VERSION,
@@ -19,6 +20,8 @@ import {
   normalizeNoteBody,
   normalizePaper,
   noteDisplayTitle,
+  noteFromBackup,
+  noteToBackup,
   plainTextOf,
   sortNotes,
   summarizeDoc,
@@ -329,5 +332,117 @@ describe('bodyBytes / bodyLimitState', () => {
 
   it('keeps the hard limit safely under the 1 MiB Firestore document cap', () => {
     assert.ok(BODY_HARD_LIMIT < 1_048_576 - 50_000)
+  })
+})
+
+describe('journal backup', () => {
+  const doc = (...blocks) => ({ type: 'doc', content: blocks })
+  const stored = (value) => ({ json: JSON.stringify(value), schemaVersion: SCHEMA_VERSION })
+  const note = normalizeNote('abc', {
+    title: 'Trip',
+    dayKey: '2026-11-07',
+    pinned: true,
+    hasDrawing: true,
+    bytes: 99,
+    excerpt: 'stale excerpt',
+    createdAt: 100,
+    updatedAt: 200,
+    deletedAt: null,
+    paper: { pattern: 'grid', paperColor: '#fff6a8' },
+  })
+
+  it('writes only what belongs to the writer, and the body as stored', () => {
+    const entry = noteToBackup(note, normalizeNoteBody(stored(doc(para(text('hi'))))))
+    assert.deepEqual(Object.keys(entry).sort(), [
+      'body',
+      'createdAt',
+      'dayKey',
+      'deletedAt',
+      'paper',
+      'pinned',
+      'schemaVersion',
+      'title',
+      'updatedAt',
+    ])
+    assert.equal(entry.body, JSON.stringify(doc(para(text('hi')))))
+  })
+
+  it('keeps a body it cannot parse rather than losing the text', () => {
+    const entry = noteToBackup(note, normalizeNoteBody({ json: '{"type":"doc", broken', schemaVersion: 1 }))
+    assert.equal(entry.body, '{"type":"doc", broken')
+  })
+
+  it('round-trips: what is exported imports as the same note', () => {
+    const body = stored(doc(para(text('Book the ferry'))))
+    const entry = noteToBackup(note, normalizeNoteBody(body))
+    const back = noteFromBackup(JSON.parse(JSON.stringify(entry)), 999)
+    assert.equal(back.error, undefined)
+    assert.equal(back.json, body.json)
+    assert.equal(back.meta.title, 'Trip')
+    assert.equal(back.meta.dayKey, '2026-11-07')
+    assert.equal(back.meta.pinned, true)
+    assert.equal(back.meta.paper.pattern, 'grid')
+    assert.equal(back.meta.createdAt, 100)
+    assert.equal(back.meta.updatedAt, 200)
+  })
+
+  it('rebuilds the excerpt, size and drawing flag from the body instead of trusting the file', () => {
+    const body = doc(para(text('real words')), { type: 'drawing', attrs: { strokes: [], height: 300, label: '' } })
+    const back = noteFromBackup(
+      { title: 'x', excerpt: 'forged', bytes: 1, hasDrawing: false, body: JSON.stringify(body) },
+      5,
+    )
+    assert.equal(back.meta.excerpt, 'real words')
+    assert.equal(back.meta.hasDrawing, true)
+    assert.equal(back.meta.bytes, bodyBytes(JSON.stringify(body)))
+  })
+
+  it('never carries an id into the new note', () => {
+    const back = noteFromBackup({ id: 'old-id', title: 'x', body: JSON.stringify(doc(para())) }, 5)
+    assert.equal('id' in back.meta, false)
+  })
+
+  it('fills missing dates from the import time', () => {
+    const back = noteFromBackup({ title: 'x', body: JSON.stringify(doc(para())) }, 777)
+    assert.equal(back.meta.createdAt, 777)
+    assert.equal(back.meta.updatedAt, 777)
+  })
+
+  it('treats a note with no body as an empty note', () => {
+    const back = noteFromBackup({ title: 'Only a title' }, 5)
+    assert.equal(back.error, undefined)
+    assert.equal(back.json, JSON.stringify(emptyDoc()))
+  })
+
+  it('keeps a trashed note trashed', () => {
+    const back = noteFromBackup({ title: 'x', deletedAt: 1234, body: JSON.stringify(doc(para())) }, 5)
+    assert.equal(back.meta.deletedAt, 1234)
+  })
+
+  it('normalizes hostile metadata like any stored note', () => {
+    const back = noteFromBackup(
+      { title: 'x'.repeat(5000), pinned: 'yes', paper: { pattern: 'nope', paperColor: 'javascript:1' }, body: JSON.stringify(doc(para())) },
+      5,
+    )
+    assert.equal(back.meta.title.length, TITLE_MAX)
+    assert.equal(back.meta.pinned, false)
+    assert.ok(PAPER_PATTERNS.includes(back.meta.paper.pattern))
+    assert.match(back.meta.paper.paperColor, /^(theme|#[0-9a-f]{6})$/i)
+  })
+
+  it('refuses what it cannot safely write', () => {
+    assert.equal(noteFromBackup(null, 5).error, 'unreadable')
+    assert.equal(noteFromBackup('text', 5).error, 'unreadable')
+    assert.equal(noteFromBackup({ body: '{not json' }, 5).error, 'unreadable')
+    assert.equal(noteFromBackup({ body: JSON.stringify({ type: 'paragraph' }) }, 5).error, 'unreadable')
+    // a body that was edited into an object would otherwise import as an empty note
+    assert.equal(noteFromBackup({ body: { type: 'doc', content: [] } }, 5).error, 'unreadable')
+    assert.equal(noteFromBackup({ body: JSON.stringify(doc(para())), schemaVersion: SCHEMA_VERSION + 1 }, 5).error, 'newer')
+    const huge = JSON.stringify(doc(para(text('x'.repeat(BODY_HARD_LIMIT + 10)))))
+    assert.equal(noteFromBackup({ body: huge }, 5).error, 'too-large')
+  })
+
+  it('caps how many notes one file may bring', () => {
+    assert.equal(MAX_IMPORT_NOTES, 500)
   })
 })

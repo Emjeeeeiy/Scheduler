@@ -4,9 +4,12 @@ A time-blocking planner. Tasks can sit in an inbox with no time at all, and
 "planning" means giving one a real slot on a real day — then seeing, afterwards,
 where the hours actually went.
 
-Four views: **Dashboard** (today's snapshot, plus a Trends section — planned
-versus completed over the last 7 or 30 days), **Day** (agenda + inbox),
-**Week** (7-column time grid), and **Month** (calendar grid).
+The views: **Dashboard** (today's snapshot, plus a Trends section — planned
+versus completed over the last 7 or 30 days), **Schedule** — **Day** (agenda +
+inbox), **Week** (7-column time grid), **Month** (calendar grid) and **Review** —
+**Focus** (a pomodoro timer), and **Journal**: simple notes with Word/Docs-style
+editing, editable paper, tables, images and drawing boxes (see
+[The Journal](#the-journal)).
 
 Built with React 19 + Vite, data in Firebase Firestore. Sign in with Google, or
 with a username and password.
@@ -47,7 +50,8 @@ is not optional. `.env.local` is gitignored regardless.
 | `npm run preview` | serve the built output |
 | `npm run lint` | oxlint |
 | `npm test` | pure-logic tests, on Node's built-in runner — no extra dependencies |
-| `npm run test:dom` | vitest + jsdom — the one hook (`useModalA11y`) whose behaviour (focus trap, focus restore) needs a real DOM to prove |
+| `npm run test:dom` | vitest + jsdom — components and hooks that need a real DOM: dialogs' focus handling, and the Journal's editor, toolbar, autosave and drawing |
+| `npm run test:functions` | the Cloud Functions' own tests (`functions/`) |
 | `npm run test:render` | smoke-renders every view against mock data |
 | `node tests/smoke/qa.mjs` | manual visual QA — screenshots a running `npm run dev` with a real browser; not part of `npm test`, not run in CI, needs `playwright` installed separately (see the comment at the top of the file) |
 
@@ -70,6 +74,11 @@ users/{uid}/tasks/{taskId}
 
 users/{uid}/tags/{tagId}
   name  slot  order
+
+users/{uid}/journal/{noteId}   a note's metadata — title  excerpt  dayKey  pinned
+  hasDrawing  bytes  paper  createdAt  updatedAt  deletedAt
+users/{uid}/journal/{noteId}/content/body
+  json  schemaVersion  updatedAt        the note's text, as one JSON string
 
 usernames/{usernameLower}      top-level — uid  email  createdAt
 ```
@@ -156,6 +165,66 @@ login failure, whether the username doesn't exist or the password is wrong,
 shows the identical "Incorrect username/email or password," so a login form
 never doubles as a username-enumeration oracle.
 
+## The Journal
+
+A page of notes — a list on one side, the open note on the other, and a **Today**
+button that opens (or creates) the note titled with today's date. The toolbar and
+its keyboard shortcuts follow Docs: `Ctrl/⌘ + B / I / U`, `Ctrl/⌘ + Shift + 7 / 8 / 9`
+for lists, `Ctrl/⌘ + K` for a link, `Ctrl/⌘ + \` to clear formatting; **`Ctrl/⌘ + /`**
+inside a note lists them all, and `Esc` leaves the editor so `Tab` is never a trap. A note can
+be printed or saved as PDF, and downloaded as a web page or as text. The
+decisions underneath:
+
+**A note is two documents, and its text is one string.** The list listens to
+small metadata documents (title, excerpt, paper, flags); the body is a separate
+document, read only for the note that is open. The body is the editor's document
+serialized as **one JSON string**, not a nested map: Firestore rejects arrays
+directly inside arrays and caps nesting at twenty levels, and a rich-text tree
+(lists in lists, tables) hits both. A string also has an exact byte size to check
+before a write — a warning at 750 KB, a refusal at 950 KB that keeps the text on
+screen. It never truncates. `packages/shared/src/journal.js` normalizes
+everything that crosses the boundary, the way `normalize.js` does for tasks.
+
+**A note that did not load cleanly is never saved over.** A body that cannot be
+read, or was written by a newer build, opens read-only with the raw data
+downloadable — the editor would otherwise open empty, and an autosave would
+replace the real note with nothing. The same holds for a note whose text is not
+in the offline cache yet. If another device saves while there is unsaved typing,
+a banner asks *Load latest* or *Keep mine*; otherwise last write wins.
+
+**"Saved" means the write was queued, not acknowledged.** The status line reads
+Firestore's pending-writes flag — *Saved on this device — syncs when online* —
+because awaiting the server would hang forever offline. Autosave waits for
+0.8 s of quiet (never more than 4 s while typing) and also flushes on blur,
+switching notes, closing, and the tab being hidden.
+
+**Paper is CSS, not images.** Each pattern (lines, dots, grid, graph, isometric,
+hexagons, music staff, handwriting, Cornell…) is a small SVG tile used as a CSS
+`mask-image` painted with `--pattern-color`, so one mechanism covers every shape
+and every colour change is live. Paper, dot, line and margin colours are the
+writer's content, like a tag's colour; the toolbar around them stays neutral.
+Text can optionally snap to the lines (`line-height: round(up, …)`).
+
+**A drawing is strokes, not a bitmap.** It is a block inside the note (so it
+moves with the text, shares `Ctrl+Z`, and scales to any screen), in a logical
+1000-unit-wide box. Strokes are simplified, delta-encoded and base64url'd — never
+nested arrays — and drawn with `perfect-freehand`; pen pressure is honoured, a
+resting palm is not.
+
+**Images live inside the note.** Resized in the browser (at most 1400 px, a JPEG
+under 450 000 characters) and stored in the body as data URIs, so the note stays
+one atomic, offline-safe document. An image pasted in from a web page is dropped
+at parse time — opening a note never fetches anything from another server.
+
+**The editor is a lazy chunk.** `JournalView` loads on first open (and is
+prefetched when the browser is idle and online), so the TipTap editor stays out
+of the main bundle.
+
+**Backups include it.** Settings → Export writes notes (bodies read on demand)
+into the JSON file; Import adds them as new notes and skips, and counts, any it
+cannot read. An export that could not read some notes says so instead of passing
+for a full backup.
+
 ## Keyboard
 
 | Key | Does |
@@ -164,6 +233,7 @@ never doubles as a username-enumeration oracle.
 | `t` | jump to today |
 | `←` `→` | move the date cursor (day / week / month, by view) |
 | `Esc` | close a dialog |
+| `Ctrl/⌘ + /` | in a Journal note: the formatting shortcuts |
 
 ## Layout
 
@@ -180,10 +250,16 @@ src/
     useTheme.js          system / light / dark
     usePersistentState.js
     useModalA11y.js       shared focus-trap/restore/Escape contract for every dialog
+    journalPaper.js      paper patterns, presets and the CSS they become
+    ink.js               drawing strokes — encoding, smoothing, hit-testing, SVG
+    journalExport.js     a note as a web page or plain text
+    image.js             avatar and in-note image shrinking
   state/
     AuthContext.jsx      session, Google + username/password
     ScheduleContext.jsx  the single data seam
     ToastContext.jsx      transient "that write failed" surface
+    useJournal.js        the Journal's list, open note and actions
+    journalData.js       where notes live in Firestore; purge, backup export/import
   components/
     icons.jsx            the one drawn icon set — shared by every group below
     auth/                SignIn, LoginForm, RegisterForm, PasswordField
@@ -195,6 +271,9 @@ src/
     stats/               Dashboard's data display — StatTile, BarChart, TagBars
     shell/               chrome that belongs to no one view — NotificationBell,
                          SetupNotice, ToastStack, ErrorBoundary
+    journal/             the Journal: NoteList, NoteSurface (the open note),
+                         EditorToolbar, PaperPicker, DrawingBlock, and extensions/
+                         (the editor's own nodes and shortcuts)
   styles/
     tokens.css           design tokens, both themes
     shell.css             app shell, notifications, controls, profile, date nav,
@@ -202,15 +281,18 @@ src/
     auth.css              setup notice + the sign-in screen
     dashboard.css          Dashboard + its charts
     focus.css              Focus mode (the pomodoro timer view)
+    journal.css            the Journal — loaded with its chunk, not the main bundle
     calendar.css           Day/Week time grids, Month grid, inbox & task rows
     modals.css              every dialog, its fields, tags, item index, repeat picker
     toggles-responsive.css  filter chips/toggles + every ≤900px override
     calendar-dnd.css        drag-to-create/move/resize on the time grid
                          (split from one file, in original cascade order — see
                          the import comment in App.jsx)
+packages/shared/         @cadence/shared — pure logic the web app, functions and
+                         mobile app share (dates, normalizers, journal.js)
 tests/                   pure-logic tests (date, layout, stats, normalize, …) —
-                         plus a11y.test.jsx (vitest + jsdom, see Scripts) and
-                         smoke/ (SSR render check + manual qa.mjs)
+                         plus the *.test.jsx component tests (vitest + jsdom, see
+                         Scripts) and smoke/ (SSR render check + manual qa.mjs)
 ```
 
 ## Deploying to Vercel
@@ -241,4 +323,7 @@ Nothing else needs it, and the app behaves exactly as before until it's set up.
 
 ## Not built yet
 
-Browser reminders and JSON export were deliberately left out.
+In the Journal: comments and tracked changes, headers/footers and page breaks,
+find-and-replace (the browser's `Ctrl+F` finds text), a `.docx` export, shared or
+simultaneous editing, and drawing freely over text (drawings are boxes between
+paragraphs). Notes are not in the mobile app.

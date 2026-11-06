@@ -27,6 +27,7 @@ import {
   DrawingIcon,
   HighlighterIcon,
   HorizontalRuleIcon,
+  ImageIcon,
   IndentIcon,
   ItalicIcon,
   KeyboardIcon,
@@ -38,11 +39,14 @@ import {
   MinusIcon,
   MoreIcon,
   OutdentIcon,
+  PrinterIcon,
   PlusSmallIcon,
   RedoIcon,
   StrikeIcon,
+  FileTextIcon,
   SubscriptIcon,
   SuperscriptIcon,
+  TableIcon,
   TextColorIcon,
   UnderlineIcon,
   UndoIcon,
@@ -100,6 +104,7 @@ function readState(editor) {
     codeBlock: editor.isActive('codeBlock'),
     lineHeight:
       editor.getAttributes('paragraph').lineHeight ?? editor.getAttributes('heading').lineHeight ?? null,
+    inTable: editor.isActive('table'),
     canUndo: editor.can().undo(),
     canRedo: editor.can().redo(),
   }
@@ -383,7 +388,7 @@ function SpacingMenu({ editor, state, disabled }) {
   )
 }
 
-function InsertMenu({ editor, onInsertDrawing, disabled }) {
+function InsertMenu({ editor, onInsertDrawing, onInsertImage, disabled }) {
   const [open, setOpen] = useState(false)
   return (
     <ToolPopover
@@ -402,6 +407,24 @@ function InsertMenu({ editor, onInsertDrawing, disabled }) {
               onSelect={() => {
                 onInsertDrawing()
                 close()
+              }}
+            />
+          ) : null}
+          <MenuItem
+            icon={TableIcon}
+            label="Table"
+            onSelect={() => {
+              run(editor, (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }))
+              close()
+            }}
+          />
+          {onInsertImage ? (
+            <MenuItem
+              icon={ImageIcon}
+              label="Image…"
+              onSelect={() => {
+                close()
+                onInsertImage()
               }}
             />
           ) : null}
@@ -427,16 +450,56 @@ function InsertMenu({ editor, onInsertDrawing, disabled }) {
   )
 }
 
-function MoreMenu({ editor, state, onHelp, disabled }) {
+/** Only shown while the caret is in a table — rows, columns and cells have no
+    meaning anywhere else, so the control appears when it can be used. */
+function TableMenu({ editor, disabled }) {
+  const [open, setOpen] = useState(false)
+  const item = (label, command, close) => (
+    <MenuItem
+      label={label}
+      onSelect={() => {
+        run(editor, command)
+        close()
+      }}
+    />
+  )
+  return (
+    <ToolPopover
+      open={open}
+      onOpenChange={setOpen}
+      label="Table"
+      width={230}
+      renderTrigger={(props) => (
+        <TriggerButton {...props} icon={TableIcon} text="Table" label="Table options" disabled={disabled} />
+      )}
+    >
+      {({ close }) => (
+        <>
+          {item('Add row above', (c) => c.addRowBefore(), close)}
+          {item('Add row below', (c) => c.addRowAfter(), close)}
+          {item('Add column left', (c) => c.addColumnBefore(), close)}
+          {item('Add column right', (c) => c.addColumnAfter(), close)}
+          {item('Delete row', (c) => c.deleteRow(), close)}
+          {item('Delete column', (c) => c.deleteColumn(), close)}
+          {item('Header row on / off', (c) => c.toggleHeaderRow(), close)}
+          {item('Merge or split cells', (c) => c.mergeOrSplit(), close)}
+          {item('Delete table', (c) => c.deleteTable(), close)}
+        </>
+      )}
+    </ToolPopover>
+  )
+}
+
+function MoreMenu({ editor, state, onHelp, onPrint, onExport, disabled }) {
   const [open, setOpen] = useState(false)
   return (
     <ToolPopover
       open={open}
       onOpenChange={setOpen}
-      label="More formatting"
+      label="More options"
       width={240}
       renderTrigger={(props) => (
-        <TriggerButton {...props} icon={MoreIcon} label="More formatting" disabled={disabled} />
+        <TriggerButton {...props} icon={MoreIcon} label="More options" disabled={disabled} />
       )}
     >
       {({ close }) => (
@@ -489,6 +552,36 @@ function MoreMenu({ editor, state, onHelp, disabled }) {
               onHelp()
             }}
           />
+          {onPrint ? (
+            <MenuItem
+              icon={PrinterIcon}
+              label="Print / save as PDF"
+              onSelect={() => {
+                close()
+                onPrint()
+              }}
+            />
+          ) : null}
+          {onExport ? (
+            <>
+              <MenuItem
+                icon={FileTextIcon}
+                label="Download as web page"
+                onSelect={() => {
+                  close()
+                  onExport('html')
+                }}
+              />
+              <MenuItem
+                icon={FileTextIcon}
+                label="Download as text"
+                onSelect={() => {
+                  close()
+                  onExport('text')
+                }}
+              />
+            </>
+          ) : null}
         </>
       )}
     </ToolPopover>
@@ -566,6 +659,9 @@ function ActiveToolbar({
   onLinkOpenChange,
   onHelp,
   onInsertDrawing,
+  onInsertImage,
+  onPrint,
+  onExport,
 }) {
   const ref = useRef(null)
   useRovingFocus(ref)
@@ -653,9 +749,10 @@ function ActiveToolbar({
           />
         </div>
         <div className="tb-group">
-          <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} disabled={off} />
+          <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} onInsertImage={onInsertImage} disabled={off} />
+          {s.inTable ? <TableMenu editor={editor} disabled={off} /> : null}
           <PaperMenu {...paperProps} />
-          <MoreMenu editor={editor} state={s} onHelp={onHelp} disabled={off} />
+          <MoreMenu editor={editor} state={s} onHelp={onHelp} onPrint={onPrint} onExport={onExport} disabled={off} />
         </div>
       </OverflowMenu>
     </div>

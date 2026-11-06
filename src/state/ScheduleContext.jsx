@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import { deleteAllJournal } from './journalData.js'
+import { deleteAllJournal, exportJournal, importJournal } from './journalData.js'
 import { useAuth } from './AuthContext.jsx'
 import { addDays, clampMin, daysBetween, isValidKey } from '@cadence/shared/date.js'
 import {
@@ -900,8 +900,15 @@ export function ScheduleProvider({ children }) {
           writes full documents directly. Every item still goes through
           normalizeTask/normalizeEvent/normalizeTag first, the same
           untrusted-input treatment a Firestore snapshot gets, so a
-          hand-edited or corrupted export file can't write garbage. */
-      async importData({ tasks: importedTasks = [], events: importedEvents = [], tags: importedTags = [] }) {
+          hand-edited or corrupted export file can't write garbage.
+          Resolves to { count, skippedNotes }: journal notes that could not
+          be imported (see noteFromBackup) are counted, not written. */
+      async importData({
+        tasks: importedTasks = [],
+        events: importedEvents = [],
+        tags: importedTags = [],
+        journal: importedNotes = [],
+      }) {
         const stamp = now()
         const strip = ({ id: _id, ...rest }) => rest
 
@@ -931,8 +938,15 @@ export function ScheduleProvider({ children }) {
           for (const { ref, data } of writes.slice(i, i + 400)) batch.set(ref, data)
           await batch.commit()
         }
-        return writes.length
+        // Journal notes are not part of the batch above: each is two documents
+        // that can be close to a megabyte, and are written one note at a time.
+        const notes = await importJournal(db, uid, importedNotes, stamp)
+        return { count: writes.length + notes.imported, skippedNotes: notes.skipped }
       },
+
+      /** Every journal note with its body, for the JSON backup. Read on demand
+          rather than held in memory: bodies are only fetched for the open note. */
+      exportJournal: () => exportJournal(db, uid),
     }
   }, [uid, tasks, tags, events, templates, focusSessions, profile, loading, error])
 

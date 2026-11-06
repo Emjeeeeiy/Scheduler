@@ -25,6 +25,10 @@ import '../../styles/journal.css'
 const SELECTED_KEY = 'cadence-app:journal-note'
 const LIST_HIDDEN_KEY = 'cadence-app:journal-list-hidden'
 
+// Below this width the sidebar, the list and the page can't all be comfortable,
+// so until the writer chooses, an open note gets the room and the list steps aside.
+const AUTO_HIDE_LIST_BELOW = 1500
+
 // How long a chosen note may be missing from the list before it is given up on:
 // a just-created note appears on the next snapshot, so a few seconds means it
 // was purged elsewhere (or never written) rather than still on its way.
@@ -40,7 +44,11 @@ export function JournalView({ intent = null, onIntentHandled }) {
   )
 
   // Hiding the list gives the page the whole width. Remembered, like the open note.
-  const [listHidden, setListHidden] = usePersistentState(LIST_HIDDEN_KEY, false, (stored) => stored === true)
+  // null = no choice made yet (follow the screen width); true/false = the writer's own.
+  const [chosenHidden, setChosenHidden] = usePersistentState(LIST_HIDDEN_KEY, null, (stored) =>
+    typeof stored === 'boolean' ? stored : null,
+  )
+  const listHidden = chosenHidden ?? (typeof window !== 'undefined' && window.innerWidth < AUTO_HIDE_LIST_BELOW)
 
   useEffect(() => {
     loadJournalFonts()
@@ -137,7 +145,7 @@ export function JournalView({ intent = null, onIntentHandled }) {
         onTrash={() => trash(selected)}
         onUseForNew={useForNewNotes}
         listHidden={listHidden}
-        onToggleList={() => setListHidden((hidden) => !hidden)}
+        onToggleList={() => setChosenHidden(!listHidden)}
       />
     )
   } else if (selectedId !== null && (loading || missing)) {
