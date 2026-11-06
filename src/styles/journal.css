@@ -1316,12 +1316,11 @@ a.ghost-button {
     display: inline-flex;
   }
 
-  /* Below the sticky top bar, and one scrolling row rather than several. */
+  /* Below the sticky top bar: groups wrap instead of scrolling sideways, and the
+     overflow button stays within reach at the end of the row. */
   .journal-toolbar {
     top: 62px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
     padding-inline: 12px;
   }
 
@@ -1329,8 +1328,34 @@ a.ghost-button {
     flex: none;
   }
 
+  .tb-overflow-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tb-overflow-panel .tb-group {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
   .journal-toolbar--pending {
     min-height: 43px;
+  }
+
+  /* Bigger touch targets on a phone: pin and delete/restore are easy to miss. */
+  .note-row__pin {
+    width: 40px;
+    height: 40px;
+  }
+  .note-row__pin svg {
+    width: 20px;
+    height: 20px;
+  }
+  .note-row__actions .ghost-button--sm,
+  .note-row__actions .danger-button--sm {
+    padding: 6px 12px;
+    font-size: var(--text-item);
   }
 
   .note-sheet {

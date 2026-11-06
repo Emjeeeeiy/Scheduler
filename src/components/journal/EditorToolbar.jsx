@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Children, Fragment, useEffect, useRef, useState } from 'react'
 import { useEditorState } from '@tiptap/react'
 import { formatFullDayLabel, todayKey } from '@cadence/shared/date.js'
 import { HIGHLIGHT_COLORS, TEXT_COLORS, asMarker } from '../../lib/journalColors.js'
@@ -495,6 +495,53 @@ function MoreMenu({ editor, state, onHelp, disabled }) {
   )
 }
 
+/* On a narrow screen the toolbar cannot fit every group in one row, so the
+   less-used groups move behind a "More tools" button at the far right. On a
+   wide screen the same groups render inline, unchanged. */
+function OverflowMenu({ children }) {
+  const [open, setOpen] = useState(false)
+  const [mobile, setMobile] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(max-width: 900px)').matches
+  })
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const onChange = () => setMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  const groups = Children.toArray(children)
+
+  if (!mobile) {
+    return (
+      <>
+        {groups.flatMap((group, index) => [
+          index > 0 && <ToolSeparator key={`${index}-sep`} />,
+          <Fragment key={`${index}-grp`}>{group}</Fragment>,
+        ])}
+      </>
+    )
+  }
+
+  return (
+    <ToolPopover
+      open={open}
+      onOpenChange={setOpen}
+      label="More tools"
+      width={260}
+      renderTrigger={(props) => (
+        <ToolButton {...props} icon={MoreIcon} label="More tools" aria-expanded={open} />
+      )}
+    >
+      {() => (
+        <div className="tb-overflow-panel">
+          {groups}
+        </div>
+      )}
+    </ToolPopover>
+  )
+}
+
 /* -------------------------------------------------------------- toolbar -- */
 
 /* TipTap's useEditorState caches its first snapshot, and when the editor only
@@ -546,13 +593,6 @@ function ActiveToolbar({
 
       <ToolSeparator />
       <div className="tb-group">
-        <StyleMenu editor={editor} state={s} disabled={off} />
-        <FontMenu editor={editor} state={s} disabled={off} />
-        <SizeControl editor={editor} size={s.fontSize} disabled={off} />
-      </div>
-
-      <ToolSeparator />
-      <div className="tb-group">
         <ToolButton icon={BoldIcon} label="Bold" shortcut="bold" pressed={s.bold} disabled={off} onClick={() => run(editor, (c) => c.toggleBold())} />
         <ToolButton icon={ItalicIcon} label="Italic" shortcut="italic" pressed={s.italic} disabled={off} onClick={() => run(editor, (c) => c.toggleItalic())} />
         <ToolButton icon={UnderlineIcon} label="Underline" shortcut="underline" pressed={s.underline} disabled={off} onClick={() => run(editor, (c) => c.toggleUnderline())} />
@@ -560,61 +600,64 @@ function ActiveToolbar({
       </div>
 
       <ToolSeparator />
-      <div className="tb-group">
-        <ColorMenu kind="text" editor={editor} state={s} paperHex={paperHex} disabled={off} />
-        <ColorMenu kind="highlight" editor={editor} state={s} disabled={off} />
-        <ToolPopover
-          open={linkOpen}
-          onOpenChange={onLinkOpenChange}
-          label="Link"
-          width={300}
-          renderTrigger={(props) => (
-            <ToolButton {...props} icon={LinkIcon} label="Insert link" shortcut="link" pressed={s.link} disabled={off} />
-          )}
-        >
-          {({ close }) => <LinkForm editor={editor} close={close} />}
-        </ToolPopover>
-      </div>
-
-      <ToolSeparator />
-      <div className="tb-group">
-        <AlignMenu editor={editor} state={s} disabled={off} />
-        <SpacingMenu editor={editor} state={s} disabled={off} />
-        <ToolButton icon={ListBulletIcon} label="Bulleted list" shortcut="bullets" pressed={s.bullet} disabled={off} onClick={() => run(editor, (c) => c.toggleBulletList())} />
-        <ToolButton icon={ListNumberIcon} label="Numbered list" shortcut="numbers" pressed={s.ordered} disabled={off} onClick={() => run(editor, (c) => c.toggleOrderedList())} />
-        <ToolButton icon={ListCheckIcon} label="Checklist" shortcut="checklist" pressed={s.task} disabled={off} onClick={() => run(editor, (c) => c.toggleTaskList())} />
-        <ToolButton
-          icon={OutdentIcon}
-          label="Decrease indent"
-          shortcut="outdent"
-          disabled={off}
-          onClick={() =>
-            run(editor, (c) => {
-              const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
-              return item ? c.liftListItem(item) : c.outdent()
-            })
-          }
-        />
-        <ToolButton
-          icon={IndentIcon}
-          label="Increase indent"
-          shortcut="indent"
-          disabled={off}
-          onClick={() =>
-            run(editor, (c) => {
-              const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
-              return item ? c.sinkListItem(item) : c.indent()
-            })
-          }
-        />
-      </div>
-
-      <ToolSeparator />
-      <div className="tb-group">
-        <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} disabled={off} />
-        <PaperMenu {...paperProps} />
-        <MoreMenu editor={editor} state={s} onHelp={onHelp} disabled={off} />
-      </div>
+      <OverflowMenu>
+        <div className="tb-group">
+          <StyleMenu editor={editor} state={s} disabled={off} />
+          <FontMenu editor={editor} state={s} disabled={off} />
+          <SizeControl editor={editor} size={s.fontSize} disabled={off} />
+        </div>
+        <div className="tb-group">
+          <ColorMenu kind="text" editor={editor} state={s} paperHex={paperHex} disabled={off} />
+          <ColorMenu kind="highlight" editor={editor} state={s} disabled={off} />
+          <ToolPopover
+            open={linkOpen}
+            onOpenChange={onLinkOpenChange}
+            label="Link"
+            width={300}
+            renderTrigger={(props) => (
+              <ToolButton {...props} icon={LinkIcon} label="Insert link" shortcut="link" pressed={s.link} disabled={off} />
+            )}
+          >
+            {({ close }) => <LinkForm editor={editor} close={close} />}
+          </ToolPopover>
+        </div>
+        <div className="tb-group">
+          <AlignMenu editor={editor} state={s} disabled={off} />
+          <SpacingMenu editor={editor} state={s} disabled={off} />
+          <ToolButton icon={ListBulletIcon} label="Bulleted list" shortcut="bullets" pressed={s.bullet} disabled={off} onClick={() => run(editor, (c) => c.toggleBulletList())} />
+          <ToolButton icon={ListNumberIcon} label="Numbered list" shortcut="numbers" pressed={s.ordered} disabled={off} onClick={() => run(editor, (c) => c.toggleOrderedList())} />
+          <ToolButton icon={ListCheckIcon} label="Checklist" shortcut="checklist" pressed={s.task} disabled={off} onClick={() => run(editor, (c) => c.toggleTaskList())} />
+          <ToolButton
+            icon={OutdentIcon}
+            label="Decrease indent"
+            shortcut="outdent"
+            disabled={off}
+            onClick={() =>
+              run(editor, (c) => {
+                const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
+                return item ? c.liftListItem(item) : c.outdent()
+              })
+            }
+          />
+          <ToolButton
+            icon={IndentIcon}
+            label="Increase indent"
+            shortcut="indent"
+            disabled={off}
+            onClick={() =>
+              run(editor, (c) => {
+                const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
+                return item ? c.sinkListItem(item) : c.indent()
+              })
+            }
+          />
+        </div>
+        <div className="tb-group">
+          <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} disabled={off} />
+          <PaperMenu {...paperProps} />
+          <MoreMenu editor={editor} state={s} onHelp={onHelp} disabled={off} />
+        </div>
+      </OverflowMenu>
     </div>
   )
 }
