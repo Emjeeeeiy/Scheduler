@@ -157,6 +157,12 @@ export class FakeRedis {
     })
   }
 
+  /** Like the real client with automatic deserialisation off: Redis's own flat
+      [field, value, field, value, …] reply, and an empty array for no key. */
+  async hgetall(key) {
+    return this.#run('hgetall', [key], (k) => [...(this.#get(k, 'hash') ?? new Map()).entries()].flat())
+  }
+
   async hkeys(key) {
     return this.#run('hkeys', [key], (k) => [...(this.#get(k, 'hash')?.keys() ?? [])])
   }
@@ -239,7 +245,7 @@ class Batch {
     this.#redis = redis
     for (const name of [
       'get', 'set', 'del', 'expire', 'sadd', 'srem', 'smembers', 'scard',
-      'hset', 'hget', 'hdel', 'hkeys', 'zadd', 'zrem', 'zrange',
+      'hset', 'hget', 'hdel', 'hkeys', 'hgetall', 'zadd', 'zrem', 'zrange',
     ]) {
       this[name] = (...args) => {
         this.#queue.push(() => this.#redis[name](...args))

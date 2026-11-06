@@ -15,6 +15,7 @@ import { callApi } from '../src/lib/apiClient.js'
 import {
   PUSH_CHANGED_EVENT,
   getLocalSubscription,
+  isBrave,
   isPushSupported,
   pushPermission,
   subscribePush,
@@ -87,6 +88,16 @@ describe('support and permission', () => {
     installBrowser({ permission: 'granted' })
     expect(isPushSupported()).toBe(true)
     expect(pushPermission()).toBe('granted')
+  })
+
+  it('recognises Brave, which turns Google’s push service off by default', () => {
+    expect(isBrave()).toBe(false)
+    Object.defineProperty(navigator, 'brave', { configurable: true, value: { isBrave: () => Promise.resolve(true) } })
+    try {
+      expect(isBrave()).toBe(true)
+    } finally {
+      delete navigator.brave
+    }
   })
 
   it('decodes the VAPID public key from base64url', () => {
@@ -223,6 +234,26 @@ describe('subscribePush', () => {
     browser.pushManager.subscribe.mockRejectedValue(new Error('push service unreachable'))
     expect(await subscribePush()).toEqual({ ok: false, reason: 'error' })
     expect(callApi).not.toHaveBeenCalled()
+  })
+
+  it('names the browser’s own push service as the problem when it answers with an AbortError', async () => {
+    // Chromium's "Registration failed - push service error": the browser asked
+    // Google's push service for an address and was refused or couldn't reach it
+    // (Brave ships with that off; a VPN or firewall can block it too).
+    const browser = installBrowser()
+    browser.pushManager.subscribe.mockRejectedValue(
+      new DOMException('Registration failed - push service error', 'AbortError'),
+    )
+
+    expect(await subscribePush()).toEqual({ ok: false, reason: 'service' })
+    // Nothing was created, so nothing reaches our server.
+    expect(callApi).not.toHaveBeenCalled()
+  })
+
+  it('does not blame the push service for other errors', async () => {
+    const browser = installBrowser()
+    browser.pushManager.subscribe.mockRejectedValue(new DOMException('bad key', 'InvalidAccessError'))
+    expect(await subscribePush()).toEqual({ ok: false, reason: 'error' })
   })
 })
 

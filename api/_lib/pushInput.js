@@ -42,6 +42,16 @@ const PUSH_HOST_SUFFIXES = [
   'notify.windows.com', // Edge (WNS)
 ]
 
+/** The push service's host for an endpoint — all that is safe to show or log,
+    since the full endpoint is a capability URL that can wake the device. */
+export function hostOf(endpoint) {
+  try {
+    return new URL(endpoint).hostname
+  } catch {
+    return 'unknown'
+  }
+}
+
 export function isPushEndpoint(endpoint) {
   if (typeof endpoint !== 'string' || endpoint.length > 2048) return false
   let url

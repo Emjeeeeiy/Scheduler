@@ -30,6 +30,12 @@ export function isPushSupported() {
   )
 }
 
+/** Brave switches Google's push service off by default, and Chromium push
+    rides on it — so it needs a setting flipped that no other browser does. */
+export function isBrave() {
+  return typeof navigator !== 'undefined' && Boolean(navigator.brave)
+}
+
 /** 'granted' | 'denied' | 'default' | 'unsupported' */
 export function pushPermission() {
   return typeof Notification === 'undefined' ? 'unsupported' : Notification.permission
@@ -86,8 +92,10 @@ function usesKey(subscription, bytes) {
  * @return `{ ok: true }` or `{ ok: false, reason }` where reason is
  *         'unsupported' (this browser can't), 'unavailable' (no VAPID key
  *         configured, or no service worker — a dev build), 'denied' (blocked
- *         in the browser), 'dismissed' (the prompt was closed undecided), or
- *         'error'. Callers toast from the reason, never by re-reading state.
+ *         in the browser), 'dismissed' (the prompt was closed undecided),
+ *         'service' (the browser couldn't get an address from its own push
+ *         service — see the catch below), or 'error'. Callers toast from the
+ *         reason, never by re-reading state.
  */
 export async function subscribePush() {
   if (!isPushSupported()) return { ok: false, reason: 'unsupported' }
@@ -118,7 +126,13 @@ export async function subscribePush() {
     }
   } catch (caught) {
     console.error('Could not create a push subscription.', caught)
-    return { ok: false, reason: 'error' }
+    /* An AbortError here is Chromium's "Registration failed - push service
+       error": the browser asked its push service (Google's) for an address and
+       was refused or couldn't reach it. Not our server, not a bug in the page —
+       Brave ships with that service switched off, and a VPN, firewall or
+       privacy extension can block it too. Worth its own reason so the person
+       is told that, rather than "try again". */
+    return { ok: false, reason: caught?.name === 'AbortError' ? 'service' : 'error' }
   }
 
   const saved = await callApi('/api/push/subscribe', { subscription: subscription.toJSON() })

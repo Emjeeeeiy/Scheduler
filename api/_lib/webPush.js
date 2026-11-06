@@ -15,16 +15,41 @@ import { ApiError } from './pushRoute.js'
 
 let configured = false
 
-function configure() {
+/**
+ * Checks and applies the VAPID settings, throwing an ApiError that says exactly
+ * what is wrong. Safe to call repeatedly (it does the work once).
+ *
+ * tick.js calls this BEFORE it takes anything off the queue: a missing or
+ * malformed setting must fail the run loudly while the reminders are still
+ * queued, not after they have been consumed.
+ */
+export function ensureConfigured() {
   if (configured) return
-  const subject = process.env.VAPID_SUBJECT
-  const publicKey = process.env.VAPID_PUBLIC_KEY
-  const privateKey = process.env.VAPID_PRIVATE_KEY
-  if (!subject || !publicKey || !privateKey) {
-    throw new ApiError(500, 'Server is missing VAPID_SUBJECT, VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY.')
+  const settings = {
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT?.trim(),
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY?.trim(),
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY?.trim(),
   }
-  webpush.setVapidDetails(subject, publicKey, privateKey)
+  const missing = Object.entries(settings)
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+  if (missing.length > 0) {
+    throw new ApiError(500, `Server is missing ${missing.join(', ')}.`)
+  }
+  try {
+    webpush.setVapidDetails(settings.VAPID_SUBJECT, settings.VAPID_PUBLIC_KEY, settings.VAPID_PRIVATE_KEY)
+  } catch (caught) {
+    // web-push's own message names the offending value (a subject that is not
+    // an https: or mailto: URL, a key that is not URL-safe base64, …).
+    throw new ApiError(500, `VAPID configuration is invalid: ${caught?.message ?? caught}`)
+  }
   configured = true
+}
+
+/** The public half of our VAPID key pair — safe to show. The app compares it
+    with the one built into the client to spot a mismatch. */
+export function getPublicKey() {
+  return process.env.VAPID_PUBLIC_KEY?.trim() || null
 }
 
 /**
@@ -39,7 +64,7 @@ function configure() {
  *                     response at all) rather than a permanent refusal
  */
 export async function sendPush(subscription, payload, { ttl = 60, urgency = 'high' } = {}) {
-  configure()
+  ensureConfigured()
   try {
     await webpush.sendNotification(subscription, JSON.stringify(payload), {
       TTL: ttl,

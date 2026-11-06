@@ -101,6 +101,31 @@ export function createPushStore(redis) {
     return reminders.length
   }
 
+  /** How many reminders a person has queued and which comes next — what the
+      app's diagnostics show, so "did my schedule reach the server?" has an
+      answer. `next` is the soonest one not already more than a minute past. */
+  async function scheduleSummary(uid, now = Date.now()) {
+    const raw = await redis.hgetall(remKey(uid))
+    // With automatic deserialisation off, the client returns Redis's own flat
+    // [field, value, field, value, …] reply; accept an object too.
+    const values = Array.isArray(raw)
+      ? raw.filter((_, i) => i % 2 === 1)
+      : Object.values(raw ?? {})
+
+    let count = 0
+    let next = null
+    for (const value of values) {
+      const reminder = parse(value)
+      if (!reminder) continue
+      count += 1
+      const current = reminder.fireAt >= now - 60_000
+      if (current && (!next || reminder.fireAt < next.fireAt)) {
+        next = { kind: reminder.kind, title: reminder.title, fireAt: reminder.fireAt }
+      }
+    }
+    return { count, next }
+  }
+
   /** Puts one reminder back on the queue for `at` — a delivery that failed for
       a reason that may pass. claimDue deleted its payload when it took it. */
   async function requeue(uid, reminder, at) {
@@ -204,8 +229,17 @@ export function createPushStore(redis) {
     const ghosts = []
     ids.forEach((id, i) => {
       const record = records[i]
-      if (record?.endpoint && record.keys) live.push({ subId: id, endpoint: record.endpoint, keys: record.keys })
-      else ghosts.push(id)
+      if (record?.endpoint && record.keys) {
+        live.push({
+          subId: id,
+          endpoint: record.endpoint,
+          keys: record.keys,
+          ua: record.ua ?? '',
+          registeredAt: record.updatedAt ?? record.createdAt ?? null,
+        })
+      } else {
+        ghosts.push(id)
+      }
     })
     if (ghosts.length > 0) await redis.srem(userSubsKey(uid), ...ghosts)
     return live
@@ -227,6 +261,7 @@ export function createPushStore(redis) {
   return {
     clearSchedule,
     replaceSchedule,
+    scheduleSummary,
     requeue,
     claimDue,
     getSubscription,

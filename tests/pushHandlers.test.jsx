@@ -23,17 +23,23 @@ vi.mock('../api/_lib/auth.js', async () => {
   const actual = await vi.importActual('../api/_lib/auth.js')
   return { ...actual, verifyRequest: vi.fn() }
 })
-vi.mock('../api/_lib/webPush.js', () => ({ sendPush: vi.fn() }))
+vi.mock('../api/_lib/webPush.js', () => ({
+  sendPush: vi.fn(),
+  ensureConfigured: vi.fn(),
+  getPublicKey: vi.fn(),
+}))
 vi.mock('../api/_lib/redis.js', () => ({ getRedis: () => holder.redis }))
 
 import { AuthError, verifyRequest } from '../api/_lib/auth.js'
-import { sendPush } from '../api/_lib/webPush.js'
+import { ensureConfigured, getPublicKey, sendPush } from '../api/_lib/webPush.js'
 import { STALE_AFTER_MS, isPushEndpoint } from '../api/_lib/pushInput.js'
+import { ApiError } from '../api/_lib/pushRoute.js'
 import { createPushStore, subIdOf } from '../api/_lib/pushStore.js'
 import subscribeHandler from '../api/push/subscribe.js'
 import unsubscribeHandler from '../api/push/unsubscribe.js'
 import scheduleHandler from '../api/push/schedule.js'
 import tickHandler from '../api/push/tick.js'
+import diagnoseHandler from '../api/push/diagnose.js'
 
 const NOW = Date.UTC(2026, 7, 24, 12, 0, 0)
 const MIN = 60_000
@@ -109,6 +115,8 @@ beforeEach(() => {
   process.env.CRON_SECRET = 'cron-secret'
   verifyRequest.mockResolvedValue('uid-1')
   sendPush.mockResolvedValue({ ok: true, gone: false, retryable: false, status: 201 })
+  ensureConfigured.mockReturnValue(undefined)
+  getPublicKey.mockReturnValue('server-public-key')
 })
 
 afterEach(() => {
@@ -122,7 +130,7 @@ describe('shared contract', () => {
   })
 
   it('refuses every route for the wrong method', async () => {
-    for (const handler of [subscribeHandler, unsubscribeHandler, scheduleHandler]) {
+    for (const handler of [subscribeHandler, unsubscribeHandler, scheduleHandler, diagnoseHandler]) {
       const res = await call(handler, fakeReq({ method: 'GET' }))
       expect(res.statusCode).toBe(405)
       expect(res.headers.Allow).toBe('POST')
@@ -526,7 +534,16 @@ describe('GET|POST /api/push/tick', () => {
     await register('uid-1')
     await schedule('uid-1', [reminder('later', NOW + 30 * MIN)])
     const res = await tick()
-    expect(res.body).toEqual({ claimed: 0, sent: 0, dropped: 0, retried: 0, removedSubs: 0 })
+    expect(res.body).toEqual({
+      claimed: 0,
+      sent: 0,
+      dropped: 0,
+      retried: 0,
+      removedSubs: 0,
+      rejected: 0,
+      failed: 0,
+      statuses: {},
+    })
     expect(sendPush).not.toHaveBeenCalled()
     expect(redis.queue()).toEqual(['uid-1|later'])
   })
@@ -539,7 +556,16 @@ describe('GET|POST /api/push/tick', () => {
 
     const res = await tick()
 
-    expect(res.body).toEqual({ claimed: 1, sent: 1, dropped: 0, retried: 0, removedSubs: 0 })
+    expect(res.body).toEqual({
+      claimed: 1,
+      sent: 1,
+      dropped: 0,
+      retried: 0,
+      removedSubs: 0,
+      rejected: 0,
+      failed: 0,
+      statuses: { 201: 2 }, // one 201 from each device
+    })
     expect(sendPush).toHaveBeenCalledTimes(2)
     const endpoints = sendPush.mock.calls.map(([sub]) => sub.endpoint).sort()
     expect(endpoints).toEqual([device(1).endpoint, device(2, 'updates.push.services.mozilla.com').endpoint].sort())
@@ -714,5 +740,264 @@ describe('GET|POST /api/push/tick', () => {
       expect(await redis.smembers('push:subs:uid-1')).toHaveLength(1) // a config problem, not a dead device
       expect(redis.queue()).toEqual([])
     })
+
+    it('says WHY a refusal happened: rejected, with the HTTP status counted', async () => {
+      await register('uid-1', device(1))
+      await register('uid-1', device(2))
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      sendPush.mockResolvedValue({ ok: false, gone: false, retryable: false, status: 403 })
+      vi.setSystemTime(NOW + 90_000)
+
+      const res = await tick()
+
+      // A 403 from the push service almost always means the client's and the
+      // server's VAPID keys differ — cron-job.org's history should show that.
+      expect(res.body).toMatchObject({ claimed: 1, sent: 0, dropped: 1, rejected: 1, statuses: { 403: 2 } })
+    })
+
+    it('does not call a dead device a rejection, and counts its status', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      sendPush.mockResolvedValue({ ok: false, gone: true, retryable: false, status: 410 })
+      vi.setSystemTime(NOW + 90_000)
+
+      const res = await tick()
+
+      expect(res.body).toMatchObject({ rejected: 0, removedSubs: 1, statuses: { 410: 1 } })
+    })
+
+    it('counts a send that got no HTTP answer at all as "none"', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      sendPush.mockResolvedValue({ ok: false, gone: false, retryable: true, status: null })
+      vi.setSystemTime(NOW + 90_000)
+
+      expect((await tick()).body).toMatchObject({ retried: 1, statuses: { none: 1 } })
+    })
+
+    it('is never cached, since every call has to actually run', async () => {
+      const res = await tick()
+      expect(res.headers['Cache-Control']).toBe('no-store')
+    })
+  })
+
+  describe('a misconfigured server', () => {
+    it('fails the run loudly and leaves the due reminders QUEUED, instead of consuming them', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN), reminder('b', NOW + MIN)])
+      ensureConfigured.mockImplementation(() => {
+        throw new ApiError(500, 'Server is missing VAPID_SUBJECT.')
+      })
+      vi.setSystemTime(NOW + 90_000)
+
+      const res = await tick()
+
+      expect(res.statusCode).toBe(500)
+      expect(res.body).toEqual({ error: 'Server is missing VAPID_SUBJECT.' })
+      expect(sendPush).not.toHaveBeenCalled()
+      // The whole point: nothing was claimed, so fixing the setting loses nothing.
+      expect(redis.queue()).toEqual(['uid-1|a', 'uid-1|b'])
+      expect(await redis.hkeys('push:rem:uid-1')).toEqual(['a', 'b'])
+    })
+
+    it('delivers those same reminders once the setting is fixed', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      vi.setSystemTime(NOW + 90_000)
+
+      ensureConfigured.mockImplementationOnce(() => {
+        throw new ApiError(500, 'VAPID configuration is invalid: bad subject')
+      })
+      expect((await tick()).statusCode).toBe(500)
+
+      const fixed = await tick()
+      expect(fixed.body).toMatchObject({ claimed: 1, sent: 1 })
+    })
+  })
+
+  describe('an unexpected error while sending', () => {
+    it('puts the reminder back instead of losing it, and gives up after three tries', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      sendPush.mockRejectedValue(new Error('something nobody planned for'))
+
+      vi.setSystemTime(NOW + 90_000)
+      expect((await tick()).body).toMatchObject({ claimed: 1, retried: 1, dropped: 0, failed: 0 })
+      expect(redis.queue()).toEqual(['uid-1|a'])
+
+      vi.setSystemTime(NOW + 90_000 + MIN + 1_000)
+      expect((await tick()).body).toMatchObject({ retried: 1 })
+
+      vi.setSystemTime(NOW + 90_000 + 2 * MIN + 2_000)
+      expect((await tick()).body).toMatchObject({ retried: 0, dropped: 1 })
+      expect(redis.queue()).toEqual([])
+    })
+
+    it('reports it as failed when even requeueing is impossible, rather than hiding it', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('a', NOW + MIN)])
+      sendPush.mockRejectedValue(new Error('boom'))
+      // requeue writes through multi(); take it away only once the claim is done.
+      vi.spyOn(redis, 'multi').mockImplementation(() => {
+        throw new Error('redis is down')
+      })
+      vi.setSystemTime(NOW + 90_000)
+
+      const res = await tick()
+
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toMatchObject({ claimed: 1, failed: 1, retried: 0 })
+    })
+
+    it('does not let one reminder’s error stop the others', async () => {
+      await register('uid-1')
+      await schedule('uid-1', [reminder('bad', NOW + MIN), reminder('good', NOW + MIN)])
+      sendPush.mockImplementation(async (sub, payload) => {
+        if (payload.tag === 'now-bad') throw new Error('boom')
+        return { ok: true, gone: false, retryable: false, status: 201 }
+      })
+      vi.setSystemTime(NOW + 90_000)
+
+      const res = await tick()
+
+      expect(res.body).toMatchObject({ claimed: 2, sent: 1, retried: 1 })
+    })
+  })
+})
+
+describe('POST /api/push/diagnose', () => {
+  const alice = (n) => register('uid-1', device(n))
+
+  it('needs a signed-in account', async () => {
+    verifyRequest.mockRejectedValue(new AuthError(401, 'Missing bearer token.'))
+    const res = await call(diagnoseHandler, fakeReq({ headers: {} }))
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('reports an account with nothing set up as exactly that', async () => {
+    const res = await call(diagnoseHandler, fakeReq())
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toMatchObject({
+      ok: true,
+      configured: true,
+      vapidPublicKey: 'server-public-key',
+      devices: [],
+      reminders: { count: 0, next: null },
+    })
+    expect(res.body.test).toBeUndefined()
+  })
+
+  it('lists each device by push-service host and user agent, never by endpoint or keys', async () => {
+    await alice(1)
+    await register('uid-1', device(2, 'updates.push.services.mozilla.com'))
+
+    const res = await call(diagnoseHandler, fakeReq())
+
+    expect(res.body.devices).toEqual([
+      { host: 'fcm.googleapis.com', ua: 'test', registeredAt: NOW },
+      { host: 'updates.push.services.mozilla.com', ua: 'test', registeredAt: NOW },
+    ])
+    // The endpoint is a capability URL that can wake the device; the keys decrypt for it.
+    const text = JSON.stringify(res.body)
+    expect(text).not.toContain('device-1')
+    expect(text).not.toContain('/fcm/send/')
+    expect(text).not.toContain(P256DH)
+    expect(text).not.toContain(AUTH)
+  })
+
+  it('counts the queued reminders and names the next one', async () => {
+    await alice(1)
+    await schedule('uid-1', [
+      reminder('later', NOW + 30 * MIN, { title: 'Later task' }),
+      reminder('sooner', NOW + 5 * MIN, { title: 'Sooner task', kind: 'soon' }),
+    ])
+
+    const res = await call(diagnoseHandler, fakeReq())
+
+    expect(res.body.reminders).toEqual({
+      count: 2,
+      next: { kind: 'soon', title: 'Sooner task', fireAt: NOW + 5 * MIN },
+    })
+  })
+
+  it('only describes the signed-in account', async () => {
+    await register('uid-2', device(9))
+    await schedule('uid-2', [reminder('theirs', NOW + 5 * MIN)])
+    const res = await call(diagnoseHandler, fakeReq())
+    expect(res.body).toMatchObject({ devices: [], reminders: { count: 0, next: null } })
+  })
+
+  it('never sends anything unless asked to', async () => {
+    await alice(1)
+    await call(diagnoseHandler, fakeReq({ body: {} }))
+    await call(diagnoseHandler, fakeReq({ body: { test: false } }))
+    await call(diagnoseHandler, fakeReq({ body: { test: 'yes' } }))
+    expect(sendPush).not.toHaveBeenCalled()
+  })
+
+  it('sends a test to every device now and reports each result', async () => {
+    await alice(1)
+    await register('uid-1', device(2, 'updates.push.services.mozilla.com'))
+    sendPush.mockImplementation(async (sub) =>
+      sub.endpoint === device(1).endpoint
+        ? { ok: true, gone: false, retryable: false, status: 201 }
+        : { ok: false, gone: false, retryable: false, status: 403 },
+    )
+
+    const res = await call(diagnoseHandler, fakeReq({ body: { test: true } }))
+
+    expect(sendPush).toHaveBeenCalledTimes(2)
+    const [, payload, options] = sendPush.mock.calls[0]
+    expect(payload).toEqual({
+      title: 'Cadence',
+      body: 'Test notification — push is working.',
+      tag: 'cadence-test',
+      url: '/',
+      kind: 'test',
+    })
+    expect(options).toMatchObject({ urgency: 'high' })
+    expect(res.body.test).toEqual([
+      { host: 'fcm.googleapis.com', ok: true, gone: false, status: 201 },
+      { host: 'updates.push.services.mozilla.com', ok: false, gone: false, status: 403 },
+    ])
+  })
+
+  it('forgets a device the push service says is gone', async () => {
+    await alice(1)
+    sendPush.mockResolvedValue({ ok: false, gone: true, retryable: false, status: 410 })
+
+    const res = await call(diagnoseHandler, fakeReq({ body: { test: true } }))
+
+    expect(res.body.test).toEqual([{ host: 'fcm.googleapis.com', ok: false, gone: true, status: 410 }])
+    expect(await redis.smembers('push:subs:uid-1')).toEqual([])
+  })
+
+  it('has nothing to test when no device is registered', async () => {
+    const res = await call(diagnoseHandler, fakeReq({ body: { test: true } }))
+    expect(res.body.test).toEqual([])
+    expect(sendPush).not.toHaveBeenCalled()
+  })
+
+  it('says what is wrong with the server settings, and sends nothing', async () => {
+    await alice(1)
+    ensureConfigured.mockImplementation(() => {
+      throw new ApiError(500, 'VAPID configuration is invalid: subject is not a URL')
+    })
+
+    const res = await call(diagnoseHandler, fakeReq({ body: { test: true } }))
+
+    expect(res.statusCode).toBe(200) // a diagnosis, not a failure of the diagnosis
+    expect(res.body).toMatchObject({
+      configured: false,
+      configError: 'VAPID configuration is invalid: subject is not a URL',
+    })
+    expect(res.body.devices).toHaveLength(1)
+    expect(res.body.test).toBeUndefined()
+    expect(sendPush).not.toHaveBeenCalled()
+  })
+
+  it('is never cached', async () => {
+    const res = await call(diagnoseHandler, fakeReq())
+    expect(res.headers['Cache-Control']).toBe('no-store')
   })
 })

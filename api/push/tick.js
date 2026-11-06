@@ -10,6 +10,9 @@
  * notifications to real devices, so it must never be callable by the public.
  *
  * The flow per run:
+ *   check   — the VAPID settings are valid, BEFORE anything is taken off the
+ *             queue. A missing or malformed setting fails the run loudly while
+ *             the reminders are still queued, instead of consuming them first
  *   claim   — atomically take what is due; overlapping runs never share a
  *             reminder (see claimDue)
  *   filter  — drop a reminder that was cancelled since it was queued, or that
@@ -19,15 +22,24 @@
  *             a phone that was off all morning does not buzz at lunch with
  *             "starting in 30 minutes"
  *   settle  — a device the push service calls gone is forgotten; a transient
- *             failure puts the reminder back for the next minute, a few times
+ *             failure (or anything unexpected) puts the reminder back for the
+ *             next minute, a few times — a claimed reminder is never just lost
+ *
+ * The JSON it returns is what cron-job.org's history shows, so it says WHY
+ * things went wrong, not only that they did:
+ *   claimed/sent/dropped/retried/removedSubs   the outcome per reminder
+ *   rejected   reminders the push service refused for good (a 403 almost always
+ *              means the client and server VAPID keys differ)
+ *   failed     reminders that hit an unexpected error and could not be requeued
+ *   statuses   how many device sends got each HTTP status, e.g. {"201":2,"403":1}
  */
 
 import { timingSafeEqual } from 'node:crypto'
-import { STALE_AFTER_MS } from '../_lib/pushInput.js'
+import { STALE_AFTER_MS, hostOf } from '../_lib/pushInput.js'
 import { ApiError, route } from '../_lib/pushRoute.js'
 import { createPushStore } from '../_lib/pushStore.js'
 import { getRedis } from '../_lib/redis.js'
-import { sendPush } from '../_lib/webPush.js'
+import { ensureConfigured, sendPush } from '../_lib/webPush.js'
 
 const CLAIM_LIMIT = 200
 const CONCURRENCY = 20
@@ -56,21 +68,28 @@ async function mapLimit(items, limit, worker) {
   await Promise.all(lanes)
 }
 
-const hostOf = (endpoint) => {
-  try {
-    return new URL(endpoint).hostname
-  } catch {
-    return 'unknown'
-  }
-}
-
 export default route('push/tick', ['GET', 'POST'], async (req, res) => {
   assertCron(req)
+  // Before claimDue, deliberately — see the header.
+  ensureConfigured()
 
   const store = createPushStore(getRedis())
   const now = Date.now()
   const claimed = await store.claimDue(now, CLAIM_LIMIT)
-  const stats = { claimed: claimed.length, sent: 0, dropped: 0, retried: 0, removedSubs: 0 }
+  const stats = {
+    claimed: claimed.length,
+    sent: 0,
+    dropped: 0,
+    retried: 0,
+    removedSubs: 0,
+    rejected: 0,
+    failed: 0,
+    statuses: {},
+  }
+  const countStatus = (status) => {
+    const key = String(status ?? 'none')
+    stats.statuses[key] = (stats.statuses[key] ?? 0) + 1
+  }
 
   // One lookup per account per run, however many of its reminders are due.
   const devices = new Map()
@@ -79,7 +98,18 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
     return devices.get(uid)
   }
 
-  await mapLimit(claimed, CONCURRENCY, async ({ uid, reminder }) => {
+  /** Puts a reminder back for the next minute, or gives up after MAX_ATTEMPTS. */
+  async function retryOrDrop(uid, reminder) {
+    const attempts = (reminder.attempts ?? 0) + 1
+    if (attempts < MAX_ATTEMPTS) {
+      await store.requeue(uid, { ...reminder, attempts }, now + RETRY_DELAY_MS)
+      stats.retried += 1
+    } else {
+      stats.dropped += 1
+    }
+  }
+
+  async function deliver({ uid, reminder }) {
     if (!reminder) {
       stats.dropped += 1
       return
@@ -107,8 +137,10 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
 
     let delivered = false
     let worthRetrying = false
+    let refusedForGood = false
     await Promise.all(
       results.map(async (result, i) => {
+        countStatus(result.status)
         if (result.ok) {
           delivered = true
         } else if (result.gone) {
@@ -116,21 +148,42 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
           if (removed) stats.removedSubs += 1
         } else {
           if (result.retryable) worthRetrying = true
+          else refusedForGood = true
           console.warn('push send failed', { status: result.status, host: hostOf(subs[i].endpoint) })
         }
       }),
     )
 
-    const attempts = (reminder.attempts ?? 0) + 1
     if (delivered) {
       stats.sent += 1
-    } else if (worthRetrying && attempts < MAX_ATTEMPTS) {
-      await store.requeue(uid, { ...reminder, attempts }, now + RETRY_DELAY_MS)
-      stats.retried += 1
+    } else if (worthRetrying) {
+      await retryOrDrop(uid, reminder)
     } else {
       stats.dropped += 1
+      if (refusedForGood) {
+        stats.rejected += 1
+        console.error('push refused for good', { id: reminder.id, kind: reminder.kind })
+      }
+    }
+  }
+
+  await mapLimit(claimed, CONCURRENCY, async (job) => {
+    try {
+      await deliver(job)
+    } catch (caught) {
+      // Something we didn't anticipate. The reminder is already off the queue,
+      // so the one thing that must not happen is losing it quietly.
+      console.error('push reminder hit an unexpected error', { id: job.id, kind: job.reminder?.kind }, caught)
+      try {
+        if (job.reminder) await retryOrDrop(job.uid, job.reminder)
+        else stats.dropped += 1
+      } catch (again) {
+        stats.failed += 1
+        console.error('push reminder could not be requeued', { id: job.id }, again)
+      }
     }
   })
 
+  res.setHeader?.('Cache-Control', 'no-store')
   return res.status(200).json(stats)
 })

@@ -5,10 +5,10 @@
  * those still hold the render the click happened in, so a dismissed prompt
  * could toast as a block (or the reverse) depending on a previous attempt.
  */
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { pushStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
+const { pushStub, diagStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
   pushStub: {
     supported: true,
     permission: 'default',
@@ -19,12 +19,23 @@ const { pushStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
     enable: vi.fn(),
     disable: vi.fn(),
   },
+  // What the server says about this account; null = not answered yet, false =
+  // couldn't be reached.
+  diagStub: { diagnosis: null, checking: false, testing: false, refresh: vi.fn(), test: vi.fn() },
   mockPushSuccess: vi.fn(),
   mockPushError: vi.fn(),
 }))
 
 vi.mock('../src/lib/usePushNotifications.js', () => ({
   usePushNotifications: () => pushStub,
+}))
+
+vi.mock('../src/lib/usePushDiagnostics.js', () => ({
+  usePushDiagnostics: () => diagStub,
+}))
+
+vi.mock('../src/lib/pushSubscription.js', () => ({
+  isBrave: vi.fn(() => false),
 }))
 
 vi.mock('../src/state/ToastContext.jsx', () => ({
@@ -70,6 +81,7 @@ vi.mock('../src/state/ThemeContext.jsx', () => ({
 }))
 
 import { SettingsModal } from '../src/components/shell/SettingsModal.jsx'
+import { isBrave } from '../src/lib/pushSubscription.js'
 
 beforeEach(() => {
   Object.assign(pushStub, {
@@ -82,12 +94,21 @@ beforeEach(() => {
   })
   pushStub.enable.mockReset()
   pushStub.disable.mockReset()
+  Object.assign(diagStub, { diagnosis: null, checking: false, testing: false })
+  diagStub.refresh.mockReset()
+  diagStub.test.mockReset()
+  isBrave.mockReset()
+  isBrave.mockReturnValue(false)
+  // The app's own public key, as this build would have baked in. Pinned so the
+  // tests never depend on whatever .env.local holds on the machine running them.
+  vi.stubEnv('VITE_VAPID_PUBLIC_KEY', 'server-key')
   mockPushSuccess.mockClear()
   mockPushError.mockClear()
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 async function click(name) {
@@ -195,5 +216,129 @@ describe('toast feedback', () => {
     await click('Turn off')
     expect(mockPushError).toHaveBeenCalledWith('Could not turn off push notifications. Try again.')
     expect(mockPushSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('when the browser cannot reach its push service', () => {
+  // Chromium's "Registration failed - push service error". Brave ships with
+  // Google's push service off, so for Brave the message names the setting.
+  it('tells a Brave user which setting to turn on', async () => {
+    isBrave.mockReturnValue(true)
+    pushStub.enable.mockResolvedValue({ ok: false, reason: 'service' })
+    await click('Turn on')
+    expect(mockPushError).toHaveBeenCalledTimes(1)
+    expect(mockPushError).toHaveBeenCalledWith(expect.stringContaining('Use Google Services for Push Messaging'))
+    expect(mockPushError).toHaveBeenCalledWith(expect.stringContaining('brave://settings/privacy'))
+  })
+
+  it('tells anyone else to look for something blocking it', async () => {
+    pushStub.enable.mockResolvedValue({ ok: false, reason: 'service' })
+    await click('Turn on')
+    expect(mockPushError).toHaveBeenCalledWith(expect.stringContaining('VPN'))
+    expect(mockPushError).not.toHaveBeenCalledWith(expect.stringContaining('Brave'))
+  })
+
+  it('keeps a standing hint for Brave users only', () => {
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.queryByText(/In Brave, push only works/)).toBeNull()
+    cleanup()
+
+    isBrave.mockReturnValue(true)
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.getByText(/In Brave, push only works/)).toBeTruthy()
+  })
+})
+
+describe('the server status and the test notification', () => {
+  const ok = { host: 'fcm.googleapis.com', ok: true, gone: false, status: 201 }
+  const healthy = (patch = {}) => ({
+    ok: true,
+    configured: true,
+    vapidPublicKey: 'server-key',
+    devices: [{ host: 'fcm.googleapis.com', ua: 'Brave', registeredAt: 1 }],
+    reminders: { count: 3, next: { kind: 'soon', title: 'Standup', fireAt: new Date(2026, 7, 24, 9, 0).getTime() } },
+    ...patch,
+  })
+
+  it('shows nothing about the server, and no test button, while push is off', () => {
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.queryByText(/reminders? scheduled/)).toBeNull()
+    expect(screen.queryByText(/Checking with the server/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Send test notification' })).toBeNull()
+  })
+
+  it('says it is checking until the server has answered', () => {
+    pushStub.subscribed = true
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.getByText('Checking with the server…')).toBeTruthy()
+  })
+
+  it('shows what the server holds: devices, reminders, and what is next', () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.getByRole('status').textContent).toMatch(/1 device · 3 reminders scheduled · next: Standup at /)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('shows what is wrong as an alert', () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy({ devices: [] })
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.getByRole('alert').textContent).toMatch(/no device registered/)
+  })
+
+  it('says so when the server could not be reached at all', () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = false
+    render(<SettingsModal onClose={vi.fn()} />)
+    expect(screen.getByRole('alert').textContent).toMatch(/could not reach the server/i)
+  })
+
+  it('sends a test and toasts the result as a success', async () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    diagStub.test.mockResolvedValue(healthy({ test: [ok] }))
+    await click('Send test notification')
+    expect(diagStub.test).toHaveBeenCalledTimes(1)
+    expect(mockPushSuccess).toHaveBeenCalledWith(expect.stringMatching(/test sent to your device/i))
+    expect(mockPushError).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a refusal (403)', { test: [{ host: 'h', ok: false, gone: false, status: 403 }] }, /refused it \(403\)/],
+    ['an expired subscription', { test: [{ host: 'h', ok: false, gone: true, status: 410 }] }, /expired/],
+    ['no device', { test: [], devices: [] }, /no device registered/],
+  ])('toasts the cause when the test hits %s, and never a success', async (_label, patch, message) => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    diagStub.test.mockResolvedValue(healthy(patch))
+    await click('Send test notification')
+    expect(mockPushError).toHaveBeenCalledWith(expect.stringMatching(message))
+    expect(mockPushSuccess).not.toHaveBeenCalled()
+  })
+
+  it('toasts that the server could not be reached when the test gets no answer', async () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    diagStub.test.mockResolvedValue(null)
+    await click('Send test notification')
+    expect(mockPushError).toHaveBeenCalledWith(expect.stringMatching(/could not reach the server/i))
+  })
+
+  it('disables the test button and says so while it is sending', () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    diagStub.testing = true
+    render(<SettingsModal onClose={vi.fn()} />)
+    const button = screen.getByRole('button', { name: 'Sending…' })
+    expect(button.disabled).toBe(true)
+  })
+
+  it('"Check again" asks the server again', async () => {
+    pushStub.subscribed = true
+    diagStub.diagnosis = healthy()
+    await click('Check again')
+    expect(diagStub.refresh).toHaveBeenCalledTimes(1)
   })
 })

@@ -6,10 +6,13 @@ import { useModalA11y } from '../../lib/useModalA11y.js'
 import { useTheme } from '../../state/ThemeContext.jsx'
 import { useInstallPrompt } from '../../lib/useInstallPrompt.js'
 import { usePushNotifications } from '../../lib/usePushNotifications.js'
+import { usePushDiagnostics } from '../../lib/usePushDiagnostics.js'
+import { explainTest, summarizeDiagnostics } from '../../lib/pushDiagnostics.js'
+import { isBrave } from '../../lib/pushSubscription.js'
 import { durationLabel, minToTimeValue, timeValueToMin, todayKey } from '@cadence/shared/date.js'
 import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { toCsv, toIcs } from '@cadence/shared/exportFormats.js'
-import { CloseIcon, DownloadIcon, UploadIcon } from '../icons.jsx'
+import { CloseIcon, DownloadIcon, UploadIcon, WarningIcon } from '../icons.jsx'
 
 const WEEK_START_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -91,6 +94,10 @@ export function SettingsModal({ onClose }) {
   const { pushError, pushSuccess, pushWarning } = useToast()
   const { canInstall, installed, promptInstall } = useInstallPrompt()
   const push = usePushNotifications()
+  // What the server knows (devices, queued reminders, its VAPID setup) — only
+  // asked for once push is on, so people who never use it cost nothing.
+  const diagnostics = usePushDiagnostics(push.subscribed)
+  const pushStatus = push.subscribed && diagnostics.diagnosis !== null ? summarizeDiagnostics(diagnostics.diagnosis) : null
   const [digestBusy, setDigestBusy] = useState(false)
   const panelRef = useRef(null)
   useModalA11y(panelRef, { onClose })
@@ -232,7 +239,22 @@ export function SettingsModal({ onClose }) {
     else if (result.reason === 'unsupported') pushError('This browser cannot receive push notifications.')
     else if (result.reason === 'unavailable')
       pushError('Push notifications are not available in this build — see README-push.md.')
+    else if (result.reason === 'service')
+      pushError(
+        isBrave()
+          ? 'Brave blocks push by default. Turn on "Use Google Services for Push Messaging" in brave://settings/privacy, restart Brave, then try again.'
+          : "Your browser couldn't reach its push service. Check for a VPN, firewall or privacy extension blocking it, then try again.",
+      )
     else pushError('Could not turn on push notifications. Try again.')
+  }
+
+  /* Sends a real notification to every device now, then says what happened in
+     terms of the cause — the point is to separate "the server can't deliver"
+     from "this device doesn't show it" without waiting on the cron job. */
+  async function onTestPush() {
+    const { ok, message } = explainTest(await diagnostics.test())
+    if (ok) pushSuccess(message)
+    else pushError(message)
   }
 
   async function onToggleDigest(enabled) {
@@ -449,10 +471,54 @@ export function SettingsModal({ onClose }) {
                 </button>
               </div>
             )}
+            {push.subscribed && (
+              <>
+                {diagnostics.diagnosis === null ? (
+                  <p className="field__hint">Checking with the server…</p>
+                ) : (
+                  <>
+                    {pushStatus?.text && (
+                      <p className="field__hint" role="status">
+                        {pushStatus.text}
+                      </p>
+                    )}
+                    {pushStatus?.problem && (
+                      <p className="banner banner--error" role="alert">
+                        <WarningIcon className="banner__icon" /> {pushStatus.problem}
+                      </p>
+                    )}
+                  </>
+                )}
+                <div className="tag-list__confirm">
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={onTestPush}
+                    disabled={diagnostics.testing}
+                  >
+                    {diagnostics.testing ? 'Sending…' : 'Send test notification'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={diagnostics.refresh}
+                    disabled={diagnostics.checking || diagnostics.testing}
+                  >
+                    Check again
+                  </button>
+                </div>
+              </>
+            )}
             <p className="field__hint">
               Delivered within about a minute of the time. On a computer the browser has to be
               running — it can sit in the background with no windows open.
             </p>
+            {isBrave() && (
+              <p className="field__hint">
+                In Brave, push only works with &quot;Use Google Services for Push Messaging&quot;
+                turned on in brave://settings/privacy.
+              </p>
+            )}
           </section>
 
           <section className="profile__section field">

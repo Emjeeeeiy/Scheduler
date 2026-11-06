@@ -95,36 +95,80 @@ a browser-style key. What they cannot prove is that Google, Mozilla and Apple
 accept our requests and deliver — only a real device can.
 
 1. `curl -H "Authorization: Bearer $CRON_SECRET" https://<prod>/api/push/tick`
-   → `{"claimed":0,"sent":0,"dropped":0,"retried":0,"removedSubs":0}`. A `401`
-   means the secret differs; a `500` names the missing setting.
-2. **Desktop Chrome**: Settings → *Push notifications* → *Turn on*. Set *Notify
-   ahead of time* to 15m (the shortest option) and create a task starting in
-   ~18 minutes, then wait ~5 seconds so the schedule syncs. **Close every
-   Cadence tab.** Expect "starting soon" about 3 minutes later, then "starting
-   now" at the start time. Clicking opens the app. (DevTools → Application →
-   Service Workers → *Push* tests the handler alone.)
-3. **Logged out**: repeat, but sign out first. It should still arrive.
-4. **Android**: install the PWA, turn push on, swipe the app away.
-5. **iPhone/iPad (iOS 16.4+)**: *Add to Home Screen*, open the **installed** app,
+   → `{"claimed":0,"sent":0,"dropped":0,"retried":0,"removedSubs":0,"rejected":0,"failed":0,"statuses":{}}`.
+   A `401` means the secret differs; a `500` names the missing or invalid
+   setting (it checks the VAPID settings on every run, so a bad one shows up
+   here, and in cron-job.org's failure notifications, before any reminder is
+   due).
+2. **Send a test notification**: Settings → *Push notifications* → *Turn on*,
+   then *Send test notification*. This goes straight from the server to the
+   push service to your browser, with no cron job and no waiting, and tells you
+   in words which link failed. Do this before anything else below.
+3. **Desktop**: set *Notify ahead of time* to 15m (the shortest option) and
+   create a task starting in ~18 minutes, then wait ~5 seconds so the schedule
+   syncs (the status line under the toggle shows "N reminders scheduled").
+   **Close every Cadence tab.** Expect "starting soon" about 3 minutes later,
+   then "starting now" at the start time. Clicking opens the app. (DevTools →
+   Application → Service Workers → *Push* tests the browser's notification
+   display alone.)
+4. **Logged out**: repeat, but sign out first. It should still arrive.
+5. **Android**: install the PWA, turn push on, swipe the app away (don't use
+   Force stop).
+6. **iPhone/iPad (iOS 16.4+)**: *Add to Home Screen*, open the **installed** app,
    turn push on there, then close it. (Safari in a tab cannot do push.)
-6. **Two accounts, one browser**: sign in as B. A's reminders stop on that
+7. **Two accounts, one browser**: sign in as B. A's reminders stop on that
    device; B's arrive.
-7. **Turn off from the sign-in screen**, then confirm nothing arrives. A dead
+8. **Turn off from the sign-in screen**, then confirm nothing arrives. A dead
    device shows up as `removedSubs: 1` on the next tick.
 
 ## When something doesn't arrive
 
-| Symptom | Likely cause |
+Start in the app, then the cron job, then the browser — in that order.
+
+**1. Settings → Push notifications** (visible once push is on) shows what the
+server holds for your account, e.g. *"1 device · 5 reminders scheduled · next:
+Standup at 9:05 AM"*, and a red banner naming the first thing wrong. Then press
+*Send test notification*:
+
+| What you see | Meaning | Fix |
+| --- | --- | --- |
+| "0 devices" / "no device registered" | The server never got this device | Turn push off and on |
+| "0 reminders scheduled" | The schedule never uploaded (or nothing is due in 14 days) | Create a timed task and keep the app open ~5 s |
+| "different push keys" | `VITE_VAPID_PUBLIC_KEY` ≠ `VAPID_PUBLIC_KEY` | Make them equal in Vercel, redeploy, turn push off and on |
+| "server's push setup is broken: …" | A VAPID setting is missing or malformed (a `VAPID_SUBJECT` without `https://` is the usual one) | Fix it in Vercel and redeploy |
+| "refused it (403)" | Push service rejected our VAPID signature | Same as "different push keys" |
+| "subscription has expired" | The browser dropped it | Turn push off and on |
+| "Test sent…" but nothing appears | The server did its job; the device didn't show it | **3.** below |
+
+**2. cron-job.org → the job → History → Details** (turn on *Save responses in
+job history*). The body at the minute a reminder was due says what happened:
+
+| Body | Meaning |
+| --- | --- |
+| `claimed:0` | The server had nothing due: the schedule or the device never arrived (see 1) |
+| `claimed:1, sent:1` | Delivered to the push service. If it never showed, see 3 |
+| `claimed:1, dropped:1, rejected:1, statuses:{"403":1}` | The push service refused it (keys differ, see 1) |
+| `claimed:1, dropped:1` | Too late to be useful, or no device registered |
+| `retried:1` | The push service had a bad moment; it is retried up to 3 times |
+| HTTP 500 mentioning a VAPID setting | The server isn't configured. Nothing was lost: due reminders stay queued until it is fixed |
+
+**3. The browser and OS.** A "sent" that never shows is nearly always one of:
+
+| Cause | Fix |
 | --- | --- |
 | Toast: "not available in this build" | `VITE_VAPID_PUBLIC_KEY` wasn't set at build time, or you're on `npm run dev` (no service worker there — use `npm run build && npm run preview`). |
-| Subscribes, nothing ever sends | The cron job isn't running or is hitting a preview URL. Check cron-job.org's history; run the `curl` above. |
-| `tick` returns `sent: 0, dropped: N` | Reminders arrived too late to be useful (the cron stalled), or the account has no device. |
-| Sends fail with 403 in the logs | Client and server VAPID public keys differ. Redeploy, then turn push off and on. |
-| Works, then stops on a computer | The browser was fully quit. Desktop push needs the browser *process* running (background mode is fine). |
+| **Brave** | Turn on *Use Google Services for Push Messaging* in `brave://settings/privacy` and restart. Brave ships with it off, and Turn on fails with "Registration failed - push service error" until it is on. |
+| Works, then stops on a computer | The browser was fully quit. Desktop push needs the browser *process* running (background mode is fine); a message waiting for a closed browser expires after 10 minutes. |
+| Nothing on Android | Force-stopped app, or aggressive battery saving: set the browser's battery use to Unrestricted. |
 | Nothing on iPhone | Not the installed Home Screen app, or iOS < 16.4. |
+| Nothing shows at all | Windows/macOS notification settings or Focus/Do Not Disturb for that browser. DevTools → Application → Service Workers → *Push* shows whether the browser can display one. |
 
-Vercel → project → *Logs* shows `push send failed { status, host }` for
-delivery errors.
+A notification that appears only when you open the app is Cadence's own
+in-app desktop alert (the bell → desktop notifications), which is separate
+from push and needs the app open.
+
+Vercel → project → *Logs* shows `push send failed { status, host }` and `push
+refused for good` lines for delivery errors.
 
 ## Limits, by design
 
