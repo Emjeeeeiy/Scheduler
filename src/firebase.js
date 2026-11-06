@@ -17,7 +17,6 @@ import {
   updateProfile,
 } from 'firebase/auth'
 import {
-  deleteDoc,
   doc,
   getDoc,
   initializeFirestore,
@@ -45,12 +44,11 @@ export const missingConfigKeys = Object.entries(firebaseConfig)
   .filter(([, value]) => !value)
   .map(([key]) => key)
 
-let app = null
 let auth = null
 let db = null
 
 if (firebaseReady) {
-  app = initializeApp(firebaseConfig)
+  const app = initializeApp(firebaseConfig)
   auth = getAuth(app)
 
   /* persistentLocalCache keeps the whole working set in IndexedDB: the app
@@ -305,126 +303,5 @@ export async function requestPasswordReset(identifier) {
   } catch (caught) {
     if (caught.code === 'auth/user-not-found' || caught.code === 'auth/invalid-email') return
     throw describeInfraFailure(caught, 'Sending a password reset email')
-  }
-}
-
-/* -------------------------------------------------------- push notifications -- */
-
-/* `firebase/messaging` is imported dynamically, only when someone actually
-   turns push on — it's dead weight for every visit that never touches
-   Settings' toggle, and getMessaging() itself throws on a browser that doesn't
-   support it (older Safari, non-HTTPS), which is one more reason not to run
-   it at module load for every visitor. */
-
-function hashToken(token) {
-  // Short deterministic id from token; raw token is ~150+ chars and contains
-  // characters awkward for doc ids. Not cryptographic strength needed.
-  let h = 0
-  for (let i = 0; i < token.length; i++) h = (Math.imul(31, h) + token.charCodeAt(i)) | 0
-  return `${Math.abs(h).toString(36)}-${token.slice(-8)}`
-}
-
-const fcmTokenDoc = (uid, token) => doc(db, 'users', uid, 'fcmTokens', hashToken(token))
-
-/**
- * Asks for notification permission and — if granted — subscribes through
- * THIS app's own service worker (not a second firebase-messaging-sw.js).
- * Two workers can't both control "/" scope; a second would replace sw.js
- * and break offline caching. See public/sw.js.
- * Resolves to token string on success, null if permission denied.
- */
-export async function enablePush(uid) {
-  if (!db || !app) throw new Error('Firebase is not configured.')
-  if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
-    throw new Error('This browser cannot receive push notifications.')
-  }
-
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return null
-
-  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-  if (!vapidKey) {
-    throw new Error('Push notifications need VITE_FIREBASE_VAPID_KEY — see .env.example.')
-  }
-
-  // getRegistration(), not serviceWorker.ready — .ready never resolves if no
-  // worker was ever registered (dev build), causing an indefinite hang.
-  const registration = await navigator.serviceWorker.getRegistration()
-  if (!registration) {
-    throw new Error(
-      'No service worker is registered yet. Push notifications only work in a production build — run `npm run build && npm run preview`, not `npm run dev`.',
-    )
-  }
-
-  const { getMessaging, getToken } = await import('firebase/messaging')
-  const messaging = getMessaging(app)
-  const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration })
-  if (!token) return null
-
-  await setDoc(fcmTokenDoc(uid, token), {
-    token,
-    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : null,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  })
-  return token
-}
-
-/** Removes this device's token from Firestore and FCM. Resolves true only
-    when the token doc is confirmed deleted — anything else (no token to
-    resolve, a failed write) resolves false so the Settings toggle can report
-    the real outcome instead of assuming success. Reached ONLY through the
-    explicit Turn-off toggle: sign-out deliberately leaves the subscription
-    alone (see AuthContext.signOut), so a logged-out device keeps receiving
-    scheduled pushes until the user opts out, deletes the account, or the
-    token dies server-side. */
-export async function disablePush(uid) {
-  if (!db || !app) return false
-  if (!('serviceWorker' in navigator)) return false
-
-  const registration = await navigator.serviceWorker.getRegistration()
-  if (!registration) return false
-
-  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-  if (!vapidKey) return false
-
-  try {
-    const { getMessaging, getToken, deleteToken } = await import('firebase/messaging')
-    const messaging = getMessaging(app)
-    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration }).catch(() => null)
-    if (!token) return false
-    await deleteToken(messaging).catch(() => {})
-    try {
-      await deleteDoc(fcmTokenDoc(uid, token))
-    } catch {
-      return false
-    }
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Returns true iff this device's current FCM token is present in Firestore.
- *  Authoritative via Firestore, not localStorage — a granted Notification
- *  permission alone does not mean a token doc exists (e.g. prior Write
- *  blocked, or different device). Used to initialise `subscribed`. */
-export async function isFcmSubscribed(uid) {
-  if (!db || !app) return false
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
-  if (!('serviceWorker' in navigator)) return false
-  const registration = await navigator.serviceWorker.getRegistration().catch(() => null)
-  if (!registration) return false
-  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
-  if (!vapidKey) return false
-  try {
-    const { getMessaging, getToken } = await import('firebase/messaging')
-    const messaging = getMessaging(app)
-    const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration }).catch(() => null)
-    if (!token) return false
-    const snap = await getDoc(fcmTokenDoc(uid, token)).catch(() => null)
-    return snap?.exists() ?? false
-  } catch {
-    return false
   }
 }

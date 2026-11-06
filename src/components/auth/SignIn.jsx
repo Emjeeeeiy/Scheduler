@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
+import { usePushNotifications } from '../../lib/usePushNotifications.js'
 import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
@@ -25,6 +26,17 @@ export function SignIn() {
   const [mode, setMode] = useState('login')
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
+
+  /* Signing out deliberately leaves this device's push subscription alone, so
+     reminders already scheduled keep arriving while logged out. That is only
+     acceptable if the way to stop them is right here, on the screen you land
+     on after signing out — not behind a login you may not want to do. */
+  const push = usePushNotifications()
+  const [remindersOff, setRemindersOff] = useState(false)
+
+  async function turnOffReminders() {
+    if (await push.disable()) setRemindersOff(true)
+  }
 
   function switchTo(nextMode) {
     clearError()
@@ -141,6 +153,20 @@ export function SignIn() {
             {error && (
               <p className="banner banner--error" role="alert">
                 <WarningIcon className="banner__icon" /> {error}
+              </p>
+            )}
+
+            {push.subscribed && (
+              <p className="auth-panel__note" role="status">
+                Reminders are still on for this device.{' '}
+                <button type="button" className="link-button" onClick={turnOffReminders} disabled={push.busy}>
+                  Turn off
+                </button>
+              </p>
+            )}
+            {remindersOff && !push.subscribed && (
+              <p className="auth-panel__note" role="status">
+                Reminders are off for this device.
               </p>
             )}
 

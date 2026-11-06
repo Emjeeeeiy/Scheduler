@@ -12,35 +12,7 @@
  * make sure it never has to.
  */
 
-import { auth } from '../firebase.js'
-
-const DEFAULT_TIMEOUT_MS = 8000
-
-async function callApi(path, body, { timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
-  if (!auth?.currentUser) return null
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const token = await auth.currentUser.getIdToken()
-    const response = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
-    if (!response.ok) return null
-    return await response.json()
-  } catch (caught) {
-    // Covers a rejected getIdToken(), AbortError from the timeout, a
-    // network failure, and a response body that wasn't valid JSON — all
-    // the same outcome from every caller's point of view.
-    console.warn(`AI call to ${path} did not complete.`, caught)
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
-}
+import { callApi } from './apiClient.js'
 
 /** @return a tagId, or null when nothing was confidently suggested OR the
     call didn't complete — the caller cannot and should not tell the two

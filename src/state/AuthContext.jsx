@@ -136,14 +136,6 @@ export function AuthProvider({ children }) {
         }
       },
 
-      /* Sign-out is auth-only by deliberate choice: it must NOT touch the
-         push subscription. The FCM token stays registered so scheduled pushes
-         keep arriving with the app closed or signed out; push stops only via
-         the explicit Turn-off toggle, account deletion (which wipes
-         fcmTokens outright), or server-side dead-token pruning. Account
-         isolation for the shared-device case is enforced server-side — see
-         functions/lib/reconcilePushToken.js — because the security rules
-         rightly forbid one uid from deleting another's token docs. */
       async signOut() {
         try {
           await logout()

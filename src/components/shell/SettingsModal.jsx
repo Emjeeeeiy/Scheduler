@@ -177,19 +177,22 @@ export function SettingsModal({ onClose }) {
 
   async function onTogglePush() {
     if (push.subscribed) {
-      const ok = await push.disable()
-      if (ok) pushSuccess('Push notifications turned off for this device.')
+      const off = await push.disable()
+      if (off) pushSuccess('Push notifications turned off for this device.')
       else pushError('Could not turn off push notifications. Try again.')
       return
     }
-    // The result carries the outcome — push.denied/push.error here would be
-    // the pre-click render's stale values, not this attempt's.
+    /* The toast is chosen from what enable() returns, never from push.denied
+       or the like: after the await those would still hold the values from the
+       render that was on screen when the button was clicked. */
     const result = await push.enable()
     if (result.ok) pushSuccess('Push notifications turned on for this device.')
     else if (result.reason === 'denied')
       pushError('Notifications are blocked — allow them in your browser site settings, then reload.')
-    else if (result.reason === 'dismissed')
-      pushError('Notifications were not allowed for this site.')
+    else if (result.reason === 'dismissed') pushError('Notifications were not allowed for this site.')
+    else if (result.reason === 'unsupported') pushError('This browser cannot receive push notifications.')
+    else if (result.reason === 'unavailable')
+      pushError('Push notifications are not available in this build — see README-push.md.')
     else pushError('Could not turn on push notifications. Try again.')
   }
 
@@ -375,40 +378,43 @@ export function SettingsModal({ onClose }) {
             </section>
           )}
 
-          {
-            <section className="profile__section field">
-              <span className="field__label">Push notifications</span>
+          <section className="profile__section field">
+            <span className="field__label">Push notifications</span>
+            <p className="field__hint">
+              Reminders that arrive even when Cadence is closed or you're logged out: ahead of a
+              task or event (your "Notify ahead of time"), when it starts, and a morning
+              heads-up if anything is overdue.
+            </p>
+            {push.checking ? (
+              <p className="field__hint">Checking whether this browser can receive push…</p>
+            ) : !push.supported ? (
               <p className="field__hint">
-                Get reminders even when Cadence is closed — overdue, happening now, or starting
-                soon. Needs the backend deployed; up to ~5 min late due to the server schedule.
+                This browser can&apos;t receive push notifications. Try Chrome, Edge or Firefox.
+                On iPhone or iPad, add Cadence to the Home Screen first (iOS 16.4+), open the
+                installed app, and turn push on there.
               </p>
-              {push.supported === null ? (
-                <p className="field__hint">Checking if this browser can receive push…</p>
-              ) : push.supported === false ? (
-                <p className="field__hint">
-                  This browser or device can&apos;t receive push notifications. Try Chrome or
-                  Edge on desktop or Android. On iPhone/iPad, install Cadence to the Home
-                  Screen first (iOS 16.4+), open the installed app, and turn push on here.
-                </p>
-              ) : push.denied ? (
-                <p className="field__hint">
-                  Blocked at the browser level. Allow notifications for this site in your browser's
-                  site settings, then reload.
-                </p>
-              ) : (
-                <div className="tag-list__confirm">
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={onTogglePush}
-                    disabled={push.busy}
-                  >
-                    {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
-                  </button>
-                </div>
-              )}
-            </section>
-          }
+            ) : push.denied ? (
+              <p className="field__hint">
+                Blocked at the browser level. Allow notifications for this site in your browser's
+                site settings, then reload.
+              </p>
+            ) : (
+              <div className="tag-list__confirm">
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--sm"
+                  onClick={onTogglePush}
+                  disabled={push.busy}
+                >
+                  {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
+                </button>
+              </div>
+            )}
+            <p className="field__hint">
+              Delivered within about a minute of the time. On a computer the browser has to be
+              running — it can sit in the background with no windows open.
+            </p>
+          </section>
 
           <section className="profile__section field">
             <span className="field__label">Daily digest email</span>
