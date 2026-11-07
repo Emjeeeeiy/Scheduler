@@ -40,11 +40,12 @@ const OUTPUTS = [
        plate around it and a hairline clock turns to mush. White is only for
        previews; the colour is ignored.
 
-     icon — the large picture on the right of the card. Android shows it as
-       given, only rounding the corners, so it is full-bleed: no plate of its
-       own for the system's rounding to fight. Light mark on the brand's ink,
-       so it reads as a logo on both the dark and the light notification shade
-       (the old white tile was a glaring block on dark and vanished on light),
+     icon — the large picture. Used on DESKTOP only: on Android the logo
+       already sits in the card header (the badge), so the code leaves this off
+       there. Shown as given, only rounding the corners, so it is full-bleed: no
+       plate of its own for the system's rounding to fight. Light mark on the
+       brand's ink, so it reads as a logo on both light and dark notification
+       shades (a white tile is a glaring block on dark and vanishes on light),
        drawn larger and heavier so the clock, not the tile, is what you see. */
   { file: 'public/notif-badge-96.png', size: 96, background: 'none', inset: -0.3, weight: 1.4, ink: WHITE, paper: WHITE },
   { file: 'public/notif-icon-256.png', size: 256, background: 'full', inset: -0.12, weight: 1.25, ink: WHITE, paper: INK },

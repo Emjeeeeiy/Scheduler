@@ -184,15 +184,19 @@ self.addEventListener('push', (event) => {
   }
 
   const title = typeof payload.title === 'string' && payload.title ? payload.title : 'Cadence'
+  /* Two different images on purpose — see scripts/makeIcons.mjs. `badge` is a
+     glyph on transparency that Android tints for the status bar and the card
+     header; the app icon (a mark on an opaque plate) must NOT be used for it,
+     or it becomes a solid square. `icon` is the large picture, and Android
+     already carries the logo in that header, so a second one on the right is
+     clutter there and is left off. Everywhere else (Windows, macOS, Linux) the
+     large icon is the only place the logo shows, and without it the system
+     falls back to the browser's own. */
+  const onAndroid = /Android/i.test(self.navigator?.userAgent ?? '')
   const options = {
     body: typeof payload.body === 'string' ? payload.body : '',
-    // Two different images on purpose — see scripts/makeIcons.mjs. `icon` is
-    // the large picture on the card; `badge` is a glyph on transparency that
-    // Android tints for the status bar and the card header. The app icon (a
-    // mark on an opaque plate) must NOT be used as the badge: it becomes a
-    // solid square.
-    icon: '/notif-icon-256.png',
     badge: '/notif-badge-96.png',
+    ...(onAndroid ? {} : { icon: '/notif-icon-256.png' }),
     // Same-site paths only; the server already enforces this, and the worker
     // doesn't take its word for it.
     data: { url: typeof payload.url === 'string' && /^\/(?![/\\])/.test(payload.url) ? payload.url : '/' },

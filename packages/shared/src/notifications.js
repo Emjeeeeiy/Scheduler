@@ -81,13 +81,20 @@ export async function showLocalNotification(title, options = {}) {
   // unless a caller passes its own. Split in two on purpose, because Android
   // treats the two images oppositely (both drawn by scripts/makeIcons.mjs from
   // favicon.svg's clock):
-  // `icon` is the large picture on the card — a bold light clock on the
-  // brand's ink tile, full-bleed, so it reads as a logo on dark AND light
-  // notification shades. `badge` is the small status-bar / header glyph, which
-  // Android draws from the alpha channel ONLY and then tints, so it must be a
-  // clock on transparency. The app icon (a clock on an opaque plate) must never
-  // go here: every plate pixel counts as ink and it renders as a solid square.
-  const branded = { icon: '/notif-icon-256.png', badge: '/notif-badge-96.png', ...options }
+  // `badge` is the small status-bar / header glyph, which Android draws from the
+  // alpha channel ONLY and then tints, so it must be a clock on transparency.
+  // The app icon (a clock on an opaque plate) must never go here: every plate
+  // pixel counts as ink and it renders as a solid square.
+  // `icon` is the large picture — a bold light clock on the brand's ink tile.
+  // Android already shows the logo in the card header, so it is left off there;
+  // on desktop it is the only place the logo appears, so it stays (same rule as
+  // the push handler in public/sw.js).
+  const onAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent ?? '')
+  const branded = {
+    badge: '/notif-badge-96.png',
+    ...(onAndroid ? {} : { icon: '/notif-icon-256.png' }),
+    ...options,
+  }
   try {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration()
