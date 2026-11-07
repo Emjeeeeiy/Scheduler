@@ -11,7 +11,7 @@
 
 /* The general-sibling combinator: everything after the first column — the
    inbox beside the day panel — is ruled off from it and inset. */
-.day-layout > * ~ * {
+.day-layout > :not([hidden]) ~ :not([hidden]) {
   border-left: 1px solid var(--color-border);
   padding-left: 16px;
 }

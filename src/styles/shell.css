@@ -918,8 +918,12 @@
 /* A vertical stack whose children separate with a hairline instead of a
    gap — the same device as the Auth Shell's `.auth-hero__row`, generalised.
    Direct children only (`>`), so a nested `.stack` doesn't inherit its
-   parent's rule. Every child after the first gets the rule (`* ~ *`), whatever
-   it is.
+   parent's rule. Every child after the first gets the rule (the general-sibling
+   combinator, not `+`). `:not([hidden])` is not decoration: a hidden child is
+   not a row, so it should neither take a divider nor be the "first" that makes
+   the next one take it — and the weight it adds is the weight every layout
+   override in the app (a card's own padding, a responsive reset) is written
+   against. Drop it and those overrides start winning where they never did.
 
    Border on every row-group; the 18px breathing room is deliberately NOT
    padding on the row-group itself when that row-group is a `.divided-row`.
@@ -935,24 +939,24 @@
    flush against both horizontal hairlines. A plain (non-divided) row-group
    still takes its own padding directly; it has no column divider that
    needs to reach anywhere. */
-.stack > * ~ * {
+.stack > :not([hidden]) ~ :not([hidden]) {
   border-top: 1px solid var(--color-border);
 }
 
-.stack > * ~ :not(.divided-row) {
+.stack > :not([hidden]) ~ :not([hidden]):not(.divided-row) {
   padding-top: 18px;
 }
 
-.stack > :not(.divided-row):not(:last-child) {
+.stack > :not([hidden]):not(.divided-row):not(:last-child) {
   padding-bottom: 18px;
 }
 
 @media (max-width: 640px) {
-  .stack > * ~ :not(.divided-row) {
+  .stack > :not([hidden]) ~ :not([hidden]):not(.divided-row) {
     padding-top: 14px;
   }
 
-  .stack > :not(.divided-row):not(:last-child) {
+  .stack > :not([hidden]):not(.divided-row):not(:last-child) {
     padding-bottom: 14px;
   }
 }
@@ -976,25 +980,25 @@
   align-items: stretch;
 }
 
-.divided-row > * {
+.divided-row > :not([hidden]) {
   padding: 18px 18px 18px 0;
 }
 
-.divided-row > :last-child {
+.divided-row > :not([hidden]):last-child {
   padding-right: 0;
 }
 
-.divided-row > * ~ * {
+.divided-row > :not([hidden]) ~ :not([hidden]) {
   border-left: 1px solid var(--color-border);
   padding-left: 18px;
 }
 
 @media (max-width: 640px) {
-  .divided-row > * {
+  .divided-row > :not([hidden]) {
     padding: 14px 14px 14px 0;
   }
 
-  .divided-row > * ~ * {
+  .divided-row > :not([hidden]) ~ :not([hidden]) {
     padding-left: 14px;
   }
 }

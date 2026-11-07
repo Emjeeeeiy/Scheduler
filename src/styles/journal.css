@@ -27,13 +27,13 @@
   display: none;
 }
 
-.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout > * ~ * {
+.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout > :not([hidden]) ~ :not([hidden]) {
   border-left: 0;
   padding-left: 0;
 }
 
 /* Same device as .day-layout: the divider is the second column's own border. */
-.journal__layout > * ~ * {
+.journal__layout > :not([hidden]) ~ :not([hidden]) {
   border-left: 1px solid var(--color-border);
   padding-left: 18px;
 }
@@ -1446,7 +1446,7 @@ a.ghost-button {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .journal__layout > * ~ * {
+  .journal__layout > :not([hidden]) ~ :not([hidden]) {
     border-left: 0;
     padding-left: 0;
   }
