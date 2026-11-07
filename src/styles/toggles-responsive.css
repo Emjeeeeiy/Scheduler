@@ -82,7 +82,14 @@
 
      One row, never a wrap: wrapping stacked create buttons under the brand and
      made the chrome two (sometimes three) taps taller than the content. Every
-     control goes icon-only; labels stay in the accessibility tree. */
+     control goes icon-only; labels stay in the accessibility tree.
+
+     The row is three columns — Search at the left edge, the name "Cadence"
+     centred, bell and account at the right. `1fr auto 1fr` rather than flex
+     with auto margins, because the two sides are different widths (one button,
+     against two) and only equal outer columns keep the name on the screen's
+     true centre. Each part is placed by column, so the DOM order (brand, tools,
+     footer) — and with it the tab order, search first — is untouched. */
   .app-shell {
     flex-direction: column;
   }
@@ -93,8 +100,8 @@
     position: sticky;
     top: 0;
     z-index: 20;
-    flex-direction: row;
-    flex-wrap: nowrap;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 4px;
     padding: 8px 10px;
@@ -109,23 +116,21 @@
     overflow-y: hidden;
   }
 
+  /* The name stands in for the logo here: the mark is dropped, the word is
+     shown, and it sits in the middle column. */
   .sidebar__brand {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: center;
     padding: 0;
-    margin-right: auto;
     gap: 0;
-    position: relative;
-    flex: none;
+  }
+
+  .brand__mark {
+    display: none;
   }
 
   .brand__name {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
     white-space: nowrap;
   }
 
@@ -198,6 +203,9 @@
   /* --- occasional controls, icon-only in the top bar --- */
 
   .sidebar__tools {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
     flex-direction: row;
     gap: 4px;
     margin: 0;
@@ -250,11 +258,13 @@
   }
 
   .sidebar__footer {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
     margin: 0;
     padding: 0;
     border-top: none;
     gap: 2px;
-    flex: none;
   }
 
   .sidebar__footer .icon-button,
