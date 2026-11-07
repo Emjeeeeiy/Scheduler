@@ -46,17 +46,23 @@ function sdSegment(x, y, ax, ay, bx, by) {
  * `inset` shrinks the artwork within its square. A maskable icon is cropped
  * to whatever shape the platform likes (Android may cut a circle out of it),
  * so its contents have to sit inside the safe zone rather than reaching the
- * edges the way the plain icon does.
+ * edges the way the plain icon does. A NEGATIVE inset does the opposite and
+ * enlarges the mark — what a tiny status-bar glyph wants, since it has no
+ * plate around it to leave room for.
+ *
+ * `weight` multiplies the stroke's half-width (1 = favicon.svg's own 2-unit
+ * stroke). A mark drawn at 24 px needs a heavier line than one at 192 px to
+ * read as the same clock.
  */
-function markAt(x, y, { inset }) {
+function markAt(x, y, { inset, weight }) {
   const scale = 1 - inset
   // Map back into the 32-unit artwork space, centred.
   const u = (x - 16) / scale + 16
   const v = (y - 16) / scale + 16
 
-  const ring = Math.abs(Math.hypot(u - 16, v - 16) - 9) - 1
-  const hourHand = sdSegment(u, v, 16, 10.5, 16, 16) - 1
-  const minuteHand = sdSegment(u, v, 16, 16, 19.5, 18.5) - 1
+  const ring = Math.abs(Math.hypot(u - 16, v - 16) - 9) - weight
+  const hourHand = sdSegment(u, v, 16, 10.5, 16, 16) - weight
+  const minuteHand = sdSegment(u, v, 16, 16, 19.5, 18.5) - weight
   return Math.min(ring, hourHand, minuteHand) <= 0 ? 1 : 0
 }
 
@@ -69,8 +75,12 @@ function markAt(x, y, { inset }) {
  * shrunken sticker), and 'none' leaves the artwork on transparency — what a
  * splash mark wants, since it is composited onto the splash background colour
  * rather than standing as its own tile.
+ *
+ * `ink` and `paper` override the mark's colour and the tile's colour
+ * (defaults: the favicon's near-black on white). A light mark on a dark tile
+ * is `ink: [255, 255, 255], paper: [11, 11, 11]`.
  */
-function render(size, { inset = 0, background = 'none' }) {
+function render(size, { inset = 0, background = 'none', weight = 1, ink: inkColor = INK, paper: paperColor = PAPER }) {
   const pixels = Buffer.alloc(size * size * 4)
   const unit = 32 / size
 
@@ -82,7 +92,7 @@ function render(size, { inset = 0, background = 'none' }) {
         for (let sx = 0; sx < SS; sx++) {
           const x = (px + (sx + 0.5) / SS) * unit
           const y = (py + (sy + 0.5) / SS) * unit
-          ink += markAt(x, y, { inset })
+          ink += markAt(x, y, { inset, weight })
           paper +=
             background === 'plate' ? (sdRoundRect(x, y, 16, 16, 16, 16, 7) <= 0 ? 1 : 0)
             : background === 'full' ? 1
@@ -98,7 +108,7 @@ function render(size, { inset = 0, background = 'none' }) {
       // shapes is not enough to justify a compositor.
       const alpha = paperA
       for (let c = 0; c < 3; c++) {
-        pixels[at + c] = Math.round(INK[c] * inkA + PAPER[c] * (1 - inkA))
+        pixels[at + c] = Math.round(inkColor[c] * inkA + paperColor[c] * (1 - inkA))
       }
       pixels[at + 3] = Math.round(255 * Math.max(alpha, inkA))
     }

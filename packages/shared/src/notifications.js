@@ -78,15 +78,16 @@ export function describeNotification(item) {
  */
 export async function showLocalNotification(title, options = {}) {
   // Brand default: every device notification wears the project's own artwork
-  // unless a caller passes its own. Split in two on purpose —
-  // `icon` is the large logo, an OPAQUE white tile (public/notif-icon-192.png,
-  // rasterized from favicon.svg) so the black clock stays visible on light
-  // AND dark notification shades, where the transparent PWA icon's clock
-  // vanishes into the background and reads as an empty box. `badge` is the
-  // tiny status-bar glyph, which Android draws from the alpha channel only,
-  // so it takes the transparent clock instead — an opaque tile there would
-  // render as a solid square.
-  const branded = { icon: '/notif-icon-192.png', badge: '/icon-192.png', ...options }
+  // unless a caller passes its own. Split in two on purpose, because Android
+  // treats the two images oppositely (both drawn by scripts/makeIcons.mjs from
+  // favicon.svg's clock):
+  // `icon` is the large picture on the card — a bold light clock on the
+  // brand's ink tile, full-bleed, so it reads as a logo on dark AND light
+  // notification shades. `badge` is the small status-bar / header glyph, which
+  // Android draws from the alpha channel ONLY and then tints, so it must be a
+  // clock on transparency. The app icon (a clock on an opaque plate) must never
+  // go here: every plate pixel counts as ink and it renders as a solid square.
+  const branded = { icon: '/notif-icon-256.png', badge: '/notif-badge-96.png', ...options }
   try {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.getRegistration()

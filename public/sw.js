@@ -186,8 +186,13 @@ self.addEventListener('push', (event) => {
   const title = typeof payload.title === 'string' && payload.title ? payload.title : 'Cadence'
   const options = {
     body: typeof payload.body === 'string' ? payload.body : '',
-    icon: '/notif-icon-192.png',
-    badge: '/icon-192.png',
+    // Two different images on purpose — see scripts/makeIcons.mjs. `icon` is
+    // the large picture on the card; `badge` is a glyph on transparency that
+    // Android tints for the status bar and the card header. The app icon (a
+    // mark on an opaque plate) must NOT be used as the badge: it becomes a
+    // solid square.
+    icon: '/notif-icon-256.png',
+    badge: '/notif-badge-96.png',
     // Same-site paths only; the server already enforces this, and the worker
     // doesn't take its word for it.
     data: { url: typeof payload.url === 'string' && /^\/(?![/\\])/.test(payload.url) ? payload.url : '/' },
