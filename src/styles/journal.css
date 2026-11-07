@@ -27,13 +27,13 @@
   display: none;
 }
 
-.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+.journal[data-list-hidden='true'][data-note-open='true'] .journal__layout > * ~ * {
   border-left: 0;
   padding-left: 0;
 }
 
 /* Same device as .day-layout: the divider is the second column's own border. */
-.journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+.journal__layout > * ~ * {
   border-left: 1px solid var(--color-border);
   padding-left: 18px;
 }
@@ -1283,7 +1283,6 @@ a.ghost-button {
 
   .sidebar,
   .app__header,
-  .journal > .frame-tick,
   .note-list,
   .note-head,
   .note-meta,
@@ -1421,11 +1420,6 @@ a.ghost-button {
     padding-inline: 0;
   }
 
-  /* The frame's corner marks would sit at the corners of the display. */
-  .journal > .frame-tick {
-    display: none;
-  }
-
   .note-list,
   .note-head,
   .note-meta,
@@ -1452,7 +1446,7 @@ a.ghost-button {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .journal__layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  .journal__layout > * ~ * {
     border-left: 0;
     padding-left: 0;
   }

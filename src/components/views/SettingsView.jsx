@@ -26,7 +26,7 @@ const PANELS = {
  * you pick shown beside it. Account and Tags used to be separate dialogs; they
  * are sections here, so everything that configures Cadence is in one place.
  *
- * Built from the same pieces as every other page: a corner-tick `.frame`, the
+ * Built from the same pieces as every other page: a `.frame`, the
  * section-head title, and a `.divided-row` (here: navigation | panel) whose
  * hairline does the separating a box would. Each panel is a run of rows — what a
  * setting is on the left, its control on the right.

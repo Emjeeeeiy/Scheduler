@@ -9,11 +9,9 @@
   align-items: start;
 }
 
-/* `:not(.frame-tick)` + the general-sibling combinator, not `:first-child` +
-   `+`: `<FrameTicks />` is a Fragment, so its four spans are real DOM
-   children ahead of day-panel and the inbox, not something a wrapper would
-   let `.day-layout`'s own first/second-child math skip past. */
-.day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+/* The general-sibling combinator: everything after the first column — the
+   inbox beside the day panel — is ruled off from it and inset. */
+.day-layout > * ~ * {
   border-left: 1px solid var(--color-border);
   padding-left: 16px;
 }

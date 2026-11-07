@@ -63,9 +63,8 @@ code {
    light frame — the splash before it is light too, and the two together are
    one continuous first impression that hands over to whatever the app is set
    to once the gate opens. What marks the screen as its own moment is line,
-   not fill: a topbar rule, one hairline column divider, and the corner-tick
-   frame below — no panel ever carries a background color of its own, so
-   nothing here reads as a card.
+   not fill: a topbar rule and one hairline column divider — no panel ever
+   carries a background color of its own, so nothing here reads as a card.
 
    Re-declared as tokens rather than stamped as data-theme because
    tokens.css keys its dark rules off :root[data-theme=...], which only ever
@@ -126,8 +125,7 @@ body:has(.auth-shell) {
 }
 
 /* The bounded frame below the topbar — hero and form as two plain columns
-   split by one hairline, corner ticks marking the frame itself rather than
-   either column. */
+   split by one hairline. */
 .auth-body {
   position: relative;
   flex: 1;
@@ -144,59 +142,6 @@ body:has(.auth-shell) {
   display: flex;
   color: var(--color-text-primary);
   border-right: 1px solid var(--color-border);
-}
-
-/* A small drawn cross at each corner of a content frame — originally the
-   Auth Shell's own motif, now the corner mark for every unboxed `.frame`
-   in the app (see Cards & Frames below): standing in for the accent color
-   the system no longer carries. Two hairline strokes per corner, inset off
-   the edge so the frame and the tick read as one deliberate drawing. */
-.frame-tick {
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  pointer-events: none;
-}
-
-.frame-tick::before,
-.frame-tick::after {
-  content: '';
-  position: absolute;
-  background: var(--color-baseline);
-}
-
-.frame-tick::before {
-  top: 4px;
-  left: 0;
-  width: 100%;
-  height: 1px;
-}
-
-.frame-tick::after {
-  left: 4px;
-  top: 0;
-  width: 1px;
-  height: 100%;
-}
-
-.frame-tick--tl {
-  top: 12px;
-  left: 12px;
-}
-
-.frame-tick--tr {
-  top: 12px;
-  right: 12px;
-}
-
-.frame-tick--bl {
-  bottom: 12px;
-  left: 12px;
-}
-
-.frame-tick--br {
-  bottom: 12px;
-  right: 12px;
 }
 
 /* The full-bleed blueprint grid: two hairline verticals run the entire
@@ -475,17 +420,13 @@ body:has(.auth-shell) {
 
 @media (max-width: 860px) {
   /* Hero and its divider are gone below this width, so the frame drops back
-     to edge-to-edge — corner ticks and inset padding on a single column
-     would eat into a phone's already-tight width for no reason. */
+     to edge-to-edge — inset padding on a single column would eat into a
+     phone's already-tight width for no reason. */
   .auth-body {
     padding: 0;
   }
 
   .auth-hero {
-    display: none;
-  }
-
-  .auth-body .frame-tick {
     display: none;
   }
 

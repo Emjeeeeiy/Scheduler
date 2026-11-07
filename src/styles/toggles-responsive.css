@@ -59,7 +59,7 @@
 
   /* The column divider becomes a stacked one: a horizontal hairline above
      the inbox instead of a vertical one beside it. */
-  .day-layout > :not(.frame-tick) ~ :not(.frame-tick) {
+  .day-layout > * ~ * {
     border-left: none;
     padding-left: 0;
     border-top: 1px solid var(--color-border);

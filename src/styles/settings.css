@@ -1,7 +1,7 @@
 /* ============================================================ settings page == */
 
-/* The page is a `.frame.stack` like Focus and the Dashboard: corner ticks for
-   its edge, a hairline between its blocks. Below the title it is one
+/* The page is a `.frame.stack` like Focus and the Dashboard: a hairline between
+   its blocks. Below the title it is one
    `.divided-row` — the section navigation, a hairline, and the open panel —
    which is the same device the Dashboard uses between its cards. What this file
    adds is only the shape of that navigation and of a settings row. Everything

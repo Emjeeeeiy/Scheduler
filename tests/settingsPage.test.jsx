@@ -104,7 +104,8 @@ describe('the page', () => {
     const { container } = render(<SettingsView />)
     expect(screen.getByRole('heading', { level: 2, name: 'Settings' })).toBeTruthy()
     expect(container.querySelector('.frame.stack')).toBeTruthy()
-    expect(container.querySelectorAll('.frame-tick')).toHaveLength(4)
+    // No corner marks: a frame is not drawn at all, only its content is.
+    expect(container.querySelector('.frame-tick, [class*="frame-tick"]')).toBeNull()
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 

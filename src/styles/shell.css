@@ -742,9 +742,7 @@
 /* ================================================================ profile == */
 
 /* `.stack` (see Cards & Frames in DESIGN.md) draws the hairline between
-   sections; this modal has no `.frame`/corner ticks of its own, so the
-   `:not(.frame-tick)` guard in `.stack`'s rule simply never matches
-   anything to exclude. */
+   sections. */
 .profile {
   padding-top: 4px;
 }
@@ -903,11 +901,9 @@
 /* =============================================== frames & common bits == */
 
 /* The base unit for a page-level section, everywhere except a modal (see
-   `.modal__panel`): no border, no fill — the corner-tick frame and internal
-   hairline dividers (`.stack`, `.divided-row`) do all the separating a
-   `.card`'s box used to do. Reserve `position: relative` here so a
-   `<FrameTicks />` child has something to anchor to; a frame that doesn't
-   render ticks doesn't need it, but the padding is the same either way. */
+   `.modal__panel`): no border, no fill — internal hairline dividers
+   (`.stack`, `.divided-row`) do all the separating a `.card`'s box used to do. `position: relative` so anything inside that
+   positions itself against the frame has something to anchor to. */
 .frame {
   position: relative;
   padding: 18px;
@@ -922,12 +918,8 @@
 /* A vertical stack whose children separate with a hairline instead of a
    gap — the same device as the Auth Shell's `.auth-hero__row`, generalised.
    Direct children only (`>`), so a nested `.stack` doesn't inherit its
-   parent's rule. `:not(.frame-tick)` plus the general-sibling combinator (not
-   `+`) is deliberate: `<FrameTicks />` is a Fragment, so its four spans land
-   as literal DOM siblings ahead of the real content, not a wrapper `+` could
-   skip past — `~` finds the first *real* sibling regardless of how many tick
-   spans precede it, and excluding `.frame-tick` keeps a divider from ever
-   landing on a 9px corner mark.
+   parent's rule. Every child after the first gets the rule (`* ~ *`), whatever
+   it is.
 
    Border on every row-group; the 18px breathing room is deliberately NOT
    padding on the row-group itself when that row-group is a `.divided-row`.
@@ -943,24 +935,24 @@
    flush against both horizontal hairlines. A plain (non-divided) row-group
    still takes its own padding directly; it has no column divider that
    needs to reach anywhere. */
-.stack > :not(.frame-tick) ~ :not(.frame-tick) {
+.stack > * ~ * {
   border-top: 1px solid var(--color-border);
 }
 
-.stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+.stack > * ~ :not(.divided-row) {
   padding-top: 18px;
 }
 
-.stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+.stack > :not(.divided-row):not(:last-child) {
   padding-bottom: 18px;
 }
 
 @media (max-width: 640px) {
-  .stack > :not(.frame-tick) ~ :not(.frame-tick):not(.divided-row) {
+  .stack > * ~ :not(.divided-row) {
     padding-top: 14px;
   }
 
-  .stack > :not(.frame-tick):not(.divided-row):not(:last-child) {
+  .stack > :not(.divided-row):not(:last-child) {
     padding-bottom: 14px;
   }
 }
@@ -969,10 +961,8 @@
    gap — the same device as the Auth Shell's `.auth-hero__stats`, used for
    Dashboard's stat-tile and card rows once they stopped being individually
    boxed. `auto-fit` still gives the row itself its columns; this only draws
-   the rule between them. `:not(.frame-tick)` throughout, same reason as
-   `.stack`: a `<FrameTicks />` Fragment lands its four spans as real DOM
-   children, so "first/last child" and "every child but the first" both have
-   to skip them explicitly rather than assume content starts at child 1.
+   the rule between them: every child but the first gets the divider and its
+   inset, and the last drops its right padding.
 
    The vertical padding here — not on `.divided-row` itself — is the other
    half of the connected-grid fix in `.stack` above: a `.divided-row` that is
@@ -986,25 +976,25 @@
   align-items: stretch;
 }
 
-.divided-row > :not(.frame-tick) {
+.divided-row > * {
   padding: 18px 18px 18px 0;
 }
 
-.divided-row > :not(.frame-tick):last-child {
+.divided-row > :last-child {
   padding-right: 0;
 }
 
-.divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+.divided-row > * ~ * {
   border-left: 1px solid var(--color-border);
   padding-left: 18px;
 }
 
 @media (max-width: 640px) {
-  .divided-row > :not(.frame-tick) {
+  .divided-row > * {
     padding: 14px 14px 14px 0;
   }
 
-  .divided-row > :not(.frame-tick) ~ :not(.frame-tick) {
+  .divided-row > * ~ * {
     padding-left: 14px;
   }
 }
