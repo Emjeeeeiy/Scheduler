@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { usePushNotifications } from '../../lib/usePushNotifications.js'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
@@ -53,8 +52,6 @@ export function SignIn() {
       </header>
 
       <div className="auth-body">
-        <FrameTicks />
-
         <div className="auth-hero">
           <div className="auth-hero__grid">
             <span className="auth-hero__hatch auth-hero__hatch--l" aria-hidden="true" />

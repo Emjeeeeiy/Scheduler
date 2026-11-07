@@ -20,7 +20,6 @@ import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 import { DayPeek } from '../calendar/DayPeek.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 
 /* How many rows of content a cell can hold at all — event lanes and task chips
    share this budget, so a day with two spanning bars shows fewer chips rather
@@ -331,7 +330,6 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
 
   return (
     <section className="frame month" aria-label={formatMonthLabel(focusKey)}>
-      <FrameTicks />
       <div className="month__head" aria-hidden="true">
         {headers.map((label, index) => (
           <span key={index} className="month__dow">

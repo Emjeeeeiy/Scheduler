@@ -17,7 +17,6 @@ import {
   weekdayHeaders,
 } from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
@@ -124,7 +123,6 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
       className="frame week"
       aria-label={`Week of ${formatWeekLabel(focusKey, settings.weekStartsOn)}`}
     >
-      <FrameTicks />
       <p className="week__summary">
         {weekPlannedMin > 0 ? (
           <>

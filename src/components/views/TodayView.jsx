@@ -20,7 +20,6 @@ import {
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { TaskInbox } from '../calendar/TaskInbox.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { SpanIcon } from '../icons.jsx'
 
 const HOUR_HEIGHT = 52
@@ -239,7 +238,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
 
   return (
     <div className="day-layout frame">
-      <FrameTicks />
       <section className="day-panel" aria-label={formatFullDayLabel(focusKey)}>
         {focusTask && (
           <div className="now-next">

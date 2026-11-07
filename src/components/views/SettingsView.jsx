@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 import { AccountSection } from '../settings/AccountSection.jsx'
 import { AppearanceSection } from '../settings/AppearanceSection.jsx'
@@ -80,8 +79,6 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
 
   return (
     <div className="settings-page frame stack" data-mobile-screen={showDetail ? 'detail' : 'list'}>
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">Settings</h2>

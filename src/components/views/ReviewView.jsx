@@ -12,7 +12,6 @@ import { durationLabel, formatDayLabel, formatWeekLabel, toHours, weekKeys } fro
 import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { CheckIcon, ClockIcon, FocusIcon, TrendIcon } from '../icons.jsx'
 
 /**
@@ -43,8 +42,6 @@ export function ReviewView({ focusKey }) {
 
   return (
     <div className="review frame stack">
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">Review</h2>

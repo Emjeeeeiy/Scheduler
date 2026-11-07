@@ -6,7 +6,6 @@ import { usePersistentState } from '../../lib/usePersistentState.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useJournalActions, useJournalNotes } from '../../state/useJournal.js'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { NoteEditor, NoteSkeleton } from '../journal/NoteEditor.jsx'
 import { NoteList } from '../journal/NoteList.jsx'
 import '../../styles/journal.css'
@@ -173,7 +172,6 @@ export function JournalView({ intent = null, onIntentHandled }) {
       data-note-open={selected || (selectedId !== null && !loading) ? 'true' : 'false'}
       data-list-hidden={listHidden ? 'true' : 'false'}
     >
-      <FrameTicks />
       <div className="journal__layout">
         <NoteList
           notes={notes}

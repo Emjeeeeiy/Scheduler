@@ -6,7 +6,6 @@ import { usePersistentState } from '../../lib/usePersistentState.js'
 import { showLocalNotification } from '@cadence/shared/notifications.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { CheckIcon, CloseIcon, PauseIcon, PlayIcon, ResetIcon } from '../icons.jsx'
 
 /** The technique's own shape: 25 to focus, 5 to breathe, and — every fourth
@@ -335,8 +334,6 @@ export function FocusMode({ onEdit }) {
 
   return (
     <div className="focus-page frame stack">
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">Focus mode</h2>

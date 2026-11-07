@@ -31,7 +31,6 @@ import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
-import { FrameTicks } from '../shell/FrameTicks.jsx'
 import { PixelType } from './PixelType.jsx'
 import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
@@ -105,7 +104,6 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
 
   return (
     <div className="dashboard frame stack">
-      <FrameTicks />
       <div className="dashboard__top divided-row">
         {/* Three zones anchored top and bottom rather than one stack piled at
             the top: the figure and what it means, then air, then the footer

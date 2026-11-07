@@ -1,4 +1,3 @@
-import { FrameTicks } from './FrameTicks.jsx'
 
 /** One skeleton per page, each drawn in that page's own layout.
  *
@@ -210,7 +209,6 @@ function TagBarsSkeleton() {
 function DashboardSkeleton() {
   return (
     <div className="view-skeleton dashboard frame stack">
-      <FrameTicks />
       <div className="dashboard__top divided-row">
         <section className="hero">
           <div className="hero__head">
@@ -291,7 +289,6 @@ function DashboardSkeleton() {
 function TodaySkeleton() {
   return (
     <div className="view-skeleton day-layout frame">
-      <FrameTicks />
       <section className="day-panel">
         <div className="now-next">
           <span className="skel skel--now-dot" />
@@ -333,7 +330,6 @@ function TodaySkeleton() {
 function WeekSkeleton() {
   return (
     <section className="view-skeleton frame week">
-      <FrameTicks />
       <p className="week__summary">
         <span className="skel skel--week-summary" />
       </p>
@@ -388,7 +384,6 @@ function WeekSkeleton() {
 function MonthSkeleton() {
   return (
     <section className="view-skeleton frame month">
-      <FrameTicks />
       <div className="month__head">
         {Array.from({ length: MONTH_DOW }, (_, i) => (
           <span key={i} className="month__dow">
@@ -431,8 +426,6 @@ function MonthSkeleton() {
 function ReviewSkeleton() {
   return (
     <div className="view-skeleton review frame stack">
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">
@@ -485,8 +478,6 @@ function ReviewSkeleton() {
 function FocusSkeleton() {
   return (
     <div className="view-skeleton focus-page frame stack">
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">
@@ -533,7 +524,6 @@ function FocusSkeleton() {
 function JournalSkeleton() {
   return (
     <div className="view-skeleton frame stack">
-      <FrameTicks />
       <div className="journal-skel">
         <div className="journal-skel__list">
           <div className="section-head">
@@ -575,8 +565,6 @@ function JournalSkeleton() {
 function SettingsSkeleton() {
   return (
     <div className="view-skeleton settings-page frame stack" data-mobile-screen="list">
-      <FrameTicks />
-
       <div className="section-head">
         <div>
           <h2 className="section-head__title">
