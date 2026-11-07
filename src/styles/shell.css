@@ -946,14 +946,20 @@ button.avatar:hover {
 
 /* Fixed over the content, not part of any view's own layout — a dropped
    drag or a failed save can happen from any screen, so the surface that
-   reports it has to float above whichever one is showing. */
+   reports it has to float above whichever one is showing.
+
+   The top right corner on every screen size. On a phone that is over the top
+   bar for as long as the toast is up (it is the tallest thing in the corner,
+   and the bar's controls are one tap away again the moment it goes). The
+   safe-area inset keeps it clear of a notch or a status bar. The oldest toast
+   sits nearest the corner and newer ones stack beneath it. */
 .toast-stack {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  top: calc(16px + env(safe-area-inset-top));
   z-index: 60;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 8px;
   width: min(360px, calc(100vw - 32px));
 }
@@ -978,7 +984,7 @@ button.avatar:hover {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: color-mix(in srgb, var(--color-good) 12%, transparent);
+  background: color-mix(in srgb, var(--color-good) 12%, var(--color-surface-1));
   color: var(--color-good-text);
 }
 
@@ -994,8 +1000,18 @@ button.avatar:hover {
   display: flex;
   gap: 8px;
   align-items: center;
-  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 16%, var(--color-surface-1));
   color: var(--color-text-primary);
+}
+
+/* An error toast is a .banner--error (the inline banners' class), whose tint
+   is mixed into `transparent` — right for a banner that sits on the page,
+   wrong for something floating over content, where the page would show
+   through the message. Mixed into the opaque surface instead: the same tint,
+   nothing behind it. Two classes, so it outranks .banner--error without
+   touching the banners themselves. */
+.toast.banner--error {
+  background: color-mix(in srgb, var(--color-critical) 12%, var(--color-surface-1));
 }
 
 .toast--warning .banner__icon {
