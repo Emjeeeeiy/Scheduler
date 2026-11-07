@@ -132,7 +132,9 @@
 }
 
 /* Same full-bleed trade as `.sidebar__tools` above: the divider reaches the
-   sidebar's own edges instead of stopping at its padding. */
+   sidebar's own edges instead of stopping at its padding. (Only the phone's top
+   bar still uses this row as part of the sidebar — see the desktop block below
+   and toggles-responsive.css.) */
 .sidebar__footer {
   display: flex;
   align-items: center;
@@ -142,9 +144,127 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* On a desktop the notification bell and the account button are not in the rail:
+   they sit together at the very top right of the screen — the bell to the left
+   of the account button, which carries the name — fixed there so they are in
+   reach on every page and at every scroll position.
+
+   Still the same element and the same place in the markup as on a phone, where
+   it is the top bar's right-hand column; only where it is drawn changes, so
+   there is one DOM at every size (see the sidebar's own responsive comment in
+   toggles-responsive.css).
+
+   Drawn in the system's own shape, not a new one: a hairline box on the surface
+   colour with the 4px radius every control has — the same container as the
+   schedule's tab switcher, which sits in the same row — rather than loose icons,
+   because content scrolls beneath it and a bare icon over text reads as a
+   mistake. Inside it, 3px-radius controls (the chip-like step), and only the
+   avatar is round, as it is everywhere. The two ends carry the same inset (the
+   bell's icon from the left edge, the name from the right) so neither half of
+   the box outweighs the other.
+
+   `.sidebar__footer .account__trigger` and not `.account__trigger`: the trigger's
+   base rule sits further down the sheet at the same weight and would win. */
+@media (min-width: 901px) {
+  .sidebar__footer {
+    position: fixed;
+    top: 14px;
+    right: 24px;
+    z-index: 3;
+    margin: 0;
+    padding: 3px;
+    gap: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-1);
+  }
+
+  .sidebar__footer .notif__trigger {
+    border-radius: 3px;
+  }
+
+  /* Out at the corner of the 30px target instead of on the bell, where at its
+     usual 2px inset it covered most of a 16px icon. */
+  .sidebar__footer .notif__badge {
+    top: -2px;
+    right: -1px;
+  }
+
+  /* The hairline between the bell and the person, centred in the gap. */
+  .sidebar__footer .account::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    width: 1px;
+    height: 16px;
+    transform: translateY(-50%);
+    background: var(--color-border);
+  }
+
+  .sidebar__footer .account__trigger {
+    height: 30px;
+    /* 7px right so the name sits as far from the edge as the bell's icon
+       does from the other (its 30px target holds a 16px icon: 7px each side). */
+    padding: 0 7px 0 3px;
+    gap: 9px;
+    border-radius: 3px;
+    transition: background 120ms ease;
+  }
+
+  .sidebar__footer .account__trigger:hover {
+    background: var(--color-surface-2);
+  }
+
+  .sidebar__footer .account__trigger .avatar {
+    width: 24px;
+    height: 24px;
+    font-size: var(--text-meta);
+  }
+
+  .sidebar__footer .account__trigger .account__name {
+    display: block;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-item);
+    font-weight: var(--font-weight-item);
+  }
+}
+
+/* On the narrowest desktops the schedule's header (the date label, then the tab
+   switcher) fills the whole row and the tabs end where the cluster starts. There
+   is nowhere to move either, so the page starts a strip lower and the cluster
+   gets the row to itself. */
+@media (min-width: 901px) and (max-width: 980px) {
+  .app-shell .app-content {
+    padding-top: 62px;
+  }
+}
+
+/* The name needs ~160px the header row does not always have: the schedule's tab
+   switcher is centred in the content, and below this width its right-hand column
+   is narrower than the full cluster. The avatar stays, and its tooltip and the
+   menu carry the name. */
+@media (min-width: 901px) and (max-width: 1239px) {
+  .sidebar__footer .account__trigger .account__name {
+    display: none;
+  }
+
+  .sidebar__footer .account__trigger {
+    padding: 0 3px;
+  }
+}
+
 .account {
   position: relative;
   flex: none;
+  /* A flex container, not a block holding an inline button: a block would put the
+     button on a text line, and the line's baseline gap made the account taller
+     with a photo avatar than with an initial. */
+  display: flex;
+  align-items: center;
 }
 
 /* Same fixed-position, JS-placed popover as `.notif__panel` — only the
@@ -422,6 +542,14 @@
   justify-self: start;
 }
 
+/* A page that carries its own title (Settings) renders the header with nothing
+   in it. It keeps a little height on a desktop so the page starts below the
+   top-right cluster instead of touching it; on a phone it is dropped (see
+   toggles-responsive.css). */
+.app__header:empty {
+  min-height: 24px;
+}
+
 .app__main {
   margin-top: 18px;
 }
@@ -575,14 +703,27 @@
   flex: none;
 }
 
-button.avatar {
+/* The account button: the avatar and, beside it where there is room (the
+   desktop's top-right cluster, below), the name. One button, so either opens the
+   menu. On a phone the name is not drawn and it is the avatar alone. */
+.account__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 0;
-  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
   font: inherit;
+  cursor: pointer;
 }
 
-button.avatar:hover {
+.account__trigger:hover .avatar {
   border-color: color-mix(in srgb, var(--color-text-primary) 35%, var(--color-border));
+}
+
+.account__name {
+  display: none;
 }
 
 .avatar img {
@@ -962,6 +1103,15 @@ button.avatar:hover {
   flex-direction: column;
   gap: 8px;
   width: min(360px, calc(100vw - 32px));
+}
+
+/* Both live at the top right on a desktop, so the toasts start below the
+   account cluster instead of covering it. (On a phone they float over the top
+   bar for as long as they are up.) */
+@media (min-width: 901px) {
+  .toast-stack {
+    top: calc(62px + env(safe-area-inset-top));
+  }
 }
 
 .toast {

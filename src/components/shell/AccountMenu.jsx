@@ -49,21 +49,27 @@ export function AccountMenu({ onNewTask, onOpenTodo, onOpenItems, onOpenSettings
 
   return (
     <div className="account">
+      {/* The name is inside the button, so clicking it opens the menu too — and
+          it is only drawn where there is room (the desktop's top-right cluster);
+          on a phone the avatar stands alone, as it always has. */}
       <button
         ref={triggerRef}
         type="button"
-        className="avatar account__trigger"
+        className="account__trigger"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account menu for ${name}`}
         title={name}
       >
-        {photoSrc ? (
-          <img src={photoSrc} alt="" referrerPolicy="no-referrer" />
-        ) : (
-          <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
-        )}
+        <span className="avatar">
+          {photoSrc ? (
+            <img src={photoSrc} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <span aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>
+          )}
+        </span>
+        <span className="account__name">{name}</span>
       </button>
 
       {open && placement && (

@@ -909,59 +909,59 @@ function AppShell() {
 
       <div className={`app-content${view === 'journal' ? ' app-content--wide' : ''}`}>
         {/* Settings carries its own title; the shell's "Today" label above it
-            would name a page that isn't about today. */}
-        {view !== 'settings' && (
-          <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
-            {step ? (
-              <>
-                <div className="date-nav">
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Previous"
-                    onClick={() => setFocusKey(step(focusKey, -1))}
-                  >
-                    <ChevronLeftIcon />
+            would name a page that isn't about today. The header stays, empty, so
+            the page starts below the top-right account cluster on a desktop
+            (see `.app__header:empty`). */}
+        <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
+          {view === 'settings' ? null : step ? (
+            <>
+              <div className="date-nav">
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Previous"
+                  onClick={() => setFocusKey(step(focusKey, -1))}
+                >
+                  <ChevronLeftIcon />
+                </button>
+                <span className="date-nav__label">{dateLabel}</span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Next"
+                  onClick={() => setFocusKey(step(focusKey, 1))}
+                >
+                  <ChevronRightIcon />
+                </button>
+                {focusKey !== todayKey() && (
+                  <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
+                    Today
                   </button>
-                  <span className="date-nav__label">{dateLabel}</span>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Next"
-                    onClick={() => setFocusKey(step(focusKey, 1))}
-                  >
-                    <ChevronRightIcon />
-                  </button>
-                  {focusKey !== todayKey() && (
-                    <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
-                      Today
-                    </button>
-                  )}
-                </div>
-
-                <div className="view-tabs" role="tablist" aria-label="Schedule view">
-                  {SCHEDULE_TABS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={view === tab.id}
-                      className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
-                      onClick={() => setView(tab.id)}
-                    >
-                      <tab.Icon className="view-tabs__icon" />
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="date-nav date-nav--static">
-                <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
+                )}
               </div>
-            )}
-          </header>
-        )}
+
+              <div className="view-tabs" role="tablist" aria-label="Schedule view">
+                {SCHEDULE_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={view === tab.id}
+                    className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
+                    onClick={() => setView(tab.id)}
+                  >
+                    <tab.Icon className="view-tabs__icon" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="date-nav date-nav--static">
+              <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
+            </div>
+          )}
+        </header>
 
         {error && (
           <p className="banner banner--error" role="alert">

@@ -284,7 +284,8 @@
 
   /* Dashboard's header is only the word "Today" — the hero already says
      that. Drop the extra row so the first tap is the page, not chrome. */
-  .app__header:has(.date-nav--static) {
+  .app__header:has(.date-nav--static),
+  .app__header:empty {
     display: none;
   }
 
@@ -346,7 +347,7 @@
     padding-bottom: 12px;
   }
 
-  .account__trigger {
+  .account__trigger .avatar {
     width: 36px;
     height: 36px;
   }
