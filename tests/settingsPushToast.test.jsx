@@ -80,7 +80,7 @@ vi.mock('../src/state/ThemeContext.jsx', () => ({
   useTheme: () => ({ theme: 'dark', setTheme: vi.fn() }),
 }))
 
-import { SettingsModal } from '../src/components/shell/SettingsModal.jsx'
+import { SettingsView } from '../src/components/views/SettingsView.jsx'
 import { isBrave } from '../src/lib/pushSubscription.js'
 
 beforeEach(() => {
@@ -112,7 +112,7 @@ afterEach(() => {
 })
 
 async function click(name) {
-  render(<SettingsModal onClose={vi.fn()} />)
+  render(<SettingsView section="notifications" />)
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name }))
   })
@@ -120,28 +120,28 @@ async function click(name) {
 
 describe('what the section shows', () => {
   it('offers Turn on when this device isn’t subscribed', () => {
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText('Push notifications')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy()
   })
 
   it('offers Turn off when it is', () => {
     pushStub.subscribed = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByRole('button', { name: 'Turn off' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Turn on' })).toBeNull()
   })
 
   it('says it is checking, with no button, until the browser has answered', () => {
     pushStub.checking = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText(/Checking whether this browser can receive push/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Turn o(n|ff)/ })).toBeNull()
   })
 
   it('explains an unsupported browser, including the iPhone Home Screen route', () => {
     pushStub.supported = false
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText(/can't receive push notifications/)).toBeTruthy()
     expect(screen.getByText(/add Cadence to the Home Screen first \(iOS 16\.4\+\)/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Turn o(n|ff)/ })).toBeNull()
@@ -149,20 +149,20 @@ describe('what the section shows', () => {
 
   it('points to the browser’s site settings when notifications are blocked', () => {
     pushStub.denied = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText(/Blocked at the browser level/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Turn o(n|ff)/ })).toBeNull()
   })
 
   it('disables the button and says so while working', () => {
     pushStub.busy = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     const button = screen.getByRole('button', { name: 'Working…' })
     expect(button.disabled).toBe(true)
   })
 
   it('is honest about the limits: about a minute late, browser must be running on a computer', () => {
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText(/within about a minute/)).toBeTruthy()
     expect(screen.getByText(/browser has to be\s+running/)).toBeTruthy()
   })
@@ -239,12 +239,12 @@ describe('when the browser cannot reach its push service', () => {
   })
 
   it('keeps a standing hint for Brave users only', () => {
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.queryByText(/In Brave, push only works/)).toBeNull()
     cleanup()
 
     isBrave.mockReturnValue(true)
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText(/In Brave, push only works/)).toBeTruthy()
   })
 })
@@ -261,7 +261,7 @@ describe('the server status and the test notification', () => {
   })
 
   it('shows nothing about the server, and no test button, while push is off', () => {
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.queryByText(/reminders? scheduled/)).toBeNull()
     expect(screen.queryByText(/Checking with the server/)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Send test notification' })).toBeNull()
@@ -269,14 +269,14 @@ describe('the server status and the test notification', () => {
 
   it('says it is checking until the server has answered', () => {
     pushStub.subscribed = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByText('Checking with the server…')).toBeTruthy()
   })
 
   it('shows what the server holds: devices, reminders, and what is next', () => {
     pushStub.subscribed = true
     diagStub.diagnosis = healthy()
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByRole('status').textContent).toMatch(/1 device · 3 reminders scheduled · next: Standup at /)
     expect(screen.queryByRole('alert')).toBeNull()
   })
@@ -284,14 +284,14 @@ describe('the server status and the test notification', () => {
   it('shows what is wrong as an alert', () => {
     pushStub.subscribed = true
     diagStub.diagnosis = healthy({ devices: [] })
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByRole('alert').textContent).toMatch(/no device registered/)
   })
 
   it('says so when the server could not be reached at all', () => {
     pushStub.subscribed = true
     diagStub.diagnosis = false
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     expect(screen.getByRole('alert').textContent).toMatch(/could not reach the server/i)
   })
 
@@ -330,7 +330,7 @@ describe('the server status and the test notification', () => {
     pushStub.subscribed = true
     diagStub.diagnosis = healthy()
     diagStub.testing = true
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="notifications" />)
     const button = screen.getByRole('button', { name: 'Sending…' })
     expect(button.disabled).toBe(true)
   })

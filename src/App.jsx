@@ -35,13 +35,13 @@ import { FocusMode } from './components/views/FocusMode.jsx'
 import { TaskEditor } from './components/editors/TaskEditor.jsx'
 import { EventEditor } from './components/editors/EventEditor.jsx'
 import { ItemDetail } from './components/editors/ItemDetail.jsx'
-import { TagManager } from './components/editors/TagManager.jsx'
+import { DEFAULT_SETTINGS_SECTION, isSettingsSection } from './components/settings/sections.js'
 import { ItemManager } from './components/editors/ItemManager.jsx'
 import { NotificationBell } from './components/shell/NotificationBell.jsx'
 import { AccountMenu } from './components/shell/AccountMenu.jsx'
 import { ToastStack } from './components/shell/ToastStack.jsx'
 import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
-import { SettingsModal } from './components/shell/SettingsModal.jsx'
+import { SettingsView } from './components/views/SettingsView.jsx'
 import { CommandPalette } from './components/shell/CommandPalette.jsx'
 import { AiChatModal } from './components/shell/AiChatModal.jsx'
 import { AgendaModal } from './components/calendar/AgendaModal.jsx'
@@ -121,7 +121,11 @@ const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
     entry but never a view id: the sidebar routes it to whichever of Day/Week/
     Month/Review is already open. */
 const isViewId = (value) =>
-  value === 'dashboard' || value === 'focus' || value === 'journal' || SCHEDULE_VIEWS.includes(value)
+  value === 'dashboard' ||
+  value === 'focus' ||
+  value === 'journal' ||
+  value === 'settings' ||
+  SCHEDULE_VIEWS.includes(value)
 
 /** How many matching tasks (and, separately, events) the palette's search
     offers. A cap rather than a scroll: past a handful, refining the query is
@@ -247,10 +251,33 @@ function AppShell() {
     }
     return null
   })
-  const [tagsOpen, setTagsOpen] = useState(false)
+  /* Which category of the Settings page is open, and — on a phone, where the
+     page is a list of categories and then the chosen one's screen — whether that
+     screen is showing. Persisted so a reload stays put, and held here, not inside
+     the page, so the ways in can choose: "Settings" opens the list, while
+     "Account" in the avatar menu and "Open Tags" in the palette name a category
+     and go straight to its screen. (Beside a desktop's panel the second is moot.) */
+  const [settingsSection, setSettingsSection] = usePersistentState(
+    'cadence-app:settings-section',
+    DEFAULT_SETTINGS_SECTION,
+    (stored) => (isSettingsSection(stored) ? stored : DEFAULT_SETTINGS_SECTION),
+  )
+  const [settingsDetail, setSettingsDetail] = usePersistentState(
+    'cadence-app:settings-detail',
+    false,
+    (stored) => stored === true,
+  )
+  const openSettings = useCallback(
+    (section) => {
+      const named = isSettingsSection(section)
+      if (named) setSettingsSection(section)
+      setSettingsDetail(named)
+      setView('settings')
+    },
+    [setSettingsSection, setSettingsDetail, setView],
+  )
   const [itemsOpen, setItemsOpen] = useState(false)
   const [todoOpen, setTodoOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   // What the Journal should do the moment it is showing ('new' = start a note).
@@ -273,10 +300,8 @@ function AppShell() {
   // expect.
   const modalOpen =
     Boolean(editor) ||
-    tagsOpen ||
     itemsOpen ||
     todoOpen ||
-    settingsOpen ||
     paletteOpen ||
     aiOpen ||
     Boolean(agendaRange)
@@ -544,9 +569,9 @@ function AppShell() {
       },
       { id: 'jump-today', label: 'Jump to today', hint: shortcuts.jumpToday, Icon: ClockIcon, onRun: () => setFocusKey(todayKey()) },
       { id: 'open-todo', label: 'Open To-do', Icon: InboxIcon, onRun: () => setTodoOpen(true) },
-      { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => setTagsOpen(true) },
+      { id: 'open-tags', label: 'Open Tags', Icon: TagIcon, onRun: () => openSettings('tags') },
       { id: 'open-items', label: 'Open All items', Icon: ListIcon, onRun: () => setItemsOpen(true) },
-      { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => setSettingsOpen(true) },
+      { id: 'open-settings', label: 'Open Settings', Icon: SettingsIcon, onRun: () => openSettings() },
       // One entry per saved template (TaskEditor's "Save as template") —
       // opens the same create form "New task" does, just pre-filled, so a
       // template is reviewed before it becomes a real task rather than
@@ -566,7 +591,7 @@ function AppShell() {
           }),
       })),
     ],
-    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, setFocusKey, setView],
+    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, openSettings, setFocusKey, setView],
   )
 
   /* Typing "lunch with Ana tomorrow 1pm" into the palette offers to create
@@ -833,15 +858,6 @@ function AppShell() {
           <button
             type="button"
             className="sidebar__link sidebar__link--mobile-hide"
-            title="Tags"
-            onClick={() => setTagsOpen(true)}
-          >
-            <TagIcon className="sidebar__icon" />
-            <span className="sidebar__label">Tags</span>
-          </button>
-          <button
-            type="button"
-            className="sidebar__link sidebar__link--mobile-hide"
             title="All items"
             onClick={() => setItemsOpen(true)}
           >
@@ -850,9 +866,10 @@ function AppShell() {
           </button>
           <button
             type="button"
-            className="sidebar__link sidebar__link--mobile-hide"
+            className={`sidebar__link sidebar__link--mobile-hide${view === 'settings' ? ' sidebar__link--active' : ''}`}
+            aria-current={view === 'settings' ? 'page' : undefined}
             title="Settings"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => openSettings()}
           >
             <SettingsIcon className="sidebar__icon" />
             <span className="sidebar__label">Settings</span>
@@ -883,64 +900,68 @@ function AppShell() {
           <AccountMenu
             onNewTask={() => openCreate({})}
             onOpenTodo={() => setTodoOpen(true)}
-            onOpenTags={() => setTagsOpen(true)}
             onOpenItems={() => setItemsOpen(true)}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={() => openSettings()}
+            onOpenAccount={() => openSettings('account')}
           />
         </div>
       </aside>
 
       <div className={`app-content${view === 'journal' ? ' app-content--wide' : ''}`}>
-        <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
-          {step ? (
-            <>
-              <div className="date-nav">
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Previous"
-                  onClick={() => setFocusKey(step(focusKey, -1))}
-                >
-                  <ChevronLeftIcon />
-                </button>
-                <span className="date-nav__label">{dateLabel}</span>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Next"
-                  onClick={() => setFocusKey(step(focusKey, 1))}
-                >
-                  <ChevronRightIcon />
-                </button>
-                {focusKey !== todayKey() && (
-                  <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
-                    Today
-                  </button>
-                )}
-              </div>
-
-              <div className="view-tabs" role="tablist" aria-label="Schedule view">
-                {SCHEDULE_TABS.map((tab) => (
+        {/* Settings carries its own title; the shell's "Today" label above it
+            would name a page that isn't about today. */}
+        {view !== 'settings' && (
+          <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
+            {step ? (
+              <>
+                <div className="date-nav">
                   <button
-                    key={tab.id}
                     type="button"
-                    role="tab"
-                    aria-selected={view === tab.id}
-                    className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
-                    onClick={() => setView(tab.id)}
+                    className="icon-button"
+                    aria-label="Previous"
+                    onClick={() => setFocusKey(step(focusKey, -1))}
                   >
-                    <tab.Icon className="view-tabs__icon" />
-                    {tab.label}
+                    <ChevronLeftIcon />
                   </button>
-                ))}
+                  <span className="date-nav__label">{dateLabel}</span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Next"
+                    onClick={() => setFocusKey(step(focusKey, 1))}
+                  >
+                    <ChevronRightIcon />
+                  </button>
+                  {focusKey !== todayKey() && (
+                    <button type="button" className="ghost-button" onClick={() => setFocusKey(todayKey())}>
+                      Today
+                    </button>
+                  )}
+                </div>
+
+                <div className="view-tabs" role="tablist" aria-label="Schedule view">
+                  {SCHEDULE_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={view === tab.id}
+                      className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
+                      onClick={() => setView(tab.id)}
+                    >
+                      <tab.Icon className="view-tabs__icon" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="date-nav date-nav--static">
+                <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
               </div>
-            </>
-          ) : (
-            <div className="date-nav date-nav--static">
-              <span className="date-nav__label">{relativeDayLabel(todayKey())}</span>
-            </div>
-          )}
-        </header>
+            )}
+          </header>
+        )}
 
         {error && (
           <p className="banner banner--error" role="alert">
@@ -992,6 +1013,14 @@ function AppShell() {
                 />
               )}
               {view === 'review' && <ReviewView focusKey={focusKey} />}
+              {view === 'settings' && (
+                <SettingsView
+                  section={settingsSection}
+                  onSectionChange={setSettingsSection}
+                  detail={settingsDetail}
+                  onDetailChange={setSettingsDetail}
+                />
+              )}
               {/* Always mounted, just hidden off-screen when another view is
                   showing — a running round has to keep counting down while
                   you check the schedule, not restart from 25:00 the moment
@@ -1059,7 +1088,6 @@ function AppShell() {
       {todoOpen && (
         <TodoModal onClose={() => setTodoOpen(false)} onEdit={openEdit} onCreate={openCreate} />
       )}
-      {tagsOpen && <TagManager onClose={() => setTagsOpen(false)} />}
       {itemsOpen && (
         <ItemManager
           onClose={() => setItemsOpen(false)}
@@ -1067,7 +1095,6 @@ function AppShell() {
           onEditEvent={editEventFromIndex}
         />
       )}
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
       {agendaRange && (
         <AgendaModal
           range={agendaRange}

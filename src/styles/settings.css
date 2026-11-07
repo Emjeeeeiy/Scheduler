@@ -1,0 +1,320 @@
+/* ============================================================ settings page == */
+
+/* The page is a `.frame.stack` like Focus and the Dashboard: corner ticks for
+   its edge, a hairline between its blocks. Below the title it is one
+   `.divided-row` — the section navigation, a hairline, and the open panel —
+   which is the same device the Dashboard uses between its cards. What this file
+   adds is only the shape of that navigation and of a settings row. Everything
+   inside a control (chips, fields, buttons, the shortcut list, the tag editor)
+   is the app's existing styling; nothing here re-skins it. */
+.settings-page {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+}
+
+/* ------------------------------------------------------------------- the nav -- */
+
+/* The sidebar's own row idiom (see `.sidebar__link`): quiet text, a surface
+   step on hover, and the current one on the same surface step with ink text and
+   the heavier weight — no accent, no fill. Sticky, so a long panel (the tags)
+   keeps its navigation in view. */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: start;
+  position: sticky;
+  top: 16px;
+}
+
+.settings-nav__item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav__item:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.settings-nav__item--active {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
+}
+
+/* Drawn only on a phone, where each row opens a screen (see the media query at
+   the end). The markup is the same at every size. */
+.settings-nav__chevron,
+.settings-back {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ the panel -- */
+
+.settings-panel {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+}
+
+.settings-panel__head {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.settings-panel__title {
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+}
+
+/* ------------------------------------------------------------------- rows -- */
+
+/* A row is a hairline-divided band, as everywhere else in the app. The two
+   columns are 5:7 so the explanation and the control both have room; the
+   explanation column is the one that wraps, and stays readable down to a few
+   words a line before the row stacks. */
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 8px 32px;
+  align-items: start;
+  padding: 16px 0;
+}
+
+.settings-row:first-child {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-panel__rows > .settings-row:last-child {
+  padding-bottom: 0;
+}
+
+/* A setting whose control is a whole list or form: the explanation above it and
+   the control across the full width, instead of squeezed into the right column. */
+.settings-row--wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.settings-row__text {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* Name-versus-detail (DESIGN.md): the setting's name in the item weight and
+   primary ink, the sentence about it in body weight and muted ink. */
+.settings-row__title {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+}
+
+.settings-row__title--danger {
+  color: var(--color-critical-text);
+}
+
+/* Left-aligned and content-sized: a control is never stretched to the column
+   just because it is a grid child. Fields that should fill (the shortcut list,
+   the working-hours pair) say so themselves below. */
+.settings-row__control {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  min-width: 0;
+}
+
+.settings-row--wide .settings-row__control {
+  justify-items: stretch;
+}
+
+.settings-row__control > .input,
+.settings-row__control > .field-row {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* Their own spacing comes from the row's `gap`, not the margins they carry for
+   stacking inside a modal or a form. */
+.settings-row__control .field,
+.settings-row__control .tag-list,
+.settings-row__control .shortcut-list,
+.settings-row__control .banner,
+.settings-row__control .field__hint {
+  margin: 0;
+}
+
+.settings-row__control .shortcut-list,
+.settings-row__control .tag-list {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* The tag list and its add form are the content of their rows, not a boxed
+   thing inside one: full width, and the add form's own top rule (it had one to
+   separate it from the list in the modal) dropped, since the row already has it. */
+.settings-row--wide .settings-row__control .tag-list {
+  max-width: none;
+}
+
+.settings-row__control .tag-add {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------- narrow screens -- */
+
+/* Two screens, the way the Journal's list and note are. `data-mobile-screen` on
+   the page says which one is showing: "list" is only the categories, "detail"
+   is only the chosen category's panel with a Back button. Above 900px the
+   attribute does nothing and the navigation sits beside the panel.
+
+   `.divided-row` pads every cell and rules the second one off at the left;
+   four classes in these selectors so they win over it whatever order the
+   sheets load in. */
+@media (max-width: 900px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-page[data-mobile-screen='list'] .settings-panel,
+  .settings-page[data-mobile-screen='detail'] .settings-nav,
+  .settings-page[data-mobile-screen='detail'] .section-head {
+    display: none;
+  }
+
+  /* With the title gone the layout is the first thing in the frame, and the
+     hairline `.stack` draws above a section would sit on the frame's own top
+     edge, over the Back button. */
+  .settings-page.stack[data-mobile-screen='detail'] > .settings-layout {
+    border-top: none;
+  }
+
+  /* The list screen: each category a full-width row with a hairline under it and
+     a chevron at the right edge, as the rows of any list that opens a page are. */
+  .settings-page .settings-layout.divided-row > .settings-nav {
+    position: static;
+    gap: 0;
+    padding: 0;
+  }
+
+  .settings-nav__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 52px;
+    padding: 12px 2px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-item);
+    color: var(--color-text-primary);
+  }
+
+  .settings-nav__item:last-child {
+    border-bottom: none;
+  }
+
+  /* On a list nothing is "current" — the surface step that marks the open
+     category beside a panel would mark an arbitrary row here. */
+  .settings-nav__item:hover,
+  .settings-nav__item--active {
+    background: transparent;
+    font-weight: var(--font-weight-item);
+  }
+
+  .settings-nav__chevron {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: var(--color-text-muted);
+  }
+
+  /* The detail screen: the panel on its own, with the way back above its title. */
+  .settings-page .settings-layout.divided-row > .settings-panel {
+    border-left: none;
+    padding: 0;
+  }
+
+  .settings-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    justify-self: start;
+    min-height: 44px;
+    margin: -8px 0 0 -6px;
+    padding: 0 10px 0 4px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-item);
+    font-weight: var(--font-weight-label);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .settings-back:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text-primary);
+  }
+
+  .settings-back__icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+
+  /* The loading skeleton's version of those rows: a short bar where a label
+     goes, spaced as the real rows are. */
+  .view-skeleton .settings-nav {
+    gap: 0;
+  }
+
+  .view-skeleton .settings-nav > .skel {
+    width: 38%;
+    height: 14px;
+    margin: 19px 2px;
+  }
+
+  .settings-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .settings-row__control > .input,
+  .settings-row__control > .field-row,
+  .settings-row__control .shortcut-list,
+  .settings-row__control .tag-list {
+    max-width: none;
+  }
+}

@@ -839,7 +839,7 @@ export function ScheduleProvider({ children }) {
       },
 
       /** A file picked for the profile photo arrives already resized to a
-          small square JPEG data URI (see ProfileModal) — this just writes it.
+          small square JPEG data URI (see AccountSection) — this just writes it.
           `merge: true` because a Google account may have no `users/{uid}` doc
           at all until its first upload. */
       async updateProfilePhoto(base64) {

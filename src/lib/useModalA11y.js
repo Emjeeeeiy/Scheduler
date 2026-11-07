@@ -6,8 +6,8 @@ const FOCUSABLE_SELECTOR =
 function focusableElements(panel) {
   if (!panel) return []
   // No visibility filtering beyond the selector itself: every dialog in this
-  // app hides a section by not rendering it (TagManager's icon picker,
-  // ProfileModal's password step, …), never by CSS-hiding a focusable
+  // app hides a section by not rendering it (the item manager's
+  // filters, the editors' repeat picker, …), never by CSS-hiding a focusable
   // element while leaving it in the DOM — so there is nothing here for an
   // offsetParent-style layout check to catch, and jsdom (used by
   // tests/a11y.test.jsx) never computes real layout, which would make such
@@ -71,8 +71,8 @@ export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisable
   const previouslyFocused = useRef(null)
 
   /* Both read through a ref, not closed over directly, for the same reason:
-     not every caller wraps `onClose` in useCallback (TagManager/ItemManager/
-     ProfileModal pass a plain inline arrow at their mount site), so its
+     not every caller wraps `onClose` in useCallback (ItemManager/the
+     editors pass a plain inline arrow at their mount site), so its
      identity can change on a render this dialog had nothing to do with — a
      Firestore snapshot updating elsewhere re-renders the parent, which
      recreates that arrow. If the setup effect below depended on `onClose`,

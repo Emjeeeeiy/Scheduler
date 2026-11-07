@@ -7,9 +7,11 @@ where the hours actually went.
 The views: **Dashboard** (today's snapshot, plus a Trends section — planned
 versus completed over the last 7 or 30 days), **Schedule** — **Day** (agenda +
 inbox), **Week** (7-column time grid), **Month** (calendar grid) and **Review** —
-**Focus** (a pomodoro timer), and **Journal**: simple notes with Word/Docs-style
+**Focus** (a pomodoro timer), **Journal**: simple notes with Word/Docs-style
 editing, editable paper, tables, images and drawing boxes (see
-[The Journal](#the-journal)).
+[The Journal](#the-journal)) — and **Settings**, a page of its own with a side navigation of categories —
+General, Appearance, Account, Tags, Notifications, Keyboard and Your data —
+reached from the sidebar, the account menu on a phone, or the command palette.
 
 Built with React 19 + Vite, data in Firebase Firestore. Sign in with Google, or
 with a username and password.
@@ -263,7 +265,10 @@ src/
   components/
     icons.jsx            the one drawn icon set — shared by every group below
     auth/                SignIn, LoginForm, RegisterForm, PasswordField
-    views/               the four screens: Dashboard, TodayView, WeekGrid, MonthCalendar
+    views/               the screens: Dashboard, TodayView, WeekGrid, MonthCalendar,
+                         ReviewView, FocusMode, JournalView, SettingsView
+    settings/            what Settings is made of: one component per category
+                         (General, Account, Tags, …), sections.js, SettingsParts
     calendar/            the pieces those views compose — DayColumn, MiniCalendar,
                          DayPeek, TaskRow, TaskInbox
     editors/             every dialog that creates, edits, or deletes, plus the
@@ -282,6 +287,7 @@ src/
     dashboard.css          Dashboard + its charts
     focus.css              Focus mode (the pomodoro timer view)
     journal.css            the Journal — loaded with its chunk, not the main bundle
+    settings.css           the Settings page's navigation, panel and rows
     calendar.css           Day/Week time grids, Month grid, inbox & task rows
     modals.css              every dialog, its fields, tags, item index, repeat picker
     toggles-responsive.css  filter chips/toggles + every ≤900px override

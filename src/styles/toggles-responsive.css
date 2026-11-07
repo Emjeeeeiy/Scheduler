@@ -19,7 +19,9 @@
   cursor: pointer;
 }
 
-.filter-chip:hover:not(:disabled) {
+/* Not on a selected chip: that one is a filled Ink pill, and a hover step to a
+   light surface left its (light) text unreadable on it. */
+.filter-chip:hover:not(:disabled):not(.filter-chip--on) {
   background: var(--color-surface-2);
 }
 

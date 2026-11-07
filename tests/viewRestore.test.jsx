@@ -12,7 +12,7 @@
  * sub-pages report as the Schedule nav entry; Dashboard and Focus report as
  * their own.
  */
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../src/firebase.js', () => ({
@@ -70,6 +70,8 @@ const VIEWS = [
   ['month', 'Schedule'],
   ['review', 'Schedule'],
   ['journal', 'Journal'],
+  // Not one of the four nav tabs: its entry is the Settings link in the tools.
+  ['settings', 'Settings'],
 ]
 
 /* The views, plus the two shell chrome components that pull their own slice of
@@ -82,6 +84,11 @@ vi.mock('../src/components/views/MonthCalendar.jsx', () => ({ MonthCalendar: () 
 vi.mock('../src/components/views/ReviewView.jsx', () => ({ ReviewView: () => <div className="view-review" /> }))
 vi.mock('../src/components/views/FocusMode.jsx', () => ({ FocusMode: () => <div className="view-focus" /> }))
 vi.mock('../src/components/views/JournalView.jsx', () => ({ JournalView: () => <div className="view-journal" /> }))
+vi.mock('../src/components/views/SettingsView.jsx', () => ({
+  SettingsView: ({ section, detail }) => (
+    <div className="view-settings" data-section={section} data-detail={String(detail)} />
+  ),
+}))
 vi.mock('../src/components/shell/NotificationBell.jsx', () => ({ NotificationBell: () => null }))
 vi.mock('../src/components/shell/AccountMenu.jsx', () => ({ AccountMenu: () => null }))
 
@@ -153,5 +160,81 @@ describe('which page the app opens on', () => {
     localStorage.setItem(LAST_VIEW_KEY, 'not json')
     const container = refresh()
     expect(container.querySelector('.view-week')).toBeTruthy()
+  })
+})
+
+describe('Settings is a page, not a dialog', () => {
+  it('opens in the content area from the sidebar and marks its link as the current page', () => {
+    const container = refresh()
+    expect(container.querySelector('.view-dashboard')).toBeTruthy()
+    fireEvent.click(screen.getByTitle('Settings'))
+    expect(container.querySelector('.view-settings')).toBeTruthy()
+    expect(container.querySelector('.view-dashboard')).toBeNull()
+    expect(activePage()).toBe('Settings')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('has no separate Tags entry: tags are a section of Settings', () => {
+    refresh()
+    expect(screen.queryByTitle('Tags')).toBeNull()
+  })
+
+  it('opens on General the first time', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.section).toBe('general')
+  })
+
+  it('reopens on the category it was left on', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    localStorage.setItem('cadence-app:settings-section', JSON.stringify('tags'))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.section).toBe('tags')
+  })
+
+  it('ignores a remembered category that no longer exists', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    localStorage.setItem('cadence-app:settings-section', JSON.stringify('billing'))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.section).toBe('general')
+  })
+
+  it('opens on the list of categories, not on one category screen', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.detail).toBe('false')
+  })
+
+  it('reopens on the category screen it was left on', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    localStorage.setItem('cadence-app:settings-detail', JSON.stringify(true))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.detail).toBe('true')
+  })
+
+  it('ignores a remembered detail flag that is not a boolean', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    localStorage.setItem('cadence-app:settings-detail', JSON.stringify('yes'))
+    const container = refresh()
+    expect(container.querySelector('.view-settings').dataset.detail).toBe('false')
+  })
+
+  it('the Settings link goes to the list, even if a category screen was left open', () => {
+    localStorage.setItem('cadence-app:settings-detail', JSON.stringify(true))
+    localStorage.setItem('cadence-app:settings-section', JSON.stringify('tags'))
+    const container = refresh()
+    fireEvent.click(screen.getByTitle('Settings'))
+    const view = container.querySelector('.view-settings')
+    expect(view.dataset.detail).toBe('false')
+    // ...but it still remembers which category that was.
+    expect(view.dataset.section).toBe('tags')
+  })
+
+  it('leaves through the ordinary nav, like any other page', () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('settings'))
+    const container = refresh()
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
+    expect(container.querySelector('.view-dashboard')).toBeTruthy()
+    expect(container.querySelector('.view-settings')).toBeNull()
   })
 })

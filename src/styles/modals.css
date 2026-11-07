@@ -56,7 +56,7 @@
 }
 
 /* Pinned to the top of the panel's own scroll, not the page: a long modal
-   (Settings runs well past a screen) would otherwise scroll its title and
+   (the task editor on a short screen) would otherwise scroll its title and
    its close button out of reach, and the way back out of a dialog should
    never require scrolling to find.
 
@@ -124,7 +124,7 @@
 
 /* Groups the Task/Event editors' fields under hairline-divided `.stack`
    sections (see Cards & Frames in DESIGN.md) instead of one flat run of a
-   dozen same-weight fields — the same recipe Settings already uses for
+   dozen same-weight fields — the same recipe the Account modal uses for
    `.profile__section`. Rhythm inside a section comes from `gap`, not each
    field's own margin, so the wider gap `.stack` draws between sections is
    the one contrast that actually reads as "new topic" rather than "more of
@@ -333,7 +333,7 @@
   font-family: var(--font-mono);
 }
 
-/* The Settings panel's saved-templates list reuses .tag-list's row shape
+/* The Settings page's saved-templates list reuses .tag-list's row shape
    but needs a left-aligned, growing title rather than .tag-list__count's
    small right-aligned number badge. */
 .template-list__title {

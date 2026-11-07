@@ -24,6 +24,7 @@ const LAYOUT = {
   // The Journal's own stylesheet is part of its lazy chunk, so its skeleton uses
   // classes from the main one (shell.css) rather than the page's real ones.
   journal: ['.journal-skel', '.journal-skel__list', '.journal-skel__row', '.journal-skel__page', '.journal-skel__sheet', '.section-head'],
+  settings: ['.settings-page', '.section-head', '.settings-layout', '.settings-nav', '.settings-panel', '.settings-row', '.settings-row__text', '.settings-row__control'],
 }
 
 /** Each view's own root class. These are what tells one page from another —
@@ -40,6 +41,7 @@ const ROOT = {
   review: '.review',
   focus: '.focus-page',
   journal: '.journal-skel',
+  settings: '.settings-page',
 }
 
 const ALL_VIEWS = Object.keys(LAYOUT)
@@ -86,6 +88,11 @@ describe('ViewSkeleton', () => {
     const review = skeleton('review')
     expect(review.querySelectorAll('.stat-tile').length).toBe(4)
     expect(review.querySelectorAll('.chart__band').length).toBe(7)
+
+    // Seven categories in the navigation, and the three rows General always has.
+    const settings = skeleton('settings')
+    expect(settings.querySelectorAll('.settings-nav > .skel').length).toBe(7)
+    expect(settings.querySelectorAll('.settings-row').length).toBe(3)
 
     expect(skeleton('dashboard').querySelectorAll('.stat-tile').length).toBe(4)
     expect(skeleton('dashboard').querySelectorAll('.mini-cal__grid > .skel').length).toBe(35)

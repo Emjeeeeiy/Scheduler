@@ -64,7 +64,7 @@ vi.mock('../src/state/ThemeContext.jsx', () => ({
   useTheme: () => ({ theme: 'dark', setTheme: vi.fn() }),
 }))
 
-import { SettingsModal } from '../src/components/shell/SettingsModal.jsx'
+import { SettingsView } from '../src/components/views/SettingsView.jsx'
 
 let downloaded
 beforeEach(() => {
@@ -90,7 +90,7 @@ const readBlob = (blob) =>
 const noteEntry = { title: 'Trip', body: '{"type":"doc","content":[{"type":"paragraph"}]}', createdAt: 1, updatedAt: 2 }
 
 async function exportNow() {
-  render(<SettingsModal onClose={vi.fn()} />)
+  render(<SettingsView section="data" />)
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export' }))
   })
@@ -128,7 +128,7 @@ describe('exporting', () => {
   it('is busy while it reads, so a second click cannot start a second export', async () => {
     let finish
     h.exportJournal.mockReturnValue(new Promise((resolve) => (finish = resolve)))
-    render(<SettingsModal onClose={vi.fn()} />)
+    render(<SettingsView section="data" />)
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Export' }))
     })
@@ -140,7 +140,7 @@ describe('exporting', () => {
 
 describe('importing', () => {
   async function importFile(contents) {
-    const { container } = render(<SettingsModal onClose={vi.fn()} />)
+    const { container } = render(<SettingsView section="data" />)
     const input = container.querySelector('input[type="file"][accept=".json,application/json"]')
     const file = new File([JSON.stringify(contents)], 'backup.json', { type: 'application/json' })
     await act(async () => {

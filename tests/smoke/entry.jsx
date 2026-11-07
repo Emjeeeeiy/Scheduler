@@ -24,7 +24,7 @@ import { TaskEditor } from '../../src/components/editors/TaskEditor.jsx'
 import { EventEditor } from '../../src/components/editors/EventEditor.jsx'
 import { ItemDetail } from '../../src/components/editors/ItemDetail.jsx'
 import { MiniCalendar } from '../../src/components/calendar/MiniCalendar.jsx'
-import { TagManager } from '../../src/components/editors/TagManager.jsx'
+import { TagsSection } from '../../src/components/settings/TagsSection.jsx'
 import { ItemManager } from '../../src/components/editors/ItemManager.jsx'
 import { TaskInbox } from '../../src/components/calendar/TaskInbox.jsx'
 import { FocusMode } from '../../src/components/views/FocusMode.jsx'
@@ -38,7 +38,7 @@ import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
 import { NotificationBell } from '../../src/components/shell/NotificationBell.jsx'
-import { SettingsModal } from '../../src/components/shell/SettingsModal.jsx'
+import { SettingsView } from '../../src/components/views/SettingsView.jsx'
 import { CommandPalette } from '../../src/components/shell/CommandPalette.jsx'
 import { AiChatModal } from '../../src/components/shell/AiChatModal.jsx'
 import { DashboardIcon } from '../../src/components/icons.jsx'
@@ -53,8 +53,8 @@ const noop = () => {}
    last two only touch localStorage, which usePersistentState already guards
    with a try/catch — it throws ReferenceError under Node SSR and falls back to
    defaults), so rather than three more mocks they're just mounted for real —
-   several components (TaskEditor, EventEditor, TagManager, ItemManager,
-   TaskInbox, DayColumn, WeekGrid, MonthCalendar, SettingsModal) call
+   several components (TaskEditor, EventEditor, TagsSection, ItemManager,
+   TaskInbox, DayColumn, WeekGrid, MonthCalendar, SettingsView) call
    useToast()/useSettings()/useTheme(), and this is the one place their real
    component tree is exercised end to end. */
 function render(element) {
@@ -110,7 +110,6 @@ const cases = [
   ],
   ['ShortcutsHelp', <ShortcutsHelp onClose={noop} />],
   ['ViewSkeleton (journal)', <ViewSkeleton view="journal" />],
-  ['TagManager', <TagManager onClose={noop} />],
   ['ItemManager', <ItemManager onClose={noop} onEdit={noop} onEditEvent={noop} />],
   ['TaskEditor (create)', <TaskEditor editor={{ mode: 'create', draft: { date: KEY, startMin: 540 } }} onClose={noop} />],
   ['TaskEditor (edit)', <TaskEditor editor={{ mode: 'edit', task: mockValue.tasks[0] }} onClose={noop} />],
@@ -126,7 +125,14 @@ const cases = [
   ],
   ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
-  ['SettingsModal', <SettingsModal onClose={noop} />],
+  ['SettingsView (general)', <SettingsView section="general" />],
+  ['SettingsView (appearance)', <SettingsView section="appearance" />],
+  ['SettingsView (account)', <SettingsView section="account" />],
+  ['SettingsView (tags)', <SettingsView section="tags" />],
+  ['SettingsView (notifications)', <SettingsView section="notifications" />],
+  ['SettingsView (keyboard)', <SettingsView section="keyboard" />],
+  ['SettingsView (data)', <SettingsView section="data" />],
+  ['TagsSection', <TagsSection />],
   ['CommandPalette', <CommandPalette actions={paletteActions} onClose={noop} />],
   ['AiChatModal', <AiChatModal onClose={noop} />],
 ]

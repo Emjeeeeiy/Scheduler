@@ -562,6 +562,65 @@ function JournalSkeleton() {
   )
 }
 
+/** Settings: the page title, the side navigation (seven categories), and the
+    first panel — General — with the three rows every account has in it. On a
+    phone only the list of categories is shown (the page opens there; see
+    `data-mobile-screen` in SettingsView), so that is what the skeleton draws
+    there too. The
+    optional rows (Templates, Install) are left out, since whether they exist
+    isn't knowable this early and a skeleton that guessed would promise a row
+    that might not arrive. Which category opens is remembered, but the panel
+    drawn is always General's shape: the rows are a plausible placeholder, and
+    the navigation is what carries the layout. */
+function SettingsSkeleton() {
+  return (
+    <div className="view-skeleton settings-page frame stack" data-mobile-screen="list">
+      <FrameTicks />
+
+      <div className="section-head">
+        <div>
+          <h2 className="section-head__title">
+            <span className="skel skel--section-title" />
+          </h2>
+          <p className="section-head__sub">
+            <span className="skel skel--section-sub skel--section-sub--wide" />
+          </p>
+        </div>
+      </div>
+
+      <div className="settings-layout divided-row">
+        <nav className="settings-nav">
+          {Array.from({ length: 7 }, (_, item) => (
+            <span key={item} className="skel skel--field-label" />
+          ))}
+        </nav>
+
+        <section className="settings-panel">
+          <header className="settings-panel__head">
+            <h3 className="settings-panel__title">
+              <span className="skel skel--section-title" />
+            </h3>
+            <span className="skel skel--section-sub" />
+          </header>
+          <div className="settings-panel__rows">
+            {Array.from({ length: 3 }, (_, row) => (
+              <div key={row} className="settings-row">
+                <div className="settings-row__text">
+                  <span className="skel skel--section-title" />
+                  <span className="skel skel--section-sub" />
+                </div>
+                <div className="settings-row__control">
+                  <span className="skel skel--ghost-button" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}
+
 const SKELETONS = {
   dashboard: DashboardSkeleton,
   today: TodaySkeleton,
@@ -570,6 +629,7 @@ const SKELETONS = {
   review: ReviewSkeleton,
   focus: FocusSkeleton,
   journal: JournalSkeleton,
+  settings: SettingsSkeleton,
 }
 
 /**

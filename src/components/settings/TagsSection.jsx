@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { TAG_ICONS, TAG_SLOTS, useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
-import { useModalA11y } from '../../lib/useModalA11y.js'
 import { CloseIcon } from '../icons.jsx'
-import { TAG_ICON_COMPONENTS, TagGlyph } from './TagGlyph.jsx'
+import { TAG_ICON_COMPONENTS, TagGlyph } from '../editors/TagGlyph.jsx'
+import { Row } from './SettingsParts.jsx'
 
 function SlotPicker({ value, onPick, label }) {
   return (
@@ -120,7 +120,10 @@ function TagOptions({ tag, tags, onChange, descendantIds }) {
   )
 }
 
-export function TagManager({ onClose }) {
+/** The tags tasks and events are filed under: rename in place, open one to
+    change its colour, icon, parent and weekly goal, delete one (its tasks are
+    kept, just untagged), and add new ones. It used to be a modal. */
+export function TagsSection() {
   const { tags, tasks, addTag, updateTag, removeTag, importData } = useSchedule()
   const { pushError, pushUndo } = useToast()
   const [name, setName] = useState('')
@@ -130,8 +133,6 @@ export function TagManager({ onClose }) {
   const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const panelRef = useRef(null)
-  useModalA11y(panelRef, { onClose })
 
   // The next unused slot, so the palette is consumed in its validated order.
   const suggested = TAG_SLOTS.find((s) => !tags.some((t) => t.slot === s)) ?? TAG_SLOTS[0]
@@ -214,19 +215,16 @@ export function TagManager({ onClose }) {
   }
 
   return (
-    <div
-      className="modal"
-      role="presentation"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label="Tags">
-        <div className="modal__head">
-          <h2 className="modal__title">Tags</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            <CloseIcon />
-          </button>
-        </div>
-
+    <>
+      <Row
+        wide
+        title="Your tags"
+        hint={
+          confirming
+            ? 'Deleting a tag keeps its tasks — they simply become untagged.'
+            : 'Rename a tag right in the list. Edit opens its colour, icon, the tag it files under, and a weekly goal. The number is how many tasks use it.'
+        }
+      >
         {tags.length === 0 ? (
           <p className="empty empty--sm">No tags yet. Add one below.</p>
         ) : (
@@ -322,11 +320,9 @@ export function TagManager({ onClose }) {
             ))}
           </ul>
         )}
+      </Row>
 
-        {confirming && (
-          <p className="field__hint">Deleting a tag keeps its tasks — they simply become untagged.</p>
-        )}
-
+      <Row wide title="New tag" hint="The next unused colour is picked for you, in the palette's own order.">
         <form className="tag-add" onSubmit={onAdd}>
           <div className="tag-add__row">
             <TagGlyph
@@ -355,7 +351,7 @@ export function TagManager({ onClose }) {
             <IconPicker value={icon} onPick={setIcon} label="Icon for the new tag" />
           </div>
         </form>
-      </div>
-    </div>
+      </Row>
+    </>
   )
 }
