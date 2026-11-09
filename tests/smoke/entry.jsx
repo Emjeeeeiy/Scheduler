@@ -34,6 +34,8 @@ import { ShortcutsHelp } from '../../src/components/journal/ShortcutsHelp.jsx'
 import { ViewSkeleton } from '../../src/components/shell/ViewSkeleton.jsx'
 import { normalizeNote } from '@cadence/shared/journal.js'
 import { SignIn } from '../../src/components/auth/SignIn.jsx'
+import { AuthCalendar } from '../../src/components/auth/AuthCalendar.jsx'
+import { AuthWeek } from '../../src/components/auth/AuthWeek.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
@@ -125,6 +127,8 @@ const cases = [
   ],
   ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
+  ['AuthCalendar', <AuthCalendar />],
+  ['AuthWeek', <AuthWeek />],
   ['SettingsView (general)', <SettingsView section="general" />],
   ['SettingsView (appearance)', <SettingsView section="appearance" />],
   ['SettingsView (account)', <SettingsView section="account" />],

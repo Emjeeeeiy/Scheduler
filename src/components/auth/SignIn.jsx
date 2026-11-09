@@ -4,6 +4,8 @@ import { usePushNotifications } from '../../lib/usePushNotifications.js'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
+import { AuthCalendar } from './AuthCalendar.jsx'
+import { AuthWeek } from './AuthWeek.jsx'
 import { ClockIcon, GoogleIcon, ListIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 const HOW_IT_WORKS = [
@@ -72,12 +74,13 @@ export function SignIn() {
 
             <div className="auth-hero__row auth-hero__preview-row">
               <div className="auth-hero__preview">
-                <p className="auth-hero__preview-text">Your time, in rhythm.</p>
-                <img
-                  src="/black-calendar.jpg"
-                  alt="A physical desk calendar, open to January"
-                  className="auth-hero__preview-img"
-                />
+                <div className="auth-hero__preview-inner">
+                  <p className="auth-hero__preview-text">Your time, in rhythm.</p>
+                  <div className="auth-hero__demo">
+                    <AuthWeek />
+                    <AuthCalendar />
+                  </div>
+                </div>
               </div>
             </div>
 
