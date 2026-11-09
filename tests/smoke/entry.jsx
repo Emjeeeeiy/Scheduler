@@ -341,6 +341,13 @@ expect(
 expect('Item index rows have no Edit button, and the foot no paragraph', !items.includes('>Edit<') && !items.includes('appears once here, as the rule itself'))
 expect('Item index asks for the full-screen sheet layout on a phone', items.includes('modal--sheet'))
 
+// Ask AI is a chat: an empty state with examples, one composer with Send inside it, no
+// instructions paragraph, no footer with a second Close, and the phone sheet.
+const ai = render(<AiChatModal onClose={noop} />)
+expect('Ask AI opens on an empty state with examples', ai.includes('What should I schedule?') && ai.includes('Gym Monday 7am'))
+expect('Ask AI has one composer with Send inside it', ai.includes('ai-chat__box') && ai.includes('aria-label="Send"') && !ai.includes('modal__foot'))
+expect('Ask AI is the full-screen sheet on a phone, and has no field label', ai.includes('modal--sheet') && !ai.includes('What do you need?'))
+
 const itemDetail = render(
   <ItemDetail editor={{ mode: 'view', kind: 'task', task: taskWithChecklist }} onClose={noop} onEdit={noop} />,
 )

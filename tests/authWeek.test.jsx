@@ -3,8 +3,8 @@
  * so what is worth holding to account is the structure it animates and the data
  * behind it: that the week is the real current week, that the made-up schedule is
  * a schedule that could exist (no overlaps, inside the window, titles short enough
- * for a 32px column), and that every colour it asks for is pinned on this light
- * screen so the app's dark theme cannot recolour it.
+ * for a 32px column), and that every colour it asks for comes from the theme, so
+ * the preview is light or dark with the rest of the screen.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -155,13 +155,17 @@ describe('the made-up schedule', () => {
     for (const block of BLOCKS) expect(block.title.length, block.title).toBeLessThanOrEqual(4)
   })
 
-  it('only uses tag colours the sign-in screen pins to their light values', () => {
-    // The auth shell is a fixed light screen; tag tokens that are not re-declared
-    // there would follow the app's dark theme and tint it with dark-surface colours.
-    const css = readFileSync(resolve(process.cwd(), 'src/styles/auth.css'), 'utf8')
-    const shell = css.slice(css.indexOf('.auth-shell {'), css.indexOf('}', css.indexOf('.auth-shell {')))
+  it('takes its tag colours from the theme: the sign-in screen pins none, and every one exists for both themes', () => {
+    // The sign-in screen follows the theme chosen in Settings, so its preview week
+    // must too. A tag token re-declared on .auth-shell would pin it to one theme.
+    const auth = readFileSync(resolve(process.cwd(), 'src/styles/auth.css'), 'utf8')
+    const shell = auth.slice(auth.indexOf('.auth-shell {'), auth.indexOf('}', auth.indexOf('.auth-shell {')))
+    const tokens = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8')
     for (const tag of new Set(BLOCKS.map((block) => block.tag))) {
-      expect(shell, `--color-tag-${tag} is not pinned in .auth-shell`).toMatch(new RegExp(`--color-tag-${tag}:\\s*#[0-9a-f]{6}`, 'i'))
+      expect(shell, `--color-tag-${tag} is pinned in .auth-shell`).not.toMatch(`--color-tag-${tag}:`)
+      // Declared once for light and at least once more for dark.
+      const declared = tokens.match(new RegExp(`--color-tag-${tag}:`, 'g')) ?? []
+      expect(declared.length, `--color-tag-${tag} needs a light and a dark value`).toBeGreaterThanOrEqual(2)
     }
   })
 

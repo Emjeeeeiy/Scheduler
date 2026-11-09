@@ -206,6 +206,15 @@ export function PlusIcon(props) {
   )
 }
 
+/** Send, in a chat composer. */
+export function ArrowUpIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
+    </Icon>
+  )
+}
+
 /** Reveal a masked password field. */
 export function EyeIcon(props) {
   return (

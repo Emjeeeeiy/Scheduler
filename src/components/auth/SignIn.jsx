@@ -18,10 +18,10 @@ const HOW_IT_WORKS = [
     on the right — built entirely from lines, not boxes: a top bar rules off
     the brand, a single hairline divides the two columns, and a drawn cross
     marks each corner of the content frame. No panel ever gets a fill color of
-    its own. The whole screen is fixed to light (see the .auth-shell token
-    block in auth.css) and offers no theme toggle: entry is where you arrive,
-    not where you configure, and the choice belongs to the app you haven't
-    entered yet. Settings still owns it once you're in. */
+    its own. It uses the app's ordinary tokens, so it is in whatever theme
+    Settings → Appearance has chosen (Light, Dark, or System, which follows the
+    OS) — including after signing out, because the theme is held above the
+    auth gate. It offers no toggle of its own: Settings owns the choice. */
 export function SignIn() {
   const { signIn, error, clearError } = useAuth()
   const [mode, setMode] = useState('login')

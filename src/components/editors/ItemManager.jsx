@@ -323,7 +323,11 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
               </select>
             )}
 
-            <div className="filter-row item-manager__dates" role="group" aria-label="Filter by date">
+            <div
+              className={`filter-row item-manager__dates${dateFilter ? ' item-manager__dates--set' : ''}`}
+              role="group"
+              aria-label="Filter by date"
+            >
               <button
                 type="button"
                 className={`filter-chip${dateFilter === today ? ' filter-chip--on' : ''}`}
@@ -340,23 +344,27 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
               >
                 Yesterday
               </button>
-              <input
-                type="date"
-                className="input item-manager__date"
-                value={dateFilter ?? ''}
-                onChange={(e) => setDateFilter(e.target.value || null)}
-                aria-label="Filter by a specific date"
-              />
-              {dateFilter && (
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => setDateFilter(null)}
-                  aria-label="Clear the date filter"
-                >
-                  <CloseIcon />
-                </button>
-              )}
+              {/* The field and its clear button travel together, so on a narrow
+                  screen the × is never left alone on a line of its own. */}
+              <span className="item-manager__datefield">
+                <input
+                  type="date"
+                  className="input item-manager__date"
+                  value={dateFilter ?? ''}
+                  onChange={(e) => setDateFilter(e.target.value || null)}
+                  aria-label="Filter by a specific date"
+                />
+                {dateFilter && (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => setDateFilter(null)}
+                    aria-label="Clear the date filter"
+                  >
+                    <CloseIcon />
+                  </button>
+                )}
+              </span>
             </div>
           </div>
         </div>

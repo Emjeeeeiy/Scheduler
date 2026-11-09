@@ -2,9 +2,8 @@
    One reader (Gate), one writer. Gate reads hadSession() to decide whether the
    auth check deserves the skeleton or should go straight to sign-in.
    AuthContext is the only writer, from onAuthStateChanged — the one place
-   every sign-in (all methods) and sign-out flows through. The boot splash
-   used to read the raw key too, to skip itself for returning users; it plays
-   unconditionally now, so this is purely about the auth gate.
+   every sign-in (all methods) and sign-out flows through. (There is no boot
+   splash to skip any more, so this is purely about the auth gate.)
 
    This module also owns LAST_VIEW_KEY, the page you were last on. It lives
    here rather than next to the view code because its lifetime is the session's:

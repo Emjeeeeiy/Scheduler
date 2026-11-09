@@ -8,7 +8,6 @@ import { ThemeProvider } from './state/ThemeContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { useReminderSync } from './lib/useReminderSync.js'
-import { dismissBootSplash } from './lib/bootSplash.js'
 import { hadSession, lastView, LAST_VIEW_KEY } from './lib/sessionHint.js'
 import {
   addDays,
@@ -1157,25 +1156,12 @@ function LiveFavicon() {
   return null
 }
 
-/** Removes index.html's boot splash on first paint — the effect runs after
-    React's first commit, which is exactly when the launch screen's job (take
-    over from Android's own white+logo frame with the sweeping clock and the
-    animated Cadence title) is done. Same null-component shape as LiveFavicon
-    above, mounted unconditionally for the same reason. */
-function BootSplash() {
-  useEffect(() => {
-    dismissBootSplash()
-  }, [])
-  return null
-}
-
 export default function App() {
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
     <ErrorBoundary>
       <LiveFavicon />
-      <BootSplash />
       {/* Above every screen, not inside one: the theme is a property of the
           session, so it can't depend on which view happens to be mounted. */}
       <ThemeProvider>

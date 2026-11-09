@@ -1,6 +1,7 @@
-/* AuthContext maintains the cadence-app:signed_in hint that index.html's head
- * script reads before first paint: a visit with a live session skips the
- * boot splash and goes straight to the skeleton. These tests drive the real
+/* AuthContext maintains the cadence-app:signed_in hint that the auth gate reads
+ * (see sessionHint.js): a visit that starts with a live session shows the
+ * page's skeleton while Firebase restores it, instead of the sign-in form. These
+ * tests drive the real
  * onAuthStateChanged callback (Firebase itself is mocked) and prove the hint
  * is set on sign-in and cleared on sign-out.
  *

@@ -58,53 +58,20 @@ code {
 
 /* ============================================================ auth shell == */
 
-/* Built from the same neutral tokens as every other surface, but pinned to
-   their light values rather than following the app's theme: entry is a fixed
-   light frame — the splash before it is light too, and the two together are
-   one continuous first impression that hands over to whatever the app is set
-   to once the gate opens. What marks the screen as its own moment is line,
-   not fill: a topbar rule and one hairline column divider — no panel ever
-   carries a background color of its own, so nothing here reads as a card.
-
-   Re-declared as tokens rather than stamped as data-theme because
-   tokens.css keys its dark rules off :root[data-theme=...], which only ever
-   matches <html> — setting it here would pin the whole document and leave the
-   app no way to take the theme back. Custom properties inherit, so this one
-   block re-skins everything below it, including the input and button styles
-   this file doesn't own. */
+/* Built from the same neutral tokens as every other surface, and in whatever
+   theme the app is set to: ThemeProvider sits above the auth gate and stamps
+   data-theme on <html> (index.html stamps it again before first paint), so this
+   screen is light, dark, or follows the OS exactly as Settings → Appearance says,
+   with no colour of its own. What marks it as its own moment is line, not fill:
+   a topbar rule and one hairline column divider — no panel ever carries a
+   background colour of its own, so nothing here reads as a card. (It used to
+   re-declare every token at its light value to stay a fixed light frame behind
+   a light boot splash; the splash is gone, and so is the pin.) */
 .auth-shell {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
   background: var(--color-page);
-  color-scheme: light;
-  --color-page:           #f9f9f7;
-  --color-surface-1:      #fcfcfb;
-  --color-surface-2:      #f2f1ed;
-  --color-surface-sunken: #edece7;
-  --color-text-primary:   #0b0b0b;
-  --color-text-secondary: #52514e;
-  --color-text-muted:     #898781;
-  --color-border:         rgba(11, 11, 11, 0.10);
-  --color-gridline:       #e1e0d9;
-  --color-baseline:       #c3c2b7;
-  --shadow-md:            0 6px 24px rgba(11, 11, 11, 0.08);
-  /* The four tag colours the preview week draws its blocks in, at their light
-     values: without these they would follow the app's theme and a dark theme
-     would tint this light screen with its dark-surface variants. */
-  --color-tag-blue:       #2a78d6;
-  --color-tag-orange:     #eb6834;
-  --color-tag-aqua:       #1baf7a;
-  --color-tag-violet:     #4a3aa7;
-}
-
-/* The shell itself is a full-viewport block, so its own background covers the
-   page — except on mobile, where an overscroll past the top or bottom edge
-   uncovers <body> and would flash the app's dark page colour underneath a
-   light screen. Same reason the splash in index.html pins the body for its
-   own lifetime. */
-body:has(.auth-shell) {
-  background: #f9f9f7;
 }
 
 .auth-topbar {
@@ -842,18 +809,18 @@ body:has(.auth-shell) {
   text-align: center;
 }
 
-/* The one deliberate exception to the app's monochrome rule: Google's own
-   mark and button convention, kept as its real brand renders rather than
-   folded into the icon grammar. Bordered in both themes so a white button
-   still reads against a near-white light-mode page. */
+/* The one deliberate exception to the app's monochrome rule is Google's own
+   four-colour mark, kept as its real brand renders rather than folded into the
+   icon grammar. The button around it is the app's ordinary bordered surface
+   button, so it follows the theme like everything else on this screen. */
 .google-button {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: #fff;
-  color: #1f1f1f;
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 10px 16px;
@@ -864,7 +831,7 @@ body:has(.auth-shell) {
 }
 
 .google-button:hover {
-  background: #ececec;
+  background: var(--color-surface-2);
 }
 
 /* The panel holds half the viewport now, so just above the 860px breakpoint

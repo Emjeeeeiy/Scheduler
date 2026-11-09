@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
@@ -6,7 +6,7 @@ import { useNow } from '../../lib/useNow.js'
 import { addDays, MINUTES_PER_DAY } from '@cadence/shared/date.js'
 import { freeSlots } from '@cadence/shared/slots.js'
 import { aiScheduleAi } from '../../lib/aiClient.js'
-import { CloseIcon } from '../icons.jsx'
+import { ArrowUpIcon, ClockIcon, CloseIcon } from '../icons.jsx'
 
 // How far ahead real free time is offered to the model, and how many
 // windows per day are worth sending — a week is enough for "this week" /
@@ -30,6 +30,21 @@ const MAX_EXISTING = 40
 
 const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
 
+// What the empty state offers. They are examples to start from, not actions: they
+// fill the composer and wait, because "cancel the groceries task" is a real
+// delete and should be read (and perhaps changed) before it is sent.
+const SUGGESTIONS = ['Gym Monday 7am', 'Move dentist to 4pm', 'Cancel the groceries task']
+
+/** The assistant's mark: the brand's clock, frozen, in a ring — the small round
+    avatar every chat puts beside the other side's words. */
+function Mark({ large = false }) {
+  return (
+    <span className={`ai-chat__mark${large ? ' ai-chat__mark--lg' : ''}`} aria-hidden="true">
+      <ClockIcon live={false} />
+    </span>
+  )
+}
+
 /** The command palette's "AI" entry point: a small chat, not a form. One or
     several TASKS (no events — see api/ai-schedule.js) can be created,
     changed, or removed directly from a plain-language prompt, without ever
@@ -42,7 +57,7 @@ const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
     rather than depended on directly. Nothing here duplicates any of that. */
 export function AiChatModal({ onClose }) {
   const { addTask, updateTask, removeTask, restoreItem, tags, tasks, tasksOn, eventsOn } = useSchedule()
-  const { pushUndo, pushError } = useToast()
+  const { pushError } = useToast()
   const now = useNow()
 
   const panelRef = useRef(null)
@@ -52,9 +67,53 @@ export function AiChatModal({ onClose }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
+  const scrollRef = useRef(null)
 
-  function say(role, content) {
-    setMessages((prev) => [...prev, { role, content }])
+  // A chat follows the conversation: the newest message, or the typing
+  // indicator where the answer is about to appear, is always in view.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages, busy])
+
+  // One line to start, growing with what is typed up to a cap, then scrolling.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    if (el.scrollHeight) el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [draft])
+
+  /** `extra` carries what a message can offer beyond its words — today only
+      `undo`, on the line that reports a batch of changes. */
+  function say(role, content, extra) {
+    setMessages((prev) => [...prev, { role, content, ...extra }])
+  }
+
+  function patchMessage(index, patch) {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)))
+  }
+
+  /** The way back from a batch, right under the line that reports it. It used to
+      be a toast saying the same sentence a second time, over the top of the
+      dialog (and, on a phone, over its own Close). One place now: the message. */
+  async function undoMessage(index) {
+    const target = messages[index]
+    if (!target?.undo || target.undoing || target.undone) return
+    patchMessage(index, { undoing: true })
+    const ok = await target.undo()
+    patchMessage(index, ok ? { undone: true, undoing: false } : { undoing: false })
+  }
+
+  function startOver() {
+    setMessages([])
+    setDraft('')
+    inputRef.current?.focus()
+  }
+
+  function pickSuggestion(text) {
+    setDraft(text)
+    inputRef.current?.focus()
   }
 
   /** Real free time across the WHOLE day, not narrowed to Settings' working
@@ -204,27 +263,32 @@ export function AiChatModal({ onClose }) {
       const total = created.length + removed.length + updated.length
 
       // Whatever landed (even a partial batch from the catch above) is
-      // worth one undo, and one confirmation line in the transcript so
-      // there's a record of it even though the modal now stays open —
-      // closing used to BE that confirmation, so removing it needed a
-      // replacement.
+      // worth one confirmation line in the transcript — there's a record
+      // of it even though the modal now stays open; closing used to BE that
+      // confirmation — and one undo for the whole batch, never one per item,
+      // offered on that same line.
       if (total > 0) {
         const bits = []
         if (created.length) bits.push(`created ${created.length}`)
         if (updated.length) bits.push(`updated ${updated.length}`)
         if (removed.length) bits.push(`removed ${removed.length}`)
         const summary = `Done — ${bits.join(', ')}.`
-        say('assistant', summary)
 
-        pushUndo(summary, async () => {
-          try {
-            for (const id of created) await removeTask(id)
-            for (const id of removed) await restoreItem('task', id)
-            for (const { id, reverse } of updated) await updateTask(id, reverse)
-          } catch (caught) {
-            console.error('Could not undo the AI-applied changes.', caught)
-            pushError('Could not undo all of those.')
-          }
+        say('assistant', summary, {
+          // Resolves to whether it worked, so the message can say "Undone" (or
+          // keep its button) honestly.
+          undo: async () => {
+            try {
+              for (const id of created) await removeTask(id)
+              for (const id of removed) await restoreItem('task', id)
+              for (const { id, reverse } of updated) await updateTask(id, reverse)
+              return true
+            } catch (caught) {
+              console.error('Could not undo the AI-applied changes.', caught)
+              pushError('Could not undo all of those.')
+              return false
+            }
+          },
         })
       }
     } finally {
@@ -232,44 +296,105 @@ export function AiChatModal({ onClose }) {
     }
   }
 
+  const canSend = !busy && draft.trim().length > 0
+
   return (
-    <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal modal--sheet"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div ref={panelRef} className="modal__panel ai-chat" role="dialog" aria-modal="true" aria-label="Ask AI">
         <div className="modal__head">
           <h2 className="modal__title">Ask AI</h2>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
-            <CloseIcon />
-          </button>
+          <div className="modal__head-actions">
+            {messages.length > 0 && (
+              <button type="button" className="ghost-button ghost-button--sm" onClick={startOver} disabled={busy}>
+                New chat
+              </button>
+            )}
+            <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
+              <CloseIcon />
+            </button>
+          </div>
         </div>
 
-        {messages.length === 0 ? (
-          <p className="field__hint">
-            Describe what to schedule, change, or remove — "gym monday 7am", "move dentist to 4pm", "cancel the
-            groceries task." Tasks only; if something's too vague or ambiguous, it'll ask before doing anything.
-          </p>
-        ) : (
+        <div ref={scrollRef} className="ai-chat__scroll">
+          {messages.length === 0 && (
+            <div className="ai-chat__empty">
+              <Mark large />
+              <h3 className="ai-chat__greeting">What should I schedule?</h3>
+              <p className="ai-chat__sub">Tasks only. If something is vague, I'll ask before doing anything.</p>
+              <ul className="ai-chat__suggestions" aria-label="Examples">
+                {SUGGESTIONS.map((text) => (
+                  <li key={text}>
+                    <button type="button" className="filter-chip" onClick={() => pickSuggestion(text)}>
+                      {text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Always present, so a screen reader is already listening when the
+              first message lands. */}
           <div className="ai-chat__transcript" role="log" aria-live="polite">
-            {messages.map((m, i) => (
-              // Index as key is safe here: this list only ever appends, in
-              // order, for the lifetime of one modal instance — nothing is
-              // ever inserted, removed, or reordered.
-              // eslint-disable-next-line react/no-array-index-key
-              <p key={i} className={`ai-chat__msg ai-chat__msg--${m.role}`}>
-                {m.content}
-              </p>
-            ))}
+            {messages.map((m, i) =>
+              m.role === 'user' ? (
+                // Index as key is safe here: this list only ever appends, in
+                // order, for the lifetime of one modal instance — nothing is
+                // ever inserted, removed, or reordered.
+                // eslint-disable-next-line react/no-array-index-key
+                <div key={i} className="ai-chat__turn ai-chat__turn--user">
+                  <p className="ai-chat__bubble">{m.content}</p>
+                </div>
+              ) : (
+                // eslint-disable-next-line react/no-array-index-key
+                <div key={i} className="ai-chat__turn ai-chat__turn--assistant">
+                  <Mark />
+                  <div className="ai-chat__body">
+                    <p className="ai-chat__text">{m.content}</p>
+                    {m.undo &&
+                      (m.undone ? (
+                        <p className="ai-chat__undone">Undone.</p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--sm ai-chat__undo"
+                          onClick={() => undoMessage(i)}
+                          disabled={m.undoing}
+                        >
+                          Undo
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ),
+            )}
+            {busy && (
+              <div className="ai-chat__turn ai-chat__turn--assistant" role="status">
+                <Mark />
+                <span className="ai-chat__typing" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="visually-hidden">Thinking…</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        {busy && <p className="ai-suggest__thinking">Thinking…</p>}
-
-        <form onSubmit={send}>
-          <label className="field">
-            <span className="field__label">{messages.length === 0 ? 'What do you need?' : 'Reply'}</span>
+        {/* The one place to write: no label (the placeholder and the heading
+            above already say what it is), no footer. Closing is the head's
+            ×, not a second button down here. */}
+        <form className="ai-chat__composer" onSubmit={send}>
+          <div className="ai-chat__box">
             <textarea
               ref={inputRef}
-              className="input input--area"
-              rows={2}
+              className="ai-chat__input"
+              rows={1}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
@@ -282,22 +407,11 @@ export function AiChatModal({ onClose }) {
                   send(e)
                 }
               }}
-              placeholder="Describe what to schedule…"
-              disabled={busy}
+              placeholder={messages.length === 0 ? 'Describe what to schedule…' : 'Reply…'}
+              aria-label="Message"
             />
-          </label>
-
-          <div className="modal__foot">
-            <span className="modal__spacer" />
-            {/* No longer closes on a successful action — this stays open so
-                a multi-step conversation (add a few things, then tweak one)
-                doesn't mean reopening the palette each time. Closing is now
-                always the person's own choice, via this button or the X. */}
-            <button type="button" className="ghost-button" onClick={onClose}>
-              Close
-            </button>
-            <button type="submit" className="primary-button" disabled={busy || !draft.trim()}>
-              {busy ? 'Working…' : 'Send'}
+            <button type="submit" className="ai-chat__send" aria-label="Send" disabled={!canSend}>
+              <ArrowUpIcon />
             </button>
           </div>
         </form>
