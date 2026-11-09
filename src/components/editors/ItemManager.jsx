@@ -4,7 +4,7 @@ import { useToast } from '../../state/ToastContext.jsx'
 import { addDays, formatDayLabel, minToShortLabel, todayKey } from '@cadence/shared/date.js'
 import { occursOn, recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { useModalA11y } from '../../lib/useModalA11y.js'
-import { CloseIcon, DayIcon, RepeatIcon, SpanIcon } from '../icons.jsx'
+import { CloseIcon, RepeatIcon, SpanIcon, TrashIcon } from '../icons.jsx'
 import { TagGlyph } from './TagGlyph.jsx'
 
 const FILTERS = [
@@ -244,90 +244,56 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
     }
   }
 
-  const confirmingRow = visible.find((row) => row.id === confirming) ?? null
+  const itemWord = (n) => `${n} item${n === 1 ? '' : 's'}`
+  const today = todayKey()
+  /* One date control, not four: Today and Yesterday are chips that switch the
+     filter off when pressed again, and the field clears itself — so there is no
+     "Any date" chip that is only the cleared state of the ones beside it. */
+  const toggleDate = (key) => setDateFilter((current) => (current === key ? null : key))
+  const footVisible = inTrash ? trash.length > 0 : rows.length > 0
 
   return (
     <div
-      className="modal"
+      className="modal modal--sheet"
       role="presentation"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label="All items">
+      <div
+        ref={panelRef}
+        className="modal__panel item-manager"
+        role="dialog"
+        aria-modal="true"
+        aria-label="All items"
+      >
         <div className="modal__head">
           <h2 className="modal__title">All items</h2>
           <div className="modal__head-actions">
-            {inTrash
-              ? trash.length > 0 && (
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={() => setConfirmingEmpty(true)}
-                  >
-                    Empty trash
-                  </button>
-                )
-              : rows.length > 0 && (
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={() => setConfirmingAll(true)}
-                  >
-                    Delete all
-                  </button>
-                )}
             <button type="button" className="icon-button" onClick={onClose} aria-label="Close">
               <CloseIcon />
             </button>
           </div>
         </div>
 
-        {confirmingEmpty && (
-          <p className="banner banner--error item-manager__confirm-all">
-            Permanently delete all {trash.length} items in the Trash? This cannot be undone.
-            <span className="item-manager__confirm-all-actions">
-              <button
-                type="button"
-                className="danger-button danger-button--sm"
-                onClick={onEmptyTrash}
-              >
-                Delete for good
-              </button>
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={() => setConfirmingEmpty(false)}
-              >
-                Cancel
-              </button>
-            </span>
-          </p>
-        )}
+        {/* Three short rows, from the most used to the least: find it by name,
+            narrow it by kind (the Trash is a place, so it sits apart at the end),
+            narrow it by tag or day. */}
+        <div className="item-manager__toolbar">
+          <input
+            className="input item-manager__search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by title"
+            aria-label="Search items by title"
+          />
 
-        {confirmingAll && (
-          <p className="banner banner--error item-manager__confirm-all">
-            Move all {rows.length} tasks and events to the Trash?
-            <span className="item-manager__confirm-all-actions">
-              <button type="button" className="danger-button danger-button--sm" onClick={removeAll}>
-                Delete all
-              </button>
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={() => setConfirmingAll(false)}
-              >
-                Cancel
-              </button>
-            </span>
-          </p>
-        )}
-
-        <div className="item-manager__filters">
-          <div className="filter-row" role="group" aria-label="Show">
+          <div className="filter-row item-manager__kinds" role="group" aria-label="Show">
             {FILTERS.map((option) => (
               <button
                 key={option.id}
                 type="button"
-                className={`filter-chip${filter === option.id ? ' filter-chip--on' : ''}`}
+                className={`filter-chip${filter === option.id ? ' filter-chip--on' : ''}${
+                  option.id === 'trash' ? ' item-manager__trash' : ''
+                }`}
                 aria-pressed={filter === option.id}
                 onClick={() => setFilter(option.id)}
               >
@@ -339,126 +305,87 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
             ))}
           </div>
 
-          {tags.length > 0 && (
-            <select
-              className="input"
-              value={tagFilter}
-              onChange={(e) => setTagFilter(e.target.value)}
-              aria-label="Filter by tag"
-            >
-              <option value="all">Any tag</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name} ({tagCounts.get(tag.id) ?? 0})
-                </option>
-              ))}
-              {untaggedCount > 0 && (
-                <option value="none">No tag ({untaggedCount})</option>
-              )}
-            </select>
-          )}
+          <div className="item-manager__where">
+            {tags.length > 0 && (
+              <select
+                className="input item-manager__tag"
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value)}
+                aria-label="Filter by tag"
+              >
+                <option value="all">Any tag</option>
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name} ({tagCounts.get(tag.id) ?? 0})
+                  </option>
+                ))}
+                {untaggedCount > 0 && <option value="none">No tag ({untaggedCount})</option>}
+              </select>
+            )}
 
-          <div className="filter-row" role="group" aria-label="Filter by date">
-            <button
-              type="button"
-              className={`filter-chip${dateFilter === null ? ' filter-chip--on' : ''}`}
-              aria-pressed={dateFilter === null}
-              onClick={() => setDateFilter(null)}
-            >
-              Any date
-            </button>
-            <button
-              type="button"
-              className={`filter-chip${dateFilter === todayKey() ? ' filter-chip--on' : ''}`}
-              aria-pressed={dateFilter === todayKey()}
-              onClick={() => setDateFilter(todayKey())}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              className={`filter-chip${dateFilter === yesterday ? ' filter-chip--on' : ''}`}
-              aria-pressed={dateFilter === yesterday}
-              onClick={() => setDateFilter(yesterday)}
-            >
-              Yesterday
-            </button>
-            <input
-              type="date"
-              className="input item-manager__date"
-              value={dateFilter ?? ''}
-              onChange={(e) => setDateFilter(e.target.value || null)}
-              aria-label="Filter by a specific date"
-            />
+            <div className="filter-row item-manager__dates" role="group" aria-label="Filter by date">
+              <button
+                type="button"
+                className={`filter-chip${dateFilter === today ? ' filter-chip--on' : ''}`}
+                aria-pressed={dateFilter === today}
+                onClick={() => toggleDate(today)}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                className={`filter-chip${dateFilter === yesterday ? ' filter-chip--on' : ''}`}
+                aria-pressed={dateFilter === yesterday}
+                onClick={() => toggleDate(yesterday)}
+              >
+                Yesterday
+              </button>
+              <input
+                type="date"
+                className="input item-manager__date"
+                value={dateFilter ?? ''}
+                onChange={(e) => setDateFilter(e.target.value || null)}
+                aria-label="Filter by a specific date"
+              />
+              {dateFilter && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => setDateFilter(null)}
+                  aria-label="Clear the date filter"
+                >
+                  <CloseIcon />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        <input
-          className="input item-manager__search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by title"
-          aria-label="Search items by title"
-        />
-
-        {visible.length === 0 ? (
-          <p className="empty empty--sm">
-            {inTrash
-              ? trash.length === 0
-                ? 'The Trash is empty.'
-                : 'No deleted items match that.'
-              : rows.length === 0
-                ? 'Nothing here yet.'
-                : 'No items match that.'}
-          </p>
-        ) : (
-          <ul className="item-list">
-            {visible.map((row) => {
-              const tag = getTag(row.tagId)
-              return (
-                <li key={`${row.kind}-${row.id}`} className="item-list__row">
-                  {row.kind === 'task' ? (
-                    <input
-                      type="checkbox"
-                      className="item-list__check"
-                      checked={row.done}
-                      disabled={row.repeating || inTrash}
-                      onChange={() => toggleDone(row.id)}
-                      aria-label={`Mark "${row.title}" ${row.done ? 'not done' : 'done'}`}
-                      title={
-                        inTrash
-                          ? 'Restore this task to tick it off.'
-                          : row.repeating
-                            ? 'A repeating task is checked off day by day, in the Day, Week, or Month view.'
-                            : undefined
-                      }
-                    />
-                  ) : (
-                    <span className="item-list__check item-list__check--spacer" aria-hidden="true" />
-                  )}
-
-                  {/* Kind is shape, not colour — the same task/event grammar
-                      the calendar uses, so a row here reads as the thing it
-                      will open. */}
-                  <span className="item-list__kind" title={row.kind === 'event' ? 'Event' : 'Task'}>
-                    {row.repeating ? (
-                      <RepeatIcon
-                        aria-label={row.kind === 'event' ? 'Repeating event' : 'Repeating task'}
-                      />
-                    ) : row.kind === 'event' ? (
-                      <SpanIcon aria-label="Event" />
-                    ) : (
-                      <DayIcon aria-label="Task" />
-                    )}
-                  </span>
-
-                  <span className="item-list__main">
+        <div className="item-manager__body">
+          {visible.length === 0 ? (
+            <p className="empty empty--sm">
+              {inTrash
+                ? trash.length === 0
+                  ? 'The Trash is empty.'
+                  : 'No deleted items match that.'
+                : rows.length === 0
+                  ? 'Nothing here yet.'
+                  : 'No items match that.'}
+            </p>
+          ) : (
+            <ul className="item-list">
+              {visible.map((row) => {
+                const tag = getTag(row.tagId)
+                const isConfirming = confirming === row.id
+                const text = (
+                  <>
                     <span
                       className={`item-list__title${row.done ? ' item-list__title--done' : ''}`}
                     >
                       {row.title}
                     </span>
                     <span className="item-list__meta">
+                      {row.repeating && <RepeatIcon className="item-list__repeat" aria-hidden="true" />}
                       {row.meta}
                       {tag && (
                         <>
@@ -468,64 +395,164 @@ export function ItemManager({ onClose, onEdit, onEditEvent }) {
                         </>
                       )}
                     </span>
-                  </span>
+                  </>
+                )
+                return (
+                  <li
+                    key={`${row.kind}-${row.id}`}
+                    className={`item-list__row${isConfirming ? ' item-list__row--confirming' : ''}`}
+                  >
+                    {/* One leading slot. A task has its checkbox; an event, which
+                        never has one, has its span icon — the calendar's own
+                        task/event grammar, so the row reads as what it will open. */}
+                    {row.kind === 'task' ? (
+                      <label className="item-list__lead item-list__tick">
+                        <input
+                          type="checkbox"
+                          className="item-list__check"
+                          checked={row.done}
+                          disabled={row.repeating || inTrash}
+                          onChange={() => toggleDone(row.id)}
+                          aria-label={`Mark "${row.title}" ${row.done ? 'not done' : 'done'}`}
+                          title={
+                            inTrash
+                              ? 'Restore this task to tick it off.'
+                              : row.repeating
+                                ? 'A repeating task is checked off day by day, in the Day, Week, or Month view.'
+                                : undefined
+                          }
+                        />
+                      </label>
+                    ) : (
+                      <span className="item-list__lead item-list__kind" title="Event">
+                        <SpanIcon aria-label="Event" />
+                      </span>
+                    )}
 
-                  {confirming === row.id ? (
-                    <span className="item-list__confirm">
+                    {/* The title is the way in: pressing the row opens the item.
+                        (A deleted item cannot be edited, so there the text is just
+                        text and the row's button is Restore.) */}
+                    {inTrash ? (
+                      <span className="item-list__main">{text}</span>
+                    ) : (
                       <button
                         type="button"
-                        className="danger-button danger-button--sm"
-                        onClick={() => (inTrash ? purge(row) : remove(row))}
+                        className="item-list__main item-list__open"
+                        onClick={() => edit(row)}
                       >
-                        {inTrash ? 'Delete for good' : 'Delete'}
+                        {text}
                       </button>
-                      <button
-                        type="button"
-                        className="ghost-button ghost-button--sm"
-                        onClick={() => setConfirming(null)}
-                      >
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="item-list__actions">
-                      <button
-                        type="button"
-                        className="ghost-button ghost-button--sm"
-                        onClick={() => (inTrash ? restore(row.kind, row.id) : edit(row))}
-                      >
-                        {inTrash ? 'Restore' : 'Edit'}
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => setConfirming(row.id)}
-                        aria-label={
-                          inTrash ? `Permanently delete ${row.title}` : `Delete ${row.title}`
-                        }
-                      >
-                        <CloseIcon />
-                      </button>
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+                    )}
+
+                    {isConfirming ? (
+                      <span className="item-list__confirm">
+                        <button
+                          type="button"
+                          className="danger-button danger-button--sm"
+                          onClick={() => (inTrash ? purge(row) : remove(row))}
+                        >
+                          {inTrash ? 'Delete for good' : 'Delete'}
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost-button ghost-button--sm"
+                          onClick={() => setConfirming(null)}
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="item-list__actions">
+                        {inTrash && (
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--sm"
+                            onClick={() => restore(row.kind, row.id)}
+                          >
+                            Restore
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => setConfirming(row.id)}
+                          aria-label={
+                            inTrash ? `Permanently delete ${row.title}` : `Delete ${row.title}`
+                          }
+                          title={inTrash ? 'Delete for good' : 'Delete'}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </span>
+                    )}
+
+                    {/* Said under the row it is about, while that row is waiting on
+                        an answer — not as a paragraph at the foot of the list. */}
+                    {isConfirming && row.repeating && (
+                      <p className="field__hint item-list__note">
+                        This is the rule behind a repeating {row.kind} — deleting it removes every
+                        one of its occurrences.
+                      </p>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* The bulk delete lives here, ruled off under the list, and its question
+            replaces it in place — nothing above it moves. */}
+        {footVisible && (
+          <div className="item-manager__foot">
+            {inTrash && confirmingEmpty ? (
+              <p className="banner banner--error" role="alert">
+                Permanently delete {itemWord(trash.length)} in the Trash? This cannot be undone.
+                <span className="item-manager__confirm-actions">
+                  <button type="button" className="danger-button danger-button--sm" onClick={onEmptyTrash}>
+                    Delete for good
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setConfirmingEmpty(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              </p>
+            ) : !inTrash && confirmingAll ? (
+              <p className="banner banner--error" role="alert">
+                Move all {itemWord(rows.length)} to the Trash?
+                <span className="item-manager__confirm-actions">
+                  <button type="button" className="danger-button danger-button--sm" onClick={removeAll}>
+                    Delete all
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={() => setConfirmingAll(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              </p>
+            ) : (
+              <>
+                {inTrash && (
+                  <p className="field__hint">Deleted items stay here until you remove them for good.</p>
+                )}
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--sm item-manager__bulk"
+                  onClick={() => (inTrash ? setConfirmingEmpty(true) : setConfirmingAll(true))}
+                >
+                  {inTrash ? 'Empty trash' : 'Delete all'}
+                </button>
+              </>
+            )}
+          </div>
         )}
-
-        {confirmingRow?.repeating && (
-          <p className="field__hint">
-            This is the rule behind a repeating {confirmingRow.kind} — deleting it removes every
-            one of its occurrences.
-          </p>
-        )}
-
-        <p className="field__hint">
-          {inTrash
-            ? 'Deleted items stay here until you remove them for good — there is no expiry, so nothing disappears on its own.'
-            : 'A repeating task or event appears once here, as the rule itself. Skipping a single day of one is done on that day, in the Day, Week, or Month view. Deleted items go to the Trash.'}
-        </p>
       </div>
     </div>
   )

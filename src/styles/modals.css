@@ -525,60 +525,108 @@
 
 /* ========================================================== item index == */
 
-.item-manager__confirm-all {
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.item-manager__confirm-all-actions {
+/* A list modal is a column with a height — head, toolbar, the list, a foot — so
+   the list takes whatever the controls leave, rather than being capped at a
+   fraction of the screen and pushing the filters out of sight on a short one.
+   Written one class heavier than the shared `.modal__panel`, which every other
+   dialog is written against. The foot owns the panel's bottom padding. */
+.modal__panel.item-manager {
+  max-width: 640px;
+  height: min(720px, calc(100dvh - 40px));
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+/* Find it by name; narrow it by kind (the Trash, a place rather than a filter,
+   sits apart at the end); narrow it by tag or day. */
+.item-manager__toolbar {
   flex: none;
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
 }
 
-.item-manager__filters {
-  display: grid;
+.item-manager__trash {
+  margin-left: auto;
+}
+
+.item-manager__where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.item-manager__search {
-  margin: 10px 0 4px;
+.item-manager__tag {
+  width: auto;
+  max-width: 200px;
+}
+
+.item-manager .item-manager__dates {
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
 .item-manager__date {
-  max-width: 160px;
+  width: 150px;
+  flex: none;
 }
 
-/* Scrolls inside the panel rather than growing it: an account with two
-   hundred tasks must not push the filters off the top of the dialog. */
-.item-list {
-  display: grid;
-  gap: 2px;
-  max-height: 56dvh;
+/* The scroller. Its hairline above and the foot's below run the panel's full
+   width, so the rows' own hairlines meet them. */
+.item-manager__body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  margin: 8px -4px 12px;
-  padding: 0 4px;
+  overscroll-behavior: contain;
+  margin: 0 -18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.item-list {
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .item-list__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 6px 6px 6px 4px;
-  border-radius: var(--radius-sm);
-  min-height: 38px;
+  gap: 0 10px;
+  min-height: 52px;
+  padding: 2px 18px;
+}
+
+.item-list__row + .item-list__row {
+  border-top: 1px solid var(--color-border);
 }
 
 .item-list__row:hover {
   background: var(--color-surface-2);
 }
 
+/* The one leading slot: a task's checkbox, or an event's icon. */
+.item-list__lead {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+}
+
+.item-list__tick {
+  cursor: pointer;
+}
+
 .item-list__check {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
   accent-color: var(--color-text-primary);
   cursor: pointer;
-  flex: none;
 }
 
 .item-list__check:disabled {
@@ -586,15 +634,8 @@
   opacity: 0.4;
 }
 
-.item-list__check--spacer {
-  visibility: hidden;
-}
-
 .item-list__kind {
-  display: grid;
-  place-items: center;
   color: var(--color-text-muted);
-  flex: none;
 }
 
 .item-list__kind svg {
@@ -602,11 +643,24 @@
   height: 16px;
 }
 
+/* The title and its line are the way in. `min-width: 0` all the way down is what
+   lets a long title ellipsise instead of widening the row. */
 .item-list__main {
-  display: grid;
-  gap: 1px;
   flex: 1;
   min-width: 0;
+  display: grid;
+  gap: 1px;
+  padding: 7px 0;
+}
+
+.item-list__open {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .item-list__title {
@@ -624,13 +678,27 @@
 }
 
 .item-list__meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: block;
   font-size: var(--text-meta);
   color: var(--color-text-muted);
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The app's reset makes an svg a block, which would drop the mark onto a line of
+   its own above the text it belongs in front of. */
+.item-list__repeat {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.item-list__meta .tag-swatch {
+  display: inline-block;
+  margin-right: 4px;
 }
 
 .tag-swatch--sm {
@@ -645,6 +713,170 @@
   align-items: center;
   gap: 4px;
   flex: none;
+}
+
+/* Said under the row it is about, indented to the title. */
+.item-list__note {
+  flex-basis: 100%;
+  margin: 0 0 8px 38px;
+}
+
+/* The bulk delete, ruled off under the list; its question replaces it in place. */
+.item-manager__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.item-manager__bulk {
+  margin-left: auto;
+  flex: none;
+  white-space: nowrap;
+}
+
+.item-manager__foot .field__hint {
+  min-width: 0;
+}
+
+.item-manager__foot .banner {
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.item-manager__confirm-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+/* ---- on a phone: a sheet, not a card --------------------------------------- */
+
+/* The index is the whole job on a small screen, so it takes the whole screen:
+   edge to edge, no card, no radius, no shadow, the list filling what the head and
+   toolbar leave and scrolling by itself, the foot pinned (the Journal's note
+   list, which is also a column of full-bleed hairline rows). `modal--sheet` is the
+   reusable modifier; any list-shaped dialog can ask for it. */
+@media (max-width: 640px) {
+  .modal.modal--sheet {
+    padding: 0;
+    place-items: stretch;
+  }
+
+  .modal--sheet > .modal__panel.item-manager {
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .modal__panel.item-manager .modal__head {
+    top: 0;
+    margin: 0;
+    padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+  }
+
+  .item-manager__toolbar {
+    padding: 12px 16px;
+  }
+
+  /* One line that scrolls sideways, the way the Day view's free slots do, rather
+     than a fourth row of controls. */
+  .item-manager__where {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .item-manager__where::-webkit-scrollbar {
+    display: none;
+  }
+
+  .item-manager__where > *,
+  .item-manager__dates > * {
+    flex: none;
+  }
+
+  .item-manager__body,
+  .item-manager__foot {
+    margin-inline: 0;
+  }
+
+  .item-manager__foot {
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .item-list__row {
+    min-height: 56px;
+    padding: 2px 16px;
+  }
+
+  /* A finger, not a pointer. */
+  .item-manager .input,
+  .item-manager .ghost-button--sm,
+  .item-manager .danger-button--sm {
+    min-height: 44px;
+  }
+
+  .item-manager .filter-chip {
+    min-height: 40px;
+  }
+
+  .item-manager .icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .item-list__lead {
+    width: 44px;
+    height: 44px;
+    margin-left: -10px;
+  }
+
+  .item-list__check {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* All / Tasks / Events / Trash have to stay on one line on the narrowest phones,
+     or the Trash chip drops to a line of its own. */
+  .item-manager .item-manager__kinds {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .item-manager .item-manager__kinds .filter-chip {
+    padding-inline: 11px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 360px) {
+    .item-manager .item-manager__kinds .filter-chip {
+      padding-inline: 9px;
+    }
+  }
+
+  /* The confirmation takes the row's second line, so the title keeps its width. */
+  .item-list__row--confirming .item-list__confirm {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    padding-bottom: 8px;
+  }
+
+  .item-list__note {
+    margin-left: 44px;
+  }
 }
 
 /* ================================================================ repeat == */

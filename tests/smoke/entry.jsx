@@ -336,6 +336,10 @@ expect(
   'Item index can filter by tag',
   items.includes('Any tag') && items.includes('Work') && items.includes('Personal'),
 )
+// A row is the way in, so there is no Edit button repeated down it, and the foot no longer carries
+// a paragraph explaining what each row already shows.
+expect('Item index rows have no Edit button, and the foot no paragraph', !items.includes('>Edit<') && !items.includes('appears once here, as the rule itself'))
+expect('Item index asks for the full-screen sheet layout on a phone', items.includes('modal--sheet'))
 
 const itemDetail = render(
   <ItemDetail editor={{ mode: 'view', kind: 'task', task: taskWithChecklist }} onClose={noop} onEdit={noop} />,
