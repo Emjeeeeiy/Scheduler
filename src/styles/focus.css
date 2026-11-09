@@ -1,139 +1,161 @@
 /* =================================================================== focus == */
 
+/* Three bands, ruled off from one another by the shared `.stack` hairline: the
+   timer (the page), the task it is for, and what it has added up to. The shared
+   `.stack` padding is 18px, which suits a page of many small rows; three bands
+   take more, and that is overridden one class heavier (`.focus-page.stack …`)
+   rather than by loosening the shared selectors, which every page is written
+   against — the same arrangement the Dashboard makes. */
 .focus-page {
-  max-width: 560px;
+  --focus-pad: 24px;
+  max-width: 640px;
   margin: 0 auto;
 }
 
+@media (max-width: 640px) {
+  .focus-page {
+    --focus-pad: 18px;
+  }
+}
+
+.focus-page.stack > :not([hidden]):not(.modal) ~ :not([hidden]):not(.modal):not(.divided-row) {
+  padding-top: var(--focus-pad);
+}
+
+.focus-page.stack > :not([hidden]):not(.modal):not(.divided-row):not(:last-child) {
+  padding-bottom: var(--focus-pad);
+}
+
+/* ================================================================== timer == */
+
+/* The page's one hero moment, styled after the Dashboard's own: the same Glow
+   Neutral wash (the app's single sanctioned decorative echo), centred here rather
+   than corner-anchored since nothing else in the band competes for a corner. */
+.focus__timer {
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  background-image: radial-gradient(ellipse 65% 50% at 50% 38%, var(--color-glow-neutral), transparent 70%);
+}
+
+/* The title is the phase — what this page is about — with the round under it,
+   and the page's one header action at the other end. */
+.focus__head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.focus__heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.focus__phase {
+  font-size: var(--text-title);
+}
+
+.focus__round {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.focus__pips {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* One small circle per round of the cycle: filled when it is done, an Ink ring for
+   the one in progress, a hairline ring for those still to come. */
+.focus__pip {
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--color-baseline);
+  border-radius: 50%;
+}
+
+.focus__pip--done {
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+}
+
+.focus__pip--current {
+  border-color: var(--color-text-primary);
+}
+
+/* The lengths panel is ruled off above and below, so it reads as part of the
+   header that opened it rather than as a stray row over the readout. */
 .focus__settings {
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px 16px;
+  padding: 16px 0;
+  border-block: 1px solid var(--color-border);
+  text-align: left;
 }
 
-.focus__head-actions {
-  display: flex;
-  gap: 8px;
-  flex: none;
+/* `.field` is declared later (modals.css) with the same weight and sets a grid and a
+   bottom margin; naming the panel too is what lets these win, and the panel's own
+   `gap` spaces the fields, not each field's margin. */
+.focus__settings .field {
+  margin-bottom: 0;
 }
 
-.focus__autostart {
+/* One row, the label at the start and the box at the end, across both columns —
+   not a label stacked over a stray checkbox. */
+.focus__settings .focus__autostart {
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
   justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  cursor: pointer;
 }
 
 .focus__autostart input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0;
   accent-color: var(--color-text-primary);
   cursor: pointer;
 }
 
-.focus__tag-stats {
-  display: grid;
-  gap: 6px;
-  grid-column: 1 / -1;
-}
-
-.focus__tag-stats-row {
+/* The digits and the dial are one instrument, side by side. They used to be
+   stacked with a progress bar between them; the dial's rim carries that now. */
+.focus__readout {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: var(--text-item);
-}
-
-.focus__tag-stats-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--tag);
-  flex: none;
-}
-
-.focus__tag-stats-name {
-  flex: 1;
-}
-
-.focus__tag-stats-value {
-  color: var(--color-text-muted);
-  font-size: var(--text-meta);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
-}
-
-.focus__task-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.focus__task-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 200px;
-  max-width: 320px;
-}
-
-.focus__task-picker .input {
-  width: auto;
-  flex: 1;
-}
-
-.focus__task-open {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: var(--text-label);
-  color: var(--color-text-secondary);
-  text-decoration: underline;
-  cursor: pointer;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The page's one hero moment, styled after the Dashboard's own: same Glow
-   Neutral wash (the app's single sanctioned decorative echo), just centered
-   here instead of corner-anchored, since this section has no figure competing
-   for a corner the way the Dashboard's stat row does. */
-.focus__timer {
-  display: grid;
-  justify-items: center;
-  text-align: center;
-  gap: 4px;
-  padding: 36px 0 12px;
-  background-image: radial-gradient(ellipse 65% 55% at 50% 15%, var(--color-glow-neutral), transparent 70%);
-}
-
-.focus__phase {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-label);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  justify-content: center;
+  gap: 28px;
+  padding: 8px 0 4px;
 }
 
 .focus__clock {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-hero);
   font-weight: var(--font-weight-figure);
   line-height: 0.95;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-  margin-top: 2px;
 }
 
 .focus__stopwatch {
-  margin: 22px 0 4px;
+  flex: none;
+  width: 112px;
+  height: 112px;
   color: var(--color-text-primary);
 }
 
@@ -141,6 +163,13 @@
   fill: none;
   stroke: var(--color-border);
   stroke-width: 1.5;
+}
+
+/* How far through the round: an arc along the rim, filling clockwise from 12. */
+.focus__stopwatch-progress {
+  fill: none;
+  stroke: var(--color-text-primary);
+  stroke-width: 2.6;
 }
 
 .focus__stopwatch-tick {
@@ -164,16 +193,12 @@
   fill: currentColor;
 }
 
-.focus__track {
-  width: 100%;
-  max-width: 320px;
-  margin: 22px 0 28px;
-}
-
 .focus__controls {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
 .focus__controls .ghost-button {
@@ -190,13 +215,191 @@
   gap: 8px;
 }
 
+/* ================================================================== tasks == */
+
+.focus__tasks {
+  display: grid;
+  gap: 8px;
+}
+
+.focus__task-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.focus__task-picker .input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+/* Naming the task once, in the select, leaves this as plain "Open task": the way
+   into its editor, not a second copy of its title. */
+.focus__task-open {
+  justify-self: start;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.focus__task-open:hover {
+  color: var(--color-text-primary);
+}
+
+/* ================================================================== stats == */
+
+.focus__stats {
+  display: grid;
+  gap: 20px;
+}
+
+/* Three plain figures, the Dashboard's Trends idiom — a label over a number, no
+   tile and no rule. */
+.focus__stats .figures {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.focus__bytag {
+  display: grid;
+  gap: 8px;
+}
+
+.focus__tag-stats {
+  display: grid;
+  gap: 6px;
+}
+
+.focus__tag-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-item);
+}
+
+.focus__tag-stats-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tag);
+  flex: none;
+}
+
+.focus__tag-stats-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus__tag-stats-value {
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ============================================================ phone & tablet == */
+
+/* Below 900px the page becomes the screen rather than a column inside a padded
+   frame — the Dashboard's, the Schedule's and the Journal's own move. The frame
+   cancels the app's side padding (`--content-pad-x`), so each band's hairline runs
+   from one edge of the display to the other, and the content takes a gutter of its
+   own instead of stacking the page's padding on the frame's. */
+@media (max-width: 900px) {
+  .focus-page {
+    --focus-gutter: 24px;
+  }
+
+  .focus-page.frame {
+    margin-inline: calc(var(--content-pad-x) * -1);
+    padding-inline: 0;
+  }
+
+  .focus-page.stack > :not([hidden]):not(.modal) {
+    padding-inline: var(--focus-gutter);
+  }
+
+  /* The shell's header is empty and hidden here, so the page starts one short
+     step under the top bar. */
+  .app-content:has(.focus-page) .app__main {
+    margin-top: 8px;
+  }
+}
+
 @media (max-width: 640px) {
+  .focus-page {
+    --focus-gutter: 16px;
+  }
+
+  .focus-page.frame {
+    padding-block: 0;
+  }
+
+  .focus-page.stack > .focus__timer {
+    padding-top: 14px;
+  }
+
   .focus__clock {
     font-size: var(--text-hero-sm);
   }
 
+  .focus__readout {
+    gap: 18px;
+  }
+
   .focus__stopwatch {
-    margin: 18px 0 4px;
+    width: 88px;
+    height: 88px;
+  }
+
+  /* The one action on the screen is also the easiest thing to hit. */
+  .focus__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .focus__controls .primary-button,
+  .focus__controls .ghost-button {
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  .focus__toggle {
+    min-width: 0;
+  }
+
+  .focus__head .filter-chip {
+    min-height: 40px;
+  }
+
+  .focus__settings .input,
+  .focus__settings .focus__autostart {
+    min-height: 44px;
+  }
+
+  .focus__task-picker .input {
+    min-height: 44px;
+  }
+
+  .focus__task-picker .icon-button {
+    width: 44px;
+    height: 44px;
+    flex: none;
+  }
+
+  .focus__stats .figure dd {
+    font-size: var(--text-headline);
+  }
+
+  .focus__stats .figures {
+    gap: 12px;
   }
 }
-

@@ -1613,6 +1613,26 @@
   width: 210px;
   height: 72px;
 }
+.skel--dial {
+  width: 112px;
+  height: 112px;
+  flex: none;
+  border-radius: 50%;
+}
+.skel--pips {
+  width: 84px;
+  height: 9px;
+}
+@media (max-width: 640px) {
+  .skel--clock {
+    width: 168px;
+    height: 56px;
+  }
+  .skel--dial {
+    width: 88px;
+    height: 88px;
+  }
+}
 .view-skeleton .hero__load-fill {
   width: 100%;
   height: 100%;

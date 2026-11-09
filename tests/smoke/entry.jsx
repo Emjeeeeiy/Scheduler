@@ -164,6 +164,7 @@ const html = {
   month: render(<MonthCalendar focusKey={KEY} onFocusDay={noop} onCreate={noop} />),
   dashboard: render(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
   journal: render(<JournalView />),
+  focus: render(<FocusMode onEdit={noop} />),
 }
 
 const expect = (name, condition) => checks.push([name, Boolean(condition)])
@@ -189,6 +190,12 @@ expect('Journal has a quiet Trash entry with its count', /note-list__trash-link[
 expect('Journal groups the pinned note under a label', html.journal.includes('note-list__label') && html.journal.includes('>Pinned<') && html.journal.includes('>Recent<'))
 expect('Journal has no filter chips and no count line', !html.journal.includes('filter-chip') && !html.journal.includes('3 notes'))
 expect('Journal offers search, New note and Today', html.journal.includes('Search notes') && html.journal.includes('New note') && html.journal.includes('>Today<'))
+// The phase is the page's title, said once; the figures sit in an always-visible band.
+expect('Focus title is the phase, said once', html.focus.includes('>Focus session<') && !html.focus.includes('Focus mode'))
+expect('Focus draws the clock and the dial together', html.focus.includes('focus__clock') && html.focus.includes('focus__stopwatch'))
+expect('Focus shows its stats band without a button', html.focus.includes('focus__stats') && !html.focus.includes('Focus stats'))
+// The fixture records no focus sessions, so the band is its one quiet line, not three zeros.
+expect('Focus with no history says so in one line', html.focus.includes('Finish a round and your focus time shows up here.') && !html.focus.includes('Rounds today'))
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
 expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))

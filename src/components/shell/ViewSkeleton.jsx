@@ -38,6 +38,7 @@ const MONTH_CELLS = 7
 const STAT_TILES = 4
 const HERO_FACTS = 3
 const TREND_FIGURES = 4
+const FOCUS_FIGURES = 3
 const QUEUE_ROWS = 3
 const TILE_ROWS = 3
 const HOUR_MARKS = 9
@@ -496,51 +497,56 @@ function ReviewSkeleton() {
   )
 }
 
-/** Focus: the task picker, then the timer — phase, clock, progress track, and
-    the two controls. The stats and settings panels are left out because the
-    real view only draws them once they've been opened, and whether they are
-    open isn't knowable this early — a skeleton that guessed would promise a
-    panel that might not arrive. */
+/** Focus: the timer band (the phase and its pips, the digits beside the dial, the
+    controls), then the task, then three figures. */
 function FocusSkeleton() {
   return (
     <div className="view-skeleton focus-page frame stack">
-      <div className="section-head">
-        <div>
-          <h2 className="section-head__title">
-            <span className="skel skel--section-title skel--section-title--wide" />
-          </h2>
-          <p className="section-head__sub">
-            <span className="skel skel--section-sub skel--section-sub--wide" />
+      <section className="focus__timer">
+        <div className="focus__head">
+          <div className="focus__heading">
+            <h2 className="section-head__title focus__phase">
+              <span className="skel skel--phase" />
+            </h2>
+            <p className="focus__round">
+              <span className="skel skel--pips" />
+            </p>
+          </div>
+          <span className="skel skel--ghost-button" />
+        </div>
+        <div className="focus__readout">
+          <p className="focus__clock">
+            <span className="skel skel--clock" />
           </p>
+          <span className="skel skel--dial" />
         </div>
-        <div className="focus__head-actions">
-          <span className="skel skel--ghost-button" />
-          <span className="skel skel--ghost-button" />
-        </div>
-      </div>
-
-      <div className="focus__task-row">
-        <span className="field__label skel skel--field-label" />
-        <div className="focus__task-picker">
-          <span className="skel skel--input" />
-        </div>
-      </div>
-
-      <div className="focus__timer">
-        <p className="focus__phase">
-          <span className="skel skel--phase" />
-        </p>
-        <p className="focus__clock">
-          <span className="skel skel--clock" />
-        </p>
-        <span className="hero__load-track focus__track">
-          <span className="hero__load-fill skel" />
-        </span>
         <div className="focus__controls">
           <span className="skel skel--primary-button skel--primary-button--lg" />
           <span className="skel skel--ghost-button skel--ghost-button--tall" />
         </div>
-      </div>
+      </section>
+
+      <section className="focus__tasks">
+        <span className="field__label skel skel--field-label" />
+        <div className="focus__task-picker">
+          <span className="skel skel--input" />
+        </div>
+      </section>
+
+      <section className="focus__stats">
+        <dl className="figures">
+          {Array.from({ length: FOCUS_FIGURES }, (_, i) => (
+            <div key={i} className="figure">
+              <dt>
+                <span className="skel skel--tile-label" />
+              </dt>
+              <dd>
+                <span className="skel skel--tile-value" />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </div>
   )
 }

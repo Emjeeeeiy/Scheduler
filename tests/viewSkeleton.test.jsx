@@ -20,7 +20,7 @@ const LAYOUT = {
   week: ['.week', '.week__summary', '.week__head', '.week__allday', '.grid-body'],
   month: ['.month', '.month__head', '.month__grid', '.month__week', '.month__cell'],
   review: ['.review', '.chart', '.chart__columns', '.chart__bar', '.tag-bars', '.notes-list'],
-  focus: ['.focus-page', '.focus__task-row', '.focus__timer', '.focus__clock', '.focus__controls'],
+  focus: ['.focus-page', '.focus__timer', '.focus__head', '.focus__readout', '.focus__clock', '.focus__controls', '.focus__tasks', '.focus__stats'],
   // The Journal's own stylesheet is part of its lazy chunk, so its skeleton uses
   // classes from the main one (shell.css) rather than the page's real ones.
   journal: ['.journal-skel', '.journal-skel__list', '.journal-skel__row', '.journal-skel__page', '.journal-skel__sheet', '.note-list__head'],

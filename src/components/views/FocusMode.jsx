@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
-import { todayKey, weekKeys } from '@cadence/shared/date.js'
+import { durationLabel, todayKey, weekKeys } from '@cadence/shared/date.js'
 import { focusByTag, focusStatsFor } from '@cadence/shared/stats.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { showLocalNotification } from '@cadence/shared/notifications.js'
@@ -21,7 +21,7 @@ const PHASE_LABEL = { focus: 'Focus session', short: 'Short break', long: 'Long 
 const PHASE_FIELD = { focus: 'focusMin', short: 'shortMin', long: 'longMin' }
 
 const FIELDS = [
-  { key: 'focusMin', label: 'Focus' },
+  { key: 'focusMin', label: 'Focus round' },
   { key: 'shortMin', label: 'Short break' },
   { key: 'longMin', label: 'Long break' },
   { key: 'longEvery', label: 'Rounds before a long break' },
@@ -62,6 +62,8 @@ function notify(phase) {
 }
 
 const DIAL_CENTER = 50
+const DIAL_RADIUS = 47
+const RIM_LENGTH = 2 * Math.PI * DIAL_RADIUS
 const MAJOR_TICK_LENGTH = 10
 const MINOR_TICK_LENGTH = 5
 
@@ -80,13 +82,27 @@ function pointOnDial(angle, length) {
     motion is tied to the timer itself. It freezes exactly when the timer is
     paused and picks back up exactly when it resumes, because it reads
     `elapsedSeconds` off the same state driving the digital clock rather than
-    keeping a clock of its own. */
-function StopwatchFace({ elapsedSeconds, size = 128 }) {
+    keeping a clock of its own.
+
+    The rim carries the one thing the hand cannot: how far through the whole
+    round you are. The hand resets every minute, so for a 25-minute round it says
+    nothing about the 25; a thin arc along the rim, filling clockwise from 12,
+    does — which is also what a separate progress bar under the dial used to say. */
+function StopwatchFace({ elapsedSeconds, progress = 0, size = 128 }) {
   const hand = pointOnDial(((elapsedSeconds % 60) / 60) * 360, 41)
+  const filled = Math.min(1, Math.max(0, progress))
 
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} className="focus__stopwatch" aria-hidden="true">
-      <circle cx={DIAL_CENTER} cy={DIAL_CENTER} r={47} className="focus__stopwatch-face" />
+      <circle cx={DIAL_CENTER} cy={DIAL_CENTER} r={DIAL_RADIUS} className="focus__stopwatch-face" />
+      <circle
+        cx={DIAL_CENTER}
+        cy={DIAL_CENTER}
+        r={DIAL_RADIUS}
+        className="focus__stopwatch-progress"
+        strokeDasharray={`${RIM_LENGTH * filled} ${RIM_LENGTH}`}
+        transform={`rotate(-90 ${DIAL_CENTER} ${DIAL_CENTER})`}
+      />
       {Array.from({ length: 12 }, (_, i) => {
         const angle = i * 30
         const length = i % 3 === 0 ? MAJOR_TICK_LENGTH : MINOR_TICK_LENGTH
@@ -124,8 +140,9 @@ export function FocusMode({ onEdit }) {
     ...stored,
   }))
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [statsOpen, setStatsOpen] = useState(false)
   const [taskId, setTaskId] = useState(null)
+  const taskSelectId = useId()
+  const lengthsPanelId = useId()
 
   const [phase, setPhase] = useState('focus')
   const [completed, setCompleted] = useState(0)
@@ -331,95 +348,112 @@ export function FocusMode({ onEdit }) {
   const todayStats = focusStatsFor(focusSessions, [todayKey()])
   const weekStats = focusStatsFor(focusSessions, weekKeys(todayKey(), appSettings.weekStartsOn))
   const tagStats = focusByTag(focusSessions, tags)
+  const hasHistory = focusSessions.length > 0
+
+  /* One pip per round of the cycle: done, the one in progress, or still to come.
+     A long break is the end of the cycle, so all of them are done; a focus round
+     marks the next one current. A short break is between rounds, so none is. */
+  const cycleLength = settings.longEvery
+  const doneInCycle = phase === 'long' ? cycleLength : completed % cycleLength
+  const currentPip = phase === 'focus' ? doneInCycle : -1
+  const roundText = phase === 'long' ? 'Cycle complete' : `Round ${roundInCycle} of ${cycleLength}`
 
   return (
     <div className="focus-page frame stack">
-      <div className="section-head">
-        <div>
-          <h2 className="section-head__title">Focus mode</h2>
-          <p className="section-head__sub">
-            {phase === 'long'
-              ? `Cycle complete — ${settings.longEvery} rounds done`
-              : `Round ${roundInCycle} of ${settings.longEvery}`}
-            {completed > 0 && ` · ${completed} completed this session`}
-            {(todayStats.count > 0 || weekStats.count > 0) &&
-              ` · ${todayStats.minutes}m today · ${weekStats.minutes}m this week`}
-          </p>
-        </div>
-        <div className="focus__head-actions">
+      {/* Three bands, read top to bottom: the timer (the page), the task it is for,
+          and what the timer has added up to. The title is the phase — the thing
+          this page is about — rather than "Focus mode" over a second label that
+          says "Focus session". */}
+      <section className="focus__timer" aria-label="Timer">
+        <div className="focus__head">
+          <div className="focus__heading">
+            <h2 className="section-head__title focus__phase">
+              {running && <span className="now-next__dot" aria-hidden="true" />}
+              {PHASE_LABEL[phase]}
+            </h2>
+            <p className="focus__round">
+              <span className="focus__pips" aria-hidden="true">
+                {Array.from({ length: cycleLength }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`focus__pip${
+                      i < doneInCycle ? ' focus__pip--done' : i === currentPip ? ' focus__pip--current' : ''
+                    }`}
+                  />
+                ))}
+              </span>
+              <span className="focus__round-text">{roundText}</span>
+            </p>
+          </div>
           <button
             type="button"
-            className="ghost-button ghost-button--sm"
-            onClick={() => setStatsOpen((v) => !v)}
-          >
-            {statsOpen ? 'Close' : 'Focus stats'}
-          </button>
-          <button
-            type="button"
-            className="ghost-button ghost-button--sm"
+            className={`filter-chip${settingsOpen ? ' filter-chip--on' : ''}`}
+            aria-expanded={settingsOpen}
+            aria-controls={lengthsPanelId}
             onClick={() => setSettingsOpen((v) => !v)}
           >
-            {settingsOpen ? 'Close' : 'Session lengths'}
+            Session lengths
           </button>
         </div>
-      </div>
 
-      {statsOpen && (
-        <div className="focus__settings">
-          {tagStats.length === 0 ? (
-            <p className="empty empty--sm">
-              Complete a focus round and it'll start showing up here.
-            </p>
-          ) : (
-            <ul className="focus__tag-stats">
-              {tagStats.map((row) => (
-                <li key={row.id} className="focus__tag-stats-row">
-                  <span
-                    className="focus__tag-stats-dot"
-                    style={{ '--tag': row.tag.color }}
-                    aria-hidden="true"
-                  />
-                  <span className="focus__tag-stats-name">{row.tag.name}</span>
-                  <span className="focus__tag-stats-value">
-                    {row.minutes}m · {row.count} round{row.count === 1 ? '' : 's'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {settingsOpen && (
-        <div className="focus__settings">
-          {FIELDS.map((field) => (
-            <label className="field" key={field.key}>
-              <span className="field__label">{field.label}</span>
+        {settingsOpen && (
+          <div className="focus__settings" id={lengthsPanelId}>
+            {FIELDS.map((field) => (
+              <label className="field" key={field.key}>
+                <span className="field__label">{field.label}</span>
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max={field.key === 'longEvery' ? 12 : 180}
+                  value={settings[field.key]}
+                  onChange={(e) => updateField(field.key, e.target.value)}
+                />
+              </label>
+            ))}
+            <label className="field focus__autostart">
+              <span className="field__label">Auto-start next round</span>
               <input
-                className="input"
-                type="number"
-                min="1"
-                max={field.key === 'longEvery' ? 12 : 180}
-                value={settings[field.key]}
-                onChange={(e) => updateField(field.key, e.target.value)}
+                type="checkbox"
+                checked={settings.autoStart}
+                onChange={(e) => setSettings((s) => ({ ...s, autoStart: e.target.checked }))}
               />
             </label>
-          ))}
-          <label className="field focus__autostart">
-            <span className="field__label">Auto-start next round</span>
-            <input
-              type="checkbox"
-              checked={settings.autoStart}
-              onChange={(e) => setSettings((s) => ({ ...s, autoStart: e.target.checked }))}
-            />
-          </label>
-        </div>
-      )}
+          </div>
+        )}
 
-      <div className="focus__task-row">
-        <span className="field__label">Focusing on</span>
+        {/* The readout: the digits and the dial together, one instrument. */}
+        <div className="focus__readout">
+          <p className="focus__clock">{formatClock(secondsLeft)}</p>
+          <StopwatchFace elapsedSeconds={total - secondsLeft} progress={pct / 100} size={112} />
+        </div>
+
+        <div className="focus__controls">
+          <button
+            type="button"
+            className="primary-button primary-button--lg focus__toggle"
+            onClick={toggleRunning}
+          >
+            {running ? <PauseIcon className="button-icon" /> : <PlayIcon className="button-icon" />}
+            {running ? 'Pause' : secondsLeft === total ? 'Start' : 'Resume'}
+          </button>
+          <button type="button" className="ghost-button" onClick={reset}>
+            <ResetIcon className="button-icon" />
+            Reset
+          </button>
+        </div>
+      </section>
+
+      {/* Optional, so it sits under the timer rather than pushing it down. The
+          chosen task is named once, in the select; the old underlined copy of
+          its title is now a plain way into its editor. */}
+      <section className="focus__tasks" aria-label="Task">
+        <label className="field__label" htmlFor={taskSelectId}>
+          Focusing on
+        </label>
         <div className="focus__task-picker">
           <select
+            id={taskSelectId}
             className="input"
             value={selectedTaskId}
             onChange={(e) => setTaskId(e.target.value || null)}
@@ -447,39 +481,56 @@ export function FocusMode({ onEdit }) {
         </div>
         {task && (
           <button type="button" className="focus__task-open" onClick={() => onEdit?.(task)}>
-            {task.title}
+            Open task
           </button>
         )}
-      </div>
+      </section>
 
-      <div className="focus__timer">
-        <p className="focus__phase">
-          {running && <span className="now-next__dot" aria-hidden="true" />}
-          {PHASE_LABEL[phase]}
-        </p>
-        <p className="focus__clock">{formatClock(secondsLeft)}</p>
-
-        <StopwatchFace elapsedSeconds={total - secondsLeft} />
-
-        <span className="hero__load-track focus__track">
-          <span className="hero__load-fill" style={{ width: `${pct}%` }} />
-        </span>
-
-        <div className="focus__controls">
-          <button
-            type="button"
-            className="primary-button primary-button--lg focus__toggle"
-            onClick={toggleRunning}
-          >
-            {running ? <PauseIcon className="button-icon" /> : <PlayIcon className="button-icon" />}
-            {running ? 'Pause' : secondsLeft === total ? 'Start' : 'Resume'}
-          </button>
-          <button type="button" className="ghost-button" onClick={reset}>
-            <ResetIcon className="button-icon" />
-            Reset
-          </button>
-        </div>
-      </div>
+      {/* What the timer has added up to, always in view — it used to be a button
+          that opened a panel, plus a run-on line of the same numbers under the
+          title. */}
+      <section className="focus__stats" aria-label="Focus time">
+        {hasHistory ? (
+          <>
+            <dl className="figures focus__figures">
+              <div className="figure">
+                <dt>Today</dt>
+                <dd>{durationLabel(todayStats.minutes)}</dd>
+              </div>
+              <div className="figure">
+                <dt>This week</dt>
+                <dd>{durationLabel(weekStats.minutes)}</dd>
+              </div>
+              <div className="figure">
+                <dt>Rounds today</dt>
+                <dd>{todayStats.count}</dd>
+              </div>
+            </dl>
+            {tagStats.length > 0 && (
+              <div className="focus__bytag">
+                <p className="field__label">By tag</p>
+                <ul className="focus__tag-stats">
+                  {tagStats.slice(0, 5).map((row) => (
+                    <li key={row.id} className="focus__tag-stats-row">
+                      <span
+                        className="focus__tag-stats-dot"
+                        style={{ '--tag': row.tag.color }}
+                        aria-hidden="true"
+                      />
+                      <span className="focus__tag-stats-name">{row.tag.name}</span>
+                      <span className="focus__tag-stats-value">
+                        {durationLabel(row.minutes)} · {row.count} round{row.count === 1 ? '' : 's'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="empty empty--sm">Finish a round and your focus time shows up here.</p>
+        )}
+      </section>
 
       {alarmRinging && (
         <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && stopAlarm()}>
