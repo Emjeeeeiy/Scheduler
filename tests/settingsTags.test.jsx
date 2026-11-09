@@ -73,8 +73,15 @@ describe('the list', () => {
     render(<TagsSection />)
     expect(screen.getByRole('textbox', { name: 'Rename Work' }).value).toBe('Work')
     expect(screen.getByRole('textbox', { name: 'Rename Home' }).value).toBe('Home')
-    expect(screen.getByTitle('2 tasks').textContent).toBe('2')
-    expect(screen.getByTitle('1 tasks').textContent).toBe('1')
+    // A short sentence, not a bare number the row's hint had to explain.
+    expect(screen.getByText('2 tasks')).toBeTruthy()
+    expect(screen.getByText('1 task')).toBeTruthy()
+  })
+
+  it('does not need a paragraph to say what the count is, or how the next colour is picked', () => {
+    render(<TagsSection />)
+    expect(screen.queryByText(/The number is how many/)).toBeNull()
+    expect(screen.queryByText(/palette's own order/)).toBeNull()
   })
 
   it('renames a tag in place', () => {

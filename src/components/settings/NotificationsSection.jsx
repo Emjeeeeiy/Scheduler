@@ -93,99 +93,103 @@ export function NotificationsSection() {
         </div>
       </Row>
 
+      {/* The button is the control; what the browser and the server say about it,
+          and the two ways to check, sit under the row at its full width instead
+          of squeezed into the control column. */}
       <Row
         title="Push notifications"
-        hint={
-          'Reminders that arrive even when Cadence is closed or you\'re logged out: ahead of a task or event (your "Notify ahead of time"), when it starts, and a morning heads-up if anything is overdue.'
-        }
-      >
-        {push.checking ? (
-          <p className="field__hint">Checking whether this browser can receive push…</p>
-        ) : !push.supported ? (
-          <p className="field__hint">
-            This browser can&apos;t receive push notifications. Try Chrome, Edge or Firefox.
-            On iPhone or iPad, add Cadence to the Home Screen first (iOS 16.4+), open the
-            installed app, and turn push on there.
-          </p>
-        ) : push.denied ? (
-          <p className="field__hint">
-            Blocked at the browser level. Allow notifications for this site in your browser's
-            site settings, then reload.
-          </p>
-        ) : (
-          <div className="settings-actions">
-            <button
-              type="button"
-              className="ghost-button ghost-button--sm"
-              onClick={onTogglePush}
-              disabled={push.busy}
-            >
-              {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
-            </button>
-          </div>
-        )}
-        {push.subscribed && (
+        hint="Reminders that reach you even when Cadence is closed: ahead of a task or event, when it starts, and a morning heads-up if anything is overdue."
+        below={
           <>
-            {diagnostics.diagnosis === null ? (
-              <p className="field__hint">Checking with the server…</p>
-            ) : (
+            {push.checking ? (
+              <p className="field__hint">Checking whether this browser can receive push…</p>
+            ) : !push.supported ? (
+              <p className="field__hint">
+                This browser can&apos;t receive push notifications. Try Chrome, Edge or Firefox.
+                On iPhone or iPad, add Cadence to the Home Screen first (iOS 16.4+), open the
+                installed app, and turn push on there.
+              </p>
+            ) : push.denied ? (
+              <p className="field__hint">
+                Blocked at the browser level. Allow notifications for this site in your browser's
+                site settings, then reload.
+              </p>
+            ) : null}
+            {push.subscribed && (
               <>
-                {pushStatus?.text && (
-                  <p className="field__hint" role="status">
-                    {pushStatus.text}
-                  </p>
+                {diagnostics.diagnosis === null ? (
+                  <p className="field__hint">Checking with the server…</p>
+                ) : (
+                  <>
+                    {pushStatus?.text && (
+                      <p className="field__hint" role="status">
+                        {pushStatus.text}
+                      </p>
+                    )}
+                    {pushStatus?.problem && (
+                      <p className="banner banner--error" role="alert">
+                        <WarningIcon className="banner__icon" /> {pushStatus.problem}
+                      </p>
+                    )}
+                  </>
                 )}
-                {pushStatus?.problem && (
-                  <p className="banner banner--error" role="alert">
-                    <WarningIcon className="banner__icon" /> {pushStatus.problem}
-                  </p>
-                )}
+                <div className="settings-actions">
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={onTestPush}
+                    disabled={diagnostics.testing}
+                  >
+                    {diagnostics.testing ? 'Sending…' : 'Send test notification'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button--sm"
+                    onClick={diagnostics.refresh}
+                    disabled={diagnostics.checking || diagnostics.testing}
+                  >
+                    Check again
+                  </button>
+                </div>
               </>
             )}
-            <div className="settings-actions">
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={onTestPush}
-                disabled={diagnostics.testing}
-              >
-                {diagnostics.testing ? 'Sending…' : 'Send test notification'}
-              </button>
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={diagnostics.refresh}
-                disabled={diagnostics.checking || diagnostics.testing}
-              >
-                Check again
-              </button>
-            </div>
+            <p className="field__hint">
+              Delivered within about a minute of the time. On a computer the browser has to be
+              running — it can sit in the background with no windows open.
+            </p>
+            {isBrave() && (
+              <p className="field__hint">
+                In Brave, push only works with &quot;Use Google Services for Push Messaging&quot;
+                turned on in brave://settings/privacy.
+              </p>
+            )}
           </>
-        )}
-        <p className="field__hint">
-          Delivered within about a minute of the time. On a computer the browser has to be
-          running — it can sit in the background with no windows open.
-        </p>
-        {isBrave() && (
-          <p className="field__hint">
-            In Brave, push only works with &quot;Use Google Services for Push Messaging&quot;
-            turned on in brave://settings/privacy.
-          </p>
+        }
+      >
+        {!push.checking && push.supported && !push.denied && (
+          <button
+            type="button"
+            className="ghost-button ghost-button--sm"
+            onClick={onTogglePush}
+            disabled={push.busy}
+          >
+            {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
+          </button>
         )}
       </Row>
 
-      <Row
-        title="Daily digest email"
-        hint="One email each morning with today's plan, anything overdue, and what's coming up. Needs the backend pieces in functions/ deployed; see README-functions.md."
-      >
-        <label className="checkbox-row">
+      {/* The row's title is the label, so the box carries no second line of the
+          same words — only an accessible name. (The digest needs the backend in
+          functions/ deployed; README-functions.md says how.) */}
+      <Row title="Daily digest email" hint="One email each morning with today's plan, anything overdue, and what's coming up.">
+        <label className="checkbox-row settings-check">
           <input
             type="checkbox"
+            aria-label="Email me a daily digest"
             checked={profile?.dailyDigestEnabled === true}
             disabled={digestBusy}
             onChange={(e) => onToggleDigest(e.target.checked)}
           />
-          Email me a daily digest
         </label>
       </Row>
     </>

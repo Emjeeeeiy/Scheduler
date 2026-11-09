@@ -98,6 +98,9 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 const rowTitles = () => screen.getAllByRole('heading', { level: 4 }).map((el) => el.textContent)
+/** A nav button's name is its category; the line under it on a phone is its description. */
+const navNames = (nav) => within(nav).getAllByRole('button').map((el) => el.getAttribute('aria-label'))
+const currentNav = (nav) => within(nav).getByRole('button', { current: true }).getAttribute('aria-label')
 
 describe('the page', () => {
   it('is titled, in a frame, and not a dialog', () => {
@@ -112,7 +115,7 @@ describe('the page', () => {
   it('lists the categories in a side navigation, in order', () => {
     render(<SettingsView />)
     const nav = screen.getByRole('navigation', { name: 'Settings sections' })
-    const labels = within(nav).getAllByRole('button').map((el) => el.textContent)
+    const labels = navNames(nav)
     expect(labels).toEqual(['General', 'Appearance', 'Account', 'Tags', 'Notifications', 'Keyboard', 'Your data'])
     expect(labels).toEqual(SETTINGS_SECTIONS.map((section) => section.label))
   })
@@ -120,14 +123,23 @@ describe('the page', () => {
   it('opens on General and marks it as the current category', () => {
     render(<SettingsView />)
     const nav = screen.getByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('button', { current: true }).textContent).toBe('General')
+    expect(currentNav(nav)).toBe('General')
     expect(screen.getByRole('heading', { level: 3, name: 'General' })).toBeTruthy()
   })
 
-  it('shows one category at a time, titled and described', () => {
+  it('says what each category holds once, where you choose it, and not again beside its panel', () => {
+    render(<SettingsView />)
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' })
+    // The blurb is the nav item's description (drawn under its name on a phone)...
+    expect(within(nav).getByRole('button', { name: 'General', description: /Where Cadence opens/ })).toBeTruthy()
+    expect(screen.getAllByText(/Where Cadence opens/)).toHaveLength(1)
+    // ...and the page has no sub line restating the navigation.
+    expect(screen.queryByText(/How Cadence looks and behaves/)).toBeNull()
+  })
+
+  it('shows one category at a time, titled', () => {
     render(<SettingsView />)
     expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(1)
-    expect(screen.getByText(/Where Cadence opens/)).toBeTruthy()
     // Another category's controls are not on the page.
     expect(screen.queryByRole('group', { name: 'Theme' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Delete account/ })).toBeNull()
@@ -139,7 +151,7 @@ describe('the page', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Appearance' })).toBeTruthy()
     expect(screen.getByRole('group', { name: 'Theme' })).toBeTruthy()
     expect(screen.queryByRole('combobox', { name: 'Landing view' })).toBeNull()
-    expect(within(screen.getByRole('navigation', { name: 'Settings sections' })).getByRole('button', { current: true }).textContent).toBe('Appearance')
+    expect(currentNav(screen.getByRole('navigation', { name: 'Settings sections' }))).toBe('Appearance')
   })
 
   it('can be controlled from outside, which is how the avatar menu and the palette land on a category', () => {
@@ -162,10 +174,10 @@ describe('what each category holds', () => {
   it.each([
     ['general', ['Landing view', 'Week starts on', 'Working hours']],
     ['appearance', ['Theme']],
-    ['account', ['Photo', 'Email', 'Sign-in method', 'Delete account']],
+    ['account', ['Photo', 'Sign-in', 'Delete account']],
     ['tags', ['Your tags', 'New tag']],
     ['notifications', ['Notify ahead of time', 'Push notifications', 'Daily digest email']],
-    ['keyboard', ['Keyboard shortcuts']],
+    ['keyboard', ['Shortcuts']],
     ['data', ['Backup and restore', 'Export for other tools']],
   ])('%s', (section, titles) => {
     render(<SettingsView section={section} />)
@@ -183,6 +195,32 @@ describe('what each category holds', () => {
     render(<SettingsView section="general" />)
     expect(rowTitles()).toEqual(['Landing view', 'Week starts on', 'Working hours', 'Templates', 'Install'])
     expect(screen.getByText(/Weekly review/)).toBeTruthy()
+  })
+
+  it('does not say a row\'s name twice: the digest row\'s checkbox is named, not captioned', () => {
+    render(<SettingsView section="notifications" />)
+    expect(screen.getByRole('checkbox', { name: 'Email me a daily digest' })).toBeTruthy()
+    expect(screen.queryByText('Email me a daily digest')).toBeNull()
+    // And the developer's note about deploying the backend is not shown to the person using the app.
+    expect(screen.queryByText(/functions\//)).toBeNull()
+    expect(screen.queryByText(/README-functions/)).toBeNull()
+  })
+
+  it('sets what a control reports or caveats under its row, not inside the control column', () => {
+    const { container } = render(<SettingsView section="data" />)
+    const rows = [...container.querySelectorAll('.settings-row')]
+    expect(rows).toHaveLength(2)
+    for (const row of rows) {
+      expect(row.querySelector(':scope > .settings-row__below .field__hint')).toBeTruthy()
+      expect(row.querySelector('.settings-row__control .field__hint')).toBeNull()
+    }
+  })
+
+  it('keeps the panel heading in the outline, and draws the page title alone', () => {
+    const { container } = render(<SettingsView section="tags" />)
+    expect(screen.getByRole('heading', { level: 3, name: 'Tags' }).classList.contains('settings-panel__title')).toBe(true)
+    expect(container.querySelector('.settings-panel__head')).toBeNull()
+    expect(container.querySelector('.section-head__sub')).toBeNull()
   })
 
   it('still changes the settings it always did', () => {
@@ -283,7 +321,7 @@ describe('on a phone: a list, then a screen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Keyboard' }))
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     const nav = screen.getByRole('navigation', { name: 'Settings sections' })
-    expect(within(nav).getByRole('button', { current: true }).textContent).toBe('Keyboard')
+    expect(currentNav(nav)).toBe('Keyboard')
   })
 
   it('has every category as a row and a Back button, whichever screen shows', () => {

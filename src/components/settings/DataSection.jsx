@@ -107,6 +107,11 @@ export function DataSection() {
       <Row
         title="Backup and restore"
         hint="Every task, event, tag, and journal note, as a plain JSON file — a backup, or a way to move between accounts."
+        below={
+          <p className="field__hint">
+            Importing adds to what's already here — it never replaces or removes anything.
+          </p>
+        }
       >
         <div className="settings-actions">
           <button
@@ -136,14 +141,17 @@ export function DataSection() {
             aria-label="Choose a Cadence export file"
           />
         </div>
-        <p className="field__hint">
-          Importing adds to what's already here — it never replaces or removes anything.
-        </p>
       </Row>
 
       <Row
         title="Export for other tools"
         hint="A spreadsheet table, or a calendar file to import into Google Calendar, Apple Calendar, or Outlook. Both are one-way — only the JSON export above can be imported back into Cadence."
+        below={
+          <p className="field__hint">
+            A repeating item exports as its rule, not as one row per day. Tasks with no date are
+            left out of the calendar file, since an entry has to land somewhere.
+          </p>
+        }
       >
         <div className="settings-actions">
           <button
@@ -163,10 +171,6 @@ export function DataSection() {
             Calendar (.ics)
           </button>
         </div>
-        <p className="field__hint">
-          A repeating item exports as its rule, not as one row per day. Tasks with no date are
-          left out of the calendar file, since an entry has to land somewhere.
-        </p>
       </Row>
     </>
   )

@@ -80,10 +80,7 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
   return (
     <div className="settings-page frame stack" data-mobile-screen={showDetail ? 'detail' : 'list'}>
       <div className="section-head">
-        <div>
-          <h2 className="section-head__title">Settings</h2>
-          <p className="section-head__sub">How Cadence looks and behaves, your account, and your data.</p>
-        </div>
+        <h2 className="section-head__title">Settings</h2>
       </div>
 
       <div className="settings-layout divided-row">
@@ -96,9 +93,22 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
                 type="button"
                 className={`settings-nav__item${on ? ' settings-nav__item--active' : ''}`}
                 aria-current={on ? 'true' : undefined}
+                /* The name stays the category; what is in it is the description.
+                   On a phone the blurb is drawn under the name, which would
+                   otherwise become part of it. */
+                aria-label={item.label}
+                aria-describedby={`settings-blurb-${item.id}`}
                 onClick={() => choose(item.id)}
               >
-                {item.label}
+                <span className="settings-nav__text">
+                  <span className="settings-nav__label">{item.label}</span>
+                  {/* Said here, where you choose, and nowhere else — beside the
+                      panel the highlighted item already says where you are. Only
+                      drawn on a phone. */}
+                  <span className="settings-nav__blurb" id={`settings-blurb-${item.id}`}>
+                    {item.blurb}
+                  </span>
+                </span>
                 {/* Only drawn on a phone, where each row opens a screen. */}
                 <ChevronRightIcon className="settings-nav__chevron" aria-hidden="true" />
               </button>
@@ -112,12 +122,11 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
             <ChevronLeftIcon className="settings-back__icon" aria-hidden="true" />
             Settings
           </button>
-          <header className="settings-panel__head">
-            <h3 className="settings-panel__title" id="settings-panel-title">
-              {current.label}
-            </h3>
-            <p className="field__hint">{current.blurb}</p>
-          </header>
+          {/* The screen's title on a phone; beside the navigation it is visually
+              hidden (the highlighted item says it) but stays in the outline. */}
+          <h3 className="settings-panel__title" id="settings-panel-title">
+            {current.label}
+          </h3>
           <div className="settings-panel__rows">
             <Panel />
           </div>

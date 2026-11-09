@@ -165,6 +165,7 @@ const html = {
   dashboard: render(<Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />),
   journal: render(<JournalView />),
   focus: render(<FocusMode onEdit={noop} />),
+  settings: render(<SettingsView section="account" />),
 }
 
 const expect = (name, condition) => checks.push([name, Boolean(condition)])
@@ -196,6 +197,12 @@ expect('Focus draws the clock and the dial together', html.focus.includes('focus
 expect('Focus shows its stats band without a button', html.focus.includes('focus__stats') && !html.focus.includes('Focus stats'))
 // The fixture records no focus sessions, so the band is its one quiet line, not three zeros.
 expect('Focus with no history says so in one line', html.focus.includes('Finish a round and your focus time shows up here.') && !html.focus.includes('Rounds today'))
+// Settings: the page title alone, the categories each with their line, rows with their
+// control at the end, and the account's email and sign-in method said once.
+expect('Settings is titled "Settings", with no sub line', html.settings.includes('>Settings<') && !html.settings.includes('section-head__sub'))
+expect('Settings lists its seven categories with what is in each', (html.settings.match(/settings-nav__blurb/g) ?? []).length === 7)
+expect('Settings account is Photo, Sign-in and Delete', ['>Photo<', '>Sign-in<', '>Delete account<'].every((t) => html.settings.includes(t)) && !html.settings.includes('Sign-in method') && !html.settings.includes('Connected'))
+expect('Settings Account shows the signed-in email once', (html.settings.match(/settings-identity__email/g) ?? []).length === 1)
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
 expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))

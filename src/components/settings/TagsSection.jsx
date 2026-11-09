@@ -222,7 +222,7 @@ export function TagsSection() {
         hint={
           confirming
             ? 'Deleting a tag keeps its tasks — they simply become untagged.'
-            : 'Rename a tag right in the list. Edit opens its colour, icon, the tag it files under, and a weekly goal. The number is how many tasks use it.'
+            : 'Rename a tag in place. Edit sets its colour, icon, the tag it files under, and a weekly goal.'
         }
       >
         {tags.length === 0 ? (
@@ -247,6 +247,9 @@ export function TagsSection() {
                     aria-label={`Rename ${tag.name}`}
                     maxLength={40}
                   />
+                  <span className="tag-list__count">
+                    {countFor(tag.id)} {countFor(tag.id) === 1 ? 'task' : 'tasks'}
+                  </span>
                   <button
                     type="button"
                     className="ghost-button ghost-button--sm"
@@ -255,9 +258,6 @@ export function TagsSection() {
                   >
                     {editingId === tag.id ? 'Close' : 'Edit'}
                   </button>
-                  <span className="tag-list__count" title={`${countFor(tag.id)} tasks`}>
-                    {countFor(tag.id)}
-                  </span>
                   {confirming === tag.id ? (
                     <span className="tag-list__confirm">
                       <button
@@ -322,7 +322,7 @@ export function TagsSection() {
         )}
       </Row>
 
-      <Row wide title="New tag" hint="The next unused colour is picked for you, in the palette's own order.">
+      <Row wide title="New tag">
         <form className="tag-add" onSubmit={onAdd}>
           <div className="tag-add__row">
             <TagGlyph

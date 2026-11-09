@@ -4,7 +4,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { fileToAvatarDataUri } from '../../lib/image.js'
 import { unsubscribePush } from '../../lib/pushSubscription.js'
-import { CameraIcon, CheckIcon, GoogleIcon, TrashIcon } from '../icons.jsx'
+import { CameraIcon, GoogleIcon, TrashIcon } from '../icons.jsx'
 import { Row } from './SettingsParts.jsx'
 
 const PROVIDER_LABEL = {
@@ -149,7 +149,11 @@ export function AccountSection() {
 
   return (
     <>
-      <Row title="Photo" hint="Shown on your account button in the sidebar.">
+      <Row
+        title="Photo"
+        hint="Shown on your account button in the sidebar."
+        below={photoError ? <p className="field__hint field__hint--error">{photoError}</p> : null}
+      >
         <div className="profile__photo-row">
           <span className="avatar avatar--lg">
             {photoSrc ? (
@@ -183,32 +187,25 @@ export function AccountSection() {
             />
           </div>
         </div>
-        {photoError && <p className="field__hint field__hint--error">{photoError}</p>}
       </Row>
 
+      {/* The email and how you sign in are one fact, so one row: the address, and
+          under it the method. (They were two rows and a green "Connected" badge,
+          which is true of whatever you are signed in with.) */}
       <Row
-        title="Email"
-        hint={
-          providerId === 'google.com'
-            ? 'Your email comes from the Google account you sign in with.'
-            : 'The email behind your account.'
-        }
+        title="Sign-in"
+        hint={providerId === 'google.com' ? 'Your email comes from the Google account you sign in with.' : undefined}
       >
-        <p className="detail-field__value">{email ?? '—'}</p>
-      </Row>
-
-      <Row title="Sign-in method">
-        <div className="profile__provider">
-          {providerId === 'google.com' ? (
-            <GoogleIcon />
-          ) : (
-            <span className="profile__provider-mark" aria-hidden="true" />
-          )}
-          <span className="profile__provider-name">{providerLabel}</span>
-          <span className="status-badge status-badge--good">
-            <CheckIcon />
-            Connected
-          </span>
+        <div className="settings-identity">
+          <p className="settings-identity__email">{email ?? '—'}</p>
+          <p className="profile__provider">
+            {providerId === 'google.com' ? (
+              <GoogleIcon />
+            ) : (
+              <span className="profile__provider-mark" aria-hidden="true" />
+            )}
+            <span className="profile__provider-name">{providerLabel}</span>
+          </p>
         </div>
       </Row>
 

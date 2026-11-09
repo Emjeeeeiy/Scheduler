@@ -60,8 +60,9 @@ export function KeyboardSection() {
 
   return (
     <Row
-      title="Keyboard shortcuts"
-      hint="Single keys, active when you're not typing in a field. Click one and press the key you want; Escape cancels. Binding a key another action already uses swaps the two."
+      wide
+      title="Shortcuts"
+      hint="Single keys, active when you're not typing in a field. Click one and press the key you want; Escape cancels. A key another action uses swaps the two."
     >
       <ul className="shortcut-list">
         {SHORTCUT_ACTIONS.map((action) => (

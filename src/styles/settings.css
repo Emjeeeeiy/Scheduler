@@ -1,26 +1,41 @@
 /* ============================================================ settings page == */
 
 /* The page is a `.frame.stack` like Focus and the Dashboard: a hairline between
-   its blocks. Below the title it is one
-   `.divided-row` — the section navigation, a hairline, and the open panel —
-   which is the same device the Dashboard uses between its cards. What this file
-   adds is only the shape of that navigation and of a settings row. Everything
-   inside a control (chips, fields, buttons, the shortcut list, the tag editor)
-   is the app's existing styling; nothing here re-skins it. */
+   its blocks. Below the title it is one `.divided-row` — the section navigation,
+   a hairline, and the open panel — the device the Dashboard uses between its
+   cards. What this file adds is only the shape of that navigation and of a
+   settings row. Everything inside a control (chips, fields, buttons, the shortcut
+   list, the tag editor) is the app's existing styling; nothing here re-skins it
+   beyond fitting it to a row and, on a phone, to a finger. */
 .settings-page {
-  max-width: 1040px;
+  --settings-gutter: 24px;
+  max-width: 960px;
   margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .settings-page {
+    --settings-gutter: 16px;
+  }
+}
+
+/* The title stands alone — the navigation under it already says what the page is
+   for — so it takes a short step to the hairline, not the shared 18px plus the
+   head's own margin. One class heavier than the shared `.stack` rule. */
+.settings-page.stack > .section-head:not([hidden]):not(.divided-row):not(:last-child) {
+  margin-bottom: 0;
+  padding-bottom: 14px;
 }
 
 .settings-layout {
   display: grid;
-  grid-template-columns: 188px minmax(0, 1fr);
+  grid-template-columns: 176px minmax(0, 1fr);
 }
 
 /* ------------------------------------------------------------------- the nav -- */
 
 /* The sidebar's own row idiom (see `.sidebar__link`): quiet text, a surface
-   step on hover, and the current one on the same surface step with ink text and
+   step on hover, and the current one on that same surface step with ink text and
    the heavier weight — no accent, no fill. Sticky, so a long panel (the tags)
    keeps its navigation in view. */
 .settings-nav {
@@ -32,8 +47,15 @@
   top: 16px;
 }
 
+/* The cell's own 18px of top padding puts the first item's text a step below the
+   first row's title; this lines the two up. */
+.settings-page .settings-layout.divided-row > .settings-nav {
+  padding-top: 10px;
+}
+
 .settings-nav__item {
   width: 100%;
+  display: block;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -56,8 +78,16 @@
   font-weight: var(--font-weight-title);
 }
 
-/* Drawn only on a phone, where each row opens a screen (see the media query at
-   the end). The markup is the same at every size. */
+.settings-nav__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Said where you choose a category, on a phone, and nowhere else: beside the
+   panel the highlighted item already says where you are. The markup is the same
+   at every size. */
+.settings-nav__blurb,
 .settings-nav__chevron,
 .settings-back {
   display: none;
@@ -67,54 +97,55 @@
 
 .settings-panel {
   display: grid;
-  gap: 4px;
   align-content: start;
   min-width: 0;
 }
 
-.settings-panel__head {
-  display: grid;
-  gap: 2px;
-  padding-bottom: 4px;
-}
-
+/* The screen's title on a phone. Beside the navigation it is not drawn — the
+   highlighted item is the title — but it stays in the outline for a screen reader. */
 .settings-panel__title {
-  font-size: var(--text-body);
+  font-size: var(--text-title);
   font-weight: var(--font-weight-title);
   color: var(--color-text-primary);
 }
 
-/* ------------------------------------------------------------------- rows -- */
+@media (min-width: 901px) {
+  .settings-panel__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 
-/* A row is a hairline-divided band, as everywhere else in the app. The two
-   columns are 5:7 so the explanation and the control both have room; the
-   explanation column is the one that wraps, and stays readable down to a few
-   words a line before the row stacks. */
-.settings-row {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 8px 32px;
-  align-items: start;
-  padding: 16px 0;
+  /* The rows start where the navigation does, not a second 18px under the
+     divided-row's own padding. */
+  .settings-page .settings-layout.divided-row > .settings-panel {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 }
 
-.settings-row:first-child {
-  border-top: 1px solid var(--color-border);
+/* ------------------------------------------------------------------- rows -- */
+
+/* A row is a hairline-divided band: the setting's name and one line about it at
+   the left, its control at the right edge — a column of names and a column of
+   values, so the eye runs down each. A hint is held to a readable measure
+   rather than the width of whatever column it is in. */
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 32px;
+  align-items: center;
+  padding: 18px 0;
 }
 
 .settings-row + .settings-row {
   border-top: 1px solid var(--color-border);
-}
-
-.settings-panel__rows > .settings-row:last-child {
-  padding-bottom: 0;
-}
-
-/* A setting whose control is a whole list or form: the explanation above it and
-   the control across the full width, instead of squeezed into the right column. */
-.settings-row--wide {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
 }
 
 .settings-row__text {
@@ -122,6 +153,18 @@
   gap: 2px;
   align-content: start;
   min-width: 0;
+}
+
+.settings-row__text .field__hint {
+  max-width: 52ch;
+}
+
+/* A setting whose control is a whole list or form: the explanation above it and
+   the control across the full width, instead of squeezed into the right edge. */
+.settings-row--wide {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
 }
 
 /* Name-versus-detail (DESIGN.md): the setting's name in the item weight and
@@ -136,24 +179,44 @@
   color: var(--color-critical-text);
 }
 
-/* Left-aligned and content-sized: a control is never stretched to the column
-   just because it is a grid child. Fields that should fill (the shortcut list,
-   the working-hours pair) say so themselves below. */
+/* At the right edge and content-sized: a control is never stretched to the
+   column just because it is a grid child. */
 .settings-row__control {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  justify-items: start;
   min-width: 0;
 }
 
 .settings-row--wide .settings-row__control {
+  display: grid;
+  justify-content: stretch;
   justify-items: stretch;
 }
 
-.settings-row__control > .input,
+/* What the control reports or caveats, at the row's full width underneath. */
+.settings-row__below {
+  grid-column: 1 / -1;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.settings-row__below .field__hint {
+  max-width: 64ch;
+}
+
+.settings-row__control > .input {
+  width: 220px;
+  max-width: 100%;
+}
+
 .settings-row__control > .field-row {
-  width: 100%;
-  max-width: 360px;
+  grid-template-columns: repeat(2, 144px);
+  gap: 12px;
 }
 
 /* Their own spacing comes from the row's `gap`, not the margins they carry for
@@ -169,25 +232,79 @@
 .settings-row__control .shortcut-list,
 .settings-row__control .tag-list {
   width: 100%;
-  max-width: 360px;
+}
+
+.settings-row__control .shortcut-list {
+  max-width: 420px;
 }
 
 /* The tag list and its add form are the content of their rows, not a boxed
    thing inside one: full width, and the add form's own top rule (it had one to
    separate it from the list in the modal) dropped, since the row already has it. */
-.settings-row--wide .settings-row__control .tag-list {
-  max-width: none;
-}
-
 .settings-row__control .tag-add {
   border-top: 0;
   padding-top: 0;
+}
+
+/* The count is a short sentence ("4 tasks"), not a bare numeral, so it is set in
+   the text face, and it sits before the buttons so they end the row. */
+.settings-page .tag-list__count {
+  min-width: 0;
+  font-family: inherit;
+  white-space: nowrap;
 }
 
 .settings-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* The email is the row's value and how you sign in is a line under it. */
+.settings-identity {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+  min-width: 0;
+}
+
+.settings-identity__email {
+  margin: 0;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.settings-identity .profile__provider {
+  margin: 0;
+  gap: 8px;
+}
+
+.settings-identity .profile__provider svg,
+.settings-identity .profile__provider-mark {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-identity .profile__provider-name {
+  flex: none;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-body);
+  color: var(--color-text-muted);
+}
+
+/* The delete confirmation is a few lines and two buttons: held to a column of its
+   own so a long sentence in it does not widen the control and squeeze the row. */
+.settings-row__control .profile__confirm {
+  max-width: 320px;
+}
+
+.settings-check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
 }
 
 /* ------------------------------------------------------------- narrow screens -- */
@@ -197,10 +314,36 @@
    is only the chosen category's panel with a Back button. Above 900px the
    attribute does nothing and the navigation sits beside the panel.
 
+   And the page stops being a padded frame inside the page and becomes the page —
+   the Dashboard's, the Schedule's, the Journal's and Focus's own move: the frame
+   cancels the app's side padding (`--content-pad-x`), so every hairline runs from
+   one edge of the display to the other, and the writing takes a gutter of its own.
+
    `.divided-row` pads every cell and rules the second one off at the left;
    four classes in these selectors so they win over it whatever order the
    sheets load in. */
 @media (max-width: 900px) {
+  .settings-page.frame {
+    margin-inline: calc(var(--content-pad-x) * -1);
+    padding: 0;
+  }
+
+  /* The frame's own padding is gone, so the title takes its own short step from
+     the top bar. */
+  .settings-page.stack > .section-head {
+    padding: 14px var(--settings-gutter) 0;
+  }
+
+  .settings-page.stack > .section-head:not([hidden]):not(.divided-row):not(:last-child) {
+    padding-bottom: 14px;
+  }
+
+  /* The shell's header is empty and hidden here, so the page starts one short
+     step under the top bar. */
+  .app-content:has(.settings-page) .app__main {
+    margin-top: 8px;
+  }
+
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -218,8 +361,8 @@
     border-top: none;
   }
 
-  /* The list screen: each category a full-width row with a hairline under it and
-     a chevron at the right edge, as the rows of any list that opens a page are. */
+  /* The list screen: each category a full-width row — its name, what is in it,
+     and a chevron — with a hairline under it from edge to edge. */
   .settings-page .settings-layout.divided-row > .settings-nav {
     position: static;
     gap: 0;
@@ -231,12 +374,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    min-height: 52px;
-    padding: 12px 2px;
+    min-height: 64px;
+    padding: 12px var(--settings-gutter);
     border-radius: 0;
     border-bottom: 1px solid var(--color-border);
-    font-size: var(--text-body);
-    font-weight: var(--font-weight-item);
     color: var(--color-text-primary);
   }
 
@@ -244,12 +385,25 @@
     border-bottom: none;
   }
 
+  .settings-nav__label {
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-item);
+  }
+
+  .settings-nav__blurb {
+    display: block;
+    font-size: var(--text-meta);
+    font-weight: var(--font-weight-body);
+    line-height: 1.35;
+    color: var(--color-text-muted);
+  }
+
   /* On a list nothing is "current" — the surface step that marks the open
      category beside a panel would mark an arbitrary row here. */
   .settings-nav__item:hover,
   .settings-nav__item--active {
     background: transparent;
-    font-weight: var(--font-weight-item);
+    font-weight: var(--font-weight-label);
   }
 
   .settings-nav__chevron {
@@ -272,8 +426,8 @@
     gap: 2px;
     justify-self: start;
     min-height: 44px;
-    margin: -8px 0 0 -6px;
-    padding: 0 10px 0 4px;
+    margin: 0;
+    padding: 0 12px 0 calc(var(--settings-gutter) - 8px);
     background: transparent;
     border: none;
     border-radius: var(--radius-sm);
@@ -294,6 +448,10 @@
     flex: none;
   }
 
+  .settings-panel__title {
+    padding: 2px var(--settings-gutter) 16px;
+  }
+
   /* The loading skeleton's version of those rows: a short bar where a label
      goes, spaced as the real rows are. */
   .view-skeleton .settings-nav {
@@ -303,18 +461,112 @@
   .view-skeleton .settings-nav > .skel {
     width: 38%;
     height: 14px;
-    margin: 19px 2px;
+    margin: 25px var(--settings-gutter);
   }
 
+  /* Rows stack — name, line, control — and rule off from edge to edge, the first
+     one too, so the screen's title has a hairline under it. */
   .settings-row {
     grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 18px var(--settings-gutter);
+  }
+
+  .settings-panel__rows > .settings-row {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .settings-row__control {
+    justify-content: flex-start;
+  }
+
+  /* The one exception to stacking: a bare checkbox has no width of its own, so it
+     stays at the right of its row, level with the name, rather than hanging
+     alone under the sentence. */
+  .settings-row:has(> .settings-row__control > .settings-check) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .settings-row:has(> .settings-row__control > .settings-check) > .settings-row__control {
+    justify-content: flex-end;
+  }
+
+  .settings-row__text .field__hint,
+  .settings-row__below .field__hint {
+    max-width: none;
+  }
+
+  .settings-row__control > .input {
+    width: 100%;
+  }
+
+  /* Start and End side by side: two times fit a phone, and stacking them full
+     width made the pair look like two settings. */
+  .settings-row__control > .field-row {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .settings-row__control > .field-row .field {
+    margin-bottom: 0;
+  }
+
+  .settings-identity {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .settings-row__control .profile__confirm {
+    max-width: none;
+    width: 100%;
+  }
+
+  /* A finger, not a pointer: nothing a person has to hit is under 44px (a chip, one of
+     two to four in a row, 40). The swatches are 28px squares with room between them,
+     the icon cells 40px. */
+  .settings-page .input,
+  .settings-page .ghost-button--sm,
+  .settings-page .danger-button--sm,
+  .settings-page .danger-button,
+  .settings-page .shortcut-list__key,
+  .settings-page .icon-button {
+    min-height: 44px;
+  }
+
+  .settings-page .icon-button {
+    min-width: 44px;
+  }
+
+  .settings-page .filter-chip {
+    min-height: 40px;
+  }
+
+  .settings-page .settings-check {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .settings-page .tag-colors {
+    flex-wrap: wrap;
     gap: 10px;
   }
 
-  .settings-row__control > .input,
-  .settings-row__control > .field-row,
-  .settings-row__control .shortcut-list,
-  .settings-row__control .tag-list {
-    max-width: none;
+  .settings-page .tag-colors__dot {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+  }
+
+  .settings-page .tag-icons {
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 6px;
+  }
+
+  .settings-page .tag-list__item .input--flush {
+    min-width: 0;
   }
 }

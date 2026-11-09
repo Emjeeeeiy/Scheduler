@@ -75,19 +75,29 @@ beforeEach(() => {
 })
 
 describe('who you are', () => {
-  it('shows the email and how you sign in', () => {
-    render(<AccountSection />)
+  it('shows the email and how you sign in, as one row', () => {
+    const { container } = render(<AccountSection />)
     expect(screen.getByText('sam@example.com')).toBeTruthy()
     expect(screen.getByText(/comes from the Google account/)).toBeTruthy()
     expect(screen.getByText('Google')).toBeTruthy()
-    expect(screen.getByText('Connected')).toBeTruthy()
+    // One fact, one row: the address and the method are the same "Sign-in".
+    const row = screen.getByRole('heading', { name: 'Sign-in' }).closest('.settings-row')
+    expect(row.textContent).toContain('sam@example.com')
+    expect(row.textContent).toContain('Google')
+    expect(screen.queryByRole('heading', { name: 'Email' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Sign-in method' })).toBeNull()
+    // ...and no badge saying the method you are signed in with is connected.
+    expect(screen.queryByText('Connected')).toBeNull()
+    expect(container.querySelector('.status-badge')).toBeNull()
   })
 
-  it('says so for a username and password account', () => {
+  it('says so for a username and password account, with nothing to explain', () => {
     h.user = userFor('password')
     render(<AccountSection />)
     expect(screen.getByText('Username & password')).toBeTruthy()
-    expect(screen.getByText('The email behind your account.')).toBeTruthy()
+    expect(screen.getByText('sam@example.com')).toBeTruthy()
+    expect(screen.queryByText('The email behind your account.')).toBeNull()
+    expect(screen.queryByText(/comes from the Google account/)).toBeNull()
   })
 
   it('shows the first letter when there is no photo', () => {

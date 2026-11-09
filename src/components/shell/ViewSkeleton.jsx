@@ -593,14 +593,9 @@ function SettingsSkeleton() {
   return (
     <div className="view-skeleton settings-page frame stack" data-mobile-screen="list">
       <div className="section-head">
-        <div>
-          <h2 className="section-head__title">
-            <span className="skel skel--section-title" />
-          </h2>
-          <p className="section-head__sub">
-            <span className="skel skel--section-sub skel--section-sub--wide" />
-          </p>
-        </div>
+        <h2 className="section-head__title">
+          <span className="skel skel--section-title" />
+        </h2>
       </div>
 
       <div className="settings-layout divided-row">
@@ -611,12 +606,6 @@ function SettingsSkeleton() {
         </nav>
 
         <section className="settings-panel">
-          <header className="settings-panel__head">
-            <h3 className="settings-panel__title">
-              <span className="skel skel--section-title" />
-            </h3>
-            <span className="skel skel--section-sub" />
-          </header>
           <div className="settings-panel__rows">
             {Array.from({ length: 3 }, (_, row) => (
               <div key={row} className="settings-row">
