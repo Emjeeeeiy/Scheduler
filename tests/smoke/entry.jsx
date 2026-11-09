@@ -183,7 +183,11 @@ expect('Journal lists the live notes', html.journal.includes('Trip to Cebu') && 
 expect('Journal keeps trashed notes out of the main list', !html.journal.includes('Old draft'))
 expect('Journal puts the pinned note first', html.journal.indexOf('Trip to Cebu') < html.journal.indexOf('Reading list'))
 expect('Journal names an untitled note', html.journal.includes('>Untitled<'))
-expect('Journal counts the notes and the trash', html.journal.includes('3 notes') && /Trash[^<]*<span[^>]*count-pill[^>]*>1</.test(html.journal))
+// The list says each thing once: no count under the title, no filter chips; the trash
+// is a quiet line at the foot, and the pinned note is a labelled group.
+expect('Journal has a quiet Trash entry with its count', /note-list__trash-link[^>]*>Trash[^<]*1</.test(html.journal.replace(/<!-- -->/g, '')))
+expect('Journal groups the pinned note under a label', html.journal.includes('note-list__label') && html.journal.includes('>Pinned<') && html.journal.includes('>Recent<'))
+expect('Journal has no filter chips and no count line', !html.journal.includes('filter-chip') && !html.journal.includes('3 notes'))
 expect('Journal offers search, New note and Today', html.journal.includes('Search notes') && html.journal.includes('New note') && html.journal.includes('>Today<'))
 expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))

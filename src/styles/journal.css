@@ -1540,7 +1540,6 @@ a.ghost-button {
   }
 
   .note-list__head,
-  .note-list__search,
   .note-list__hint,
   .note-list > .banner,
   .note-list__label,
@@ -1553,6 +1552,18 @@ a.ghost-button {
 
   .note-list > .empty {
     padding-inline: var(--gutter);
+  }
+
+  /* A margin, not padding: the search icon is positioned inside this box, and
+     padding would leave it outside the field. */
+  .note-list__search {
+    margin-inline: var(--gutter);
+  }
+
+  /* The shell's header is empty and hidden here, so the page starts one short
+     step under the top bar rather than under the main area's 18px as well. */
+  .app-content:has(.journal) .app__main {
+    margin-top: 8px;
   }
 
   .note-surface .banner {
@@ -1627,6 +1638,7 @@ a.ghost-button {
 
   .note-list__actions .primary-button,
   .note-list__actions .ghost-button,
+  .note-list__head .danger-button,
   .note-list__back {
     min-height: 36px;
     font-size: var(--text-item);
@@ -1688,6 +1700,10 @@ a.ghost-button {
 @media (max-width: 640px) {
   .journal {
     --gutter: 16px;
+  }
+
+  .journal.frame {
+    padding-block: 0;
   }
 
   /* "Notes" and the two buttons share one row at a phone's width only if the
