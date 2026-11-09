@@ -114,7 +114,7 @@ describe('opening a note', () => {
     })
     expect(container.querySelector('.ProseMirror')).toBeTruthy()
     expect(actions.saveNote).not.toHaveBeenCalled()
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Saved')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Saved')
   })
 
   it('shows the title and starts a new note with the caret there', async () => {
@@ -133,7 +133,7 @@ describe('autosave', () => {
     act(() => {
       editor.commands.insertContent(' and more words')
     })
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Saving…')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Saving…')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800)
     })
@@ -145,7 +145,7 @@ describe('autosave', () => {
     expect(payload.hasDrawing).toBe(false)
     expect(payload.bytes).toBeGreaterThan(40)
     expect(JSON.stringify(jsonOf(payload))).toContain('and more words')
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Saved')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Saved')
   })
 
   it('saves a changed title', async () => {
@@ -183,7 +183,7 @@ describe('autosave', () => {
       await vi.advanceTimersByTimeAsync(800)
     })
     expect(actions.saveNote).not.toHaveBeenCalled()
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Not saved')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Not saved')
     expect(container.querySelector('.banner--error').textContent).toMatch(/too large to save/i)
     expect(editor.getText()).toContain('xxxxxxxxxx') // never truncated
   })
@@ -204,7 +204,7 @@ describe('autosave', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Not saved')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Not saved')
     expect(container.querySelector('.banner--error').textContent).toMatch(/no longer have access/i)
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
   })
@@ -219,7 +219,7 @@ describe('a body this version cannot read', () => {
     const editor = await editorOf(container)
     await waitFor(() => expect(container.querySelector('.banner--error')).toBeTruthy())
     expect(container.querySelector('.banner--error').textContent).toMatch(/read-only/i)
-    expect(container.querySelector('.note-meta__status').textContent).toBe('Read-only')
+    expect(container.querySelector('.note-head__status').textContent).toBe('Read-only')
     expect(screen.getByRole('button', { name: 'Download note data' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Bold' }).disabled).toBe(true)
     expect(screen.getByLabelText('Note title').readOnly).toBe(true)
@@ -240,12 +240,12 @@ describe('a body this version cannot read', () => {
     newer.body = normalizeNoteBody({ json: JSON.stringify(emptyDoc()), schemaVersion: 99 })
     const a = mount({ state: newer })
     await editorOf(a.container)
-    expect(a.container.querySelector('.note-meta__status').textContent).toBe('Read-only')
+    expect(a.container.querySelector('.note-head__status').textContent).toBe('Read-only')
     a.unmount()
 
     const b = mount({ state: bodyState('{this is not json') })
     await editorOf(b.container)
-    expect(b.container.querySelector('.note-meta__status').textContent).toBe('Read-only')
+    expect(b.container.querySelector('.note-head__status').textContent).toBe('Read-only')
     expect(b.actions.saveNote).not.toHaveBeenCalled()
   })
 })
@@ -341,7 +341,7 @@ describe('changes from another device', () => {
     const { container, update } = mount()
     const editor = await editorOf(container)
     update(bodyState(docOf(para('fine'), { type: 'holographicChart' })))
-    await waitFor(() => expect(container.querySelector('.note-meta__status').textContent).toBe('Read-only'))
+    await waitFor(() => expect(container.querySelector('.note-head__status').textContent).toBe('Read-only'))
     expect(editor.getText()).toBe('hello world')
   })
 })
@@ -485,5 +485,80 @@ describe('tables, images, printing and export', () => {
     expect(type).toContain('text/html')
     expect(html).toContain('<title>My note</title>')
     expect(html).toContain('<p>hello world</p>')
+  })
+})
+
+describe('exiting a note', () => {
+  const exitButton = () => screen.getByRole('button', { name: 'Exit note' })
+
+  it('writes what is pending before it closes, and then closes', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent(' and a late edit')
+    expect(actions.saveNote).not.toHaveBeenCalled() // still waiting on the idle timer
+    fireEvent.click(exitButton())
+    expect(actions.saveNote).toHaveBeenCalledTimes(1)
+    expect(actions.saveNote.mock.calls[0][1].json).toContain('and a late edit')
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes a title that was just typed', async () => {
+    const { container, actions, props } = mount()
+    await editorOf(container)
+    fireEvent.change(screen.getByLabelText('Note title'), { target: { value: 'A better name' } })
+    fireEvent.click(exitButton())
+    expect(actions.saveNote).toHaveBeenCalledTimes(1)
+    expect(actions.saveNote.mock.calls[0][1].title).toBe('A better name')
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes nothing, and just closes, when there is nothing to save', async () => {
+    const { container, actions, props } = mount()
+    await editorOf(container)
+    fireEvent.click(exitButton())
+    expect(actions.saveNote).not.toHaveBeenCalled()
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('the Back arrow keeps edits the same way', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent(' typed just before going back')
+    fireEvent.click(screen.getByRole('button', { name: 'Back to all notes' }))
+    expect(actions.saveNote.mock.calls[0][1].json).toContain('typed just before going back')
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays open, and says why, when the text cannot be saved — instead of losing it', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent('x'.repeat(2000)) // past the test's size limit
+    fireEvent.click(exitButton())
+    expect(props.onBack).not.toHaveBeenCalled()
+    expect(actions.saveNote).not.toHaveBeenCalled()
+    expect(screen.getByText(/hasn’t been closed/)).toBeTruthy()
+    // The text is still there to be fixed.
+    expect(editor.getText()).toContain('xxxx')
+  })
+
+  it('lets you leave anyway, as a separate choice', async () => {
+    const { container, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent('x'.repeat(2000))
+    fireEvent.click(exitButton())
+    fireEvent.click(screen.getByRole('button', { name: 'Exit anyway' }))
+    expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes once the oversized text has been cut back and can be saved', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent('x'.repeat(2000))
+    fireEvent.click(exitButton())
+    expect(props.onBack).not.toHaveBeenCalled()
+    editor.commands.setContent('<p>short again</p>')
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(actions.saveNote).toHaveBeenCalledTimes(1)
+    expect(props.onBack).toHaveBeenCalledTimes(1)
   })
 })

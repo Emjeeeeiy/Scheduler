@@ -8,7 +8,7 @@ import { formatBytes, formatEdited } from '../../lib/journalFormat.js'
 import { paperStyle, resolvePaperHex } from '../../lib/journalPaper.js'
 import { useOnline } from '../../lib/useOnline.js'
 import { useTheme } from '../../state/ThemeContext.jsx'
-import { ChevronLeftIcon, TrashIcon, WarningIcon } from '../icons.jsx'
+import { ChevronLeftIcon, CloseIcon, TrashIcon, WarningIcon } from '../icons.jsx'
 import { EditorToolbar } from './EditorToolbar.jsx'
 import { PushPinIcon, SidePanelIcon } from './journalIcons.jsx'
 import { ShortcutsHelp } from './ShortcutsHelp.jsx'
@@ -92,6 +92,8 @@ export function NoteSurface({
   const [helpOpen, setHelpOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const [title, setTitle] = useState(note.title)
+  // Set when an exit was refused because what is on screen could not be saved.
+  const [exitBlocked, setExitBlocked] = useState(false)
 
   const editorRef = useRef(null)
   const imageInputRef = useRef(null)
@@ -265,6 +267,23 @@ export function NoteSurface({
     remoteHandler.current?.(bodyState.body)
   }, [bodyState])
 
+  /* ------------------------------------------------------------------ exit -- */
+
+  /** Leave the note — and keep what was done to it. Anything pending (the text, the
+      title, the paper) is written *now*, not left to a timer that closing would
+      cancel. If the text cannot be saved (a note too large to store, a write that
+      threw) closing would lose it, so the note stays open and says so; leaving
+      anyway is then a separate, deliberate choice. */
+  function exit() {
+    autosave.flush()
+    flushPaper()
+    if (autosave.isDirty()) {
+      setExitBlocked(true)
+      return
+    }
+    onBack()
+  }
+
   /* ----------------------------------------------------------------- title -- */
 
   useEffect(() => {
@@ -351,19 +370,28 @@ export function NoteSurface({
 
   /* ---------------------------------------------------------------- status -- */
 
+  /* The header says one short word; the long explanation of an offline save is
+     for the foot under the sheet (and the word's tooltip), where there is room. */
   const syncing = useDelayedFlag(Boolean(bodyState.hasPendingWrites) && autosave.status === 'saved', 2500)
   let status = 'Saved'
+  let statusDetail = null
   if (contentError) status = 'Read-only'
   else if (autosave.status === 'dirty') status = 'Saving…'
   else if (autosave.status === 'error') status = 'Not saved'
-  else if (syncing) status = online ? 'Syncing…' : 'Saved on this device — syncs when you’re back online'
+  else if (syncing) {
+    if (online) status = 'Syncing…'
+    else {
+      status = 'Offline'
+      statusDetail = 'Saved on this device — syncs when you’re back online'
+    }
+  }
 
   const raw = bodyState.body?.json ?? ''
 
   return (
     <div className="note-surface">
       <div className="note-head">
-        <button type="button" className="icon-button note-head__back" aria-label="Back to all notes" onClick={onBack}>
+        <button type="button" className="icon-button note-head__back" aria-label="Back to all notes" onClick={exit}>
           <ChevronLeftIcon />
         </button>
         <label className="visually-hidden" htmlFor={titleId}>
@@ -388,9 +416,12 @@ export function NoteSurface({
           }}
         />
         <div className="note-head__actions">
+          <span className="note-head__status" role="status" aria-live="polite" title={statusDetail ?? undefined}>
+            {status}
+          </span>
           {onToggleList ? (
-            // Desktop only (hidden under 900px, where the list is its own screen):
-            // trades the list for a wider page.
+            // Two-pane widths only (hidden under 1200px, where the list is its own
+            // screen): trades the list for a wider page.
             <button
               type="button"
               className="icon-button note-head__panel"
@@ -415,18 +446,13 @@ export function NoteSurface({
           <button type="button" className="icon-button" aria-label="Move note to trash" title="Move to trash" onClick={onTrash}>
             <TrashIcon />
           </button>
+          {/* Two-pane widths only: below 1200px the Back arrow at the left is the
+              way out, and a second one would say the same thing twice. */}
+          <button type="button" className="icon-button note-head__exit" aria-label="Exit note" title="Exit note — your changes are kept" onClick={exit}>
+            <CloseIcon />
+          </button>
         </div>
       </div>
-
-      <p className="note-meta">
-        <span>Edited {formatEdited(note.updatedAt) || 'just now'}</span>
-        <span aria-hidden="true"> · </span>
-        <WordCount editor={editor} />
-        <span aria-hidden="true"> · </span>
-        <span className="note-meta__status" role="status" aria-live="polite">
-          {status}
-        </span>
-      </p>
 
       {contentError ? (
         <Banner
@@ -468,6 +494,23 @@ export function NoteSurface({
           }
         >
           {imageError}
+        </Banner>
+      ) : null}
+      {exitBlocked && autosave.status !== 'saved' ? (
+        <Banner
+          tone="error"
+          actions={
+            <>
+              <button type="button" className="ghost-button ghost-button--sm" onClick={exit}>
+                Try again
+              </button>
+              <button type="button" className="ghost-button ghost-button--sm" onClick={onBack}>
+                Exit anyway
+              </button>
+            </>
+          }
+        >
+          This note still has changes that couldn’t be saved, so it hasn’t been closed.
         </Banner>
       ) : null}
       {saveError ? (
@@ -526,6 +569,20 @@ export function NoteSurface({
           <EditorContent editor={editor} />
         </div>
       </div>
+
+      {/* What used to be a line between the title and the toolbar: the details of
+          the note, under the note. */}
+      <p className="note-foot">
+        <span>Edited {formatEdited(note.updatedAt) || 'just now'}</span>
+        <span aria-hidden="true"> · </span>
+        <WordCount editor={editor} />
+        {statusDetail ? (
+          <>
+            <span aria-hidden="true"> · </span>
+            <span>{statusDetail}</span>
+          </>
+        ) : null}
+      </p>
 
       {helpOpen ? <ShortcutsHelp onClose={() => setHelpOpen(false)} /> : null}
     </div>

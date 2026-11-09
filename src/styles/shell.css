@@ -1625,7 +1625,7 @@
    the page: a list column, then the note. */
 .journal-skel {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   align-items: start;
 }
 .journal-skel__list {
@@ -1633,9 +1633,14 @@
   gap: 12px;
   padding-right: 18px;
 }
+.journal-skel__action {
+  width: 108px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+}
 .journal-skel__row {
-  height: 62px;
-  border-radius: var(--radius-md);
+  height: 50px;
+  border-radius: var(--radius-sm);
 }
 .journal-skel__page {
   display: grid;
@@ -1647,7 +1652,8 @@
   height: 52dvh;
   border-radius: var(--radius-md);
 }
-@media (max-width: 900px) {
+/* One screen below 1200px, the same as the page itself. */
+@media (max-width: 1199px) {
   .journal-skel {
     grid-template-columns: minmax(0, 1fr);
   }

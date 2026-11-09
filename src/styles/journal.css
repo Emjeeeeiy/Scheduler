@@ -10,9 +10,11 @@
 
 /* ================================================================ layout == */
 
+/* Two panes — the list, and the note beside it — from 1200px. Below that the
+   page is one screen at a time (see the 1199px block at the foot). */
 .journal__layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   align-items: start;
 }
 
@@ -42,30 +44,18 @@
   min-width: 0;
 }
 
+/* One quiet line. The list beside it already has New note and Today. */
 .journal__empty {
   display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 8px;
+  place-items: center;
   min-height: 46dvh;
   padding: 48px 16px;
   text-align: center;
 }
 
-.journal__empty-title {
-  font-size: var(--text-title);
-  font-weight: var(--font-weight-title);
-}
-
 .journal__empty-text {
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-size: var(--text-item);
-}
-
-.journal__empty-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
 }
 
 /* ============================================================ notes list == */
@@ -81,35 +71,23 @@
   max-height: calc(100dvh - 120px);
 }
 
-.note-list .section-head {
-  margin-bottom: 0;
+/* The name at the left, the two ways to start a note at the right. */
+.note-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
 }
 
 .note-list__actions {
   display: flex;
-  gap: 8px;
-}
-
-/* The app-wide `.filter-chip:hover` rule out-ranks `.filter-chip--on`, so a
-   selected chip goes dark-on-dark while the pointer is over it. Within the
-   Journal it steps to Soft Ink instead, as every other filled control does. */
-.note-list .filter-chip--on:hover:not(:disabled),
-.paper-chips .filter-chip--on:hover:not(:disabled) {
-  background: var(--color-text-secondary);
-}
-
-/* Three chips and their counts have to fit the 300px column on one row. */
-.note-list .filter-row {
+  align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
 }
 
-.note-list .filter-chip {
-  padding: 4px 10px;
-  gap: 5px;
-}
-
-.note-list__actions .primary-button {
+.note-list__actions .primary-button,
+.note-list__back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -134,28 +112,47 @@
   pointer-events: none;
 }
 
-.note-list__trash-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.note-list__hint {
+  margin: 0;
+}
+
+/* The notes scroll on their own, under the header and the search. */
+.note-list__body {
+  display: grid;
+  align-content: start;
   gap: 8px;
-  flex-wrap: wrap;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* "Pinned" and "Notes": the same small label the grid uses for "All day". */
+.note-list__label {
+  margin: 0;
+  padding: 6px 10px 2px;
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .note-list__items {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 2px;
-  overflow-y: auto;
-  min-height: 0;
 }
 
+/* Rows ruled by hairlines, the way a task row is, with the Hover Surface step —
+   the navigation's own "you are here" — for the one that is open. */
 .note-row {
   display: flex;
   align-items: stretch;
-  border-radius: var(--radius-md);
+  border-bottom: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.note-row:last-child {
+  border-bottom-color: transparent;
 }
 
 .note-row:hover,
@@ -181,46 +178,68 @@
   cursor: default;
 }
 
-/* Name versus detail, by weight and colour rather than size. */
+.note-row__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Name versus detail, by weight and colour rather than size: the title is the
+   name, the time and the excerpt are what is known about it. */
 .note-row__title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
   font-size: var(--text-item);
   font-weight: var(--font-weight-item);
   color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .note-row--selected .note-row__title {
   font-weight: var(--font-weight-title);
 }
 
+.note-row__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pinned is a mark beside the name, not a button on the row. */
+.note-row__pin-mark {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.note-row__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
 .note-row__excerpt {
   font-size: var(--text-label);
   color: var(--color-text-secondary);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.note-row__meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--text-meta);
-  color: var(--color-text-muted);
 }
 
 .note-row__glyph {
   width: 13px;
   height: 13px;
-}
-
-.note-row__pin {
-  align-self: flex-start;
-  margin: 6px 4px 0 0;
-  color: var(--color-text-muted);
 }
 
 .note-row__actions {
@@ -233,6 +252,38 @@
 
 .note-row--trash {
   flex-wrap: wrap;
+}
+
+/* The way into the trash: the last thing in the list, and as quiet as a footnote. */
+.note-list__foot {
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
+}
+
+.note-list__trash-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-list__trash-link:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+/* The app-wide `.filter-chip:hover` rule out-ranks `.filter-chip--on`, so a
+   selected chip goes dark-on-dark while the pointer is over it. Within the
+   Journal it steps to Soft Ink instead, as every other filled control does. */
+.paper-chips .filter-chip--on:hover:not(:disabled) {
+  background: var(--color-text-secondary);
 }
 
 .icon-button--on {
@@ -264,10 +315,12 @@
   border-radius: var(--radius-md);
 }
 
+/* One row: the title, how it is saving, and the three things you do to a note. */
 .note-head {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 40px;
 }
 
 .note-head__back {
@@ -276,8 +329,21 @@
 
 .note-head__actions {
   display: flex;
+  align-items: center;
   gap: 2px;
   flex: none;
+}
+
+.note-head__exit {
+  margin-left: 4px;
+}
+
+/* One short word. The long version of an offline save is under the sheet. */
+.note-head__status {
+  margin-right: 6px;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .note-title {
@@ -300,10 +366,12 @@
   color: var(--color-text-muted);
 }
 
-.note-meta {
+/* The note's details — when it was edited, how long it is — under the note. */
+.note-foot {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  margin: 0;
   font-size: var(--text-meta);
   color: var(--color-text-muted);
 }
@@ -408,12 +476,12 @@
 }
 
 .tb-btn--wide {
-  min-width: 112px;
+  min-width: 96px;
   justify-content: space-between;
 }
 
 .tb-btn__text {
-  max-width: 108px;
+  max-width: 84px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -524,6 +592,15 @@
 .picker {
   display: grid;
   gap: 8px;
+}
+
+/* A menu that holds more than one kind of thing says which is which. */
+.tb-pop__label {
+  padding: 8px 10px 2px;
+}
+
+.tb-pop__label:first-child {
+  padding-top: 2px;
 }
 
 .picker__label {
@@ -1285,7 +1362,7 @@ a.ghost-button {
   .app__header,
   .note-list,
   .note-head,
-  .note-meta,
+  .note-foot,
   .journal-toolbar,
   .note-surface .banner,
   .drawing__tools,
@@ -1406,6 +1483,43 @@ a.ghost-button {
 
 /* ============================================================== responsive == */
 
+/* One screen at a time below 1200px: the list, or the open note with a way back.
+   The sidebar is still a rail between 900px and here, so the room the two panes
+   would need is not there. */
+@media (max-width: 1199px) {
+  .journal__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .journal__layout > :not([hidden]) ~ :not([hidden]) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .note-list {
+    position: static;
+    max-height: none;
+    padding-right: 0;
+    /* Wide enough to read, not so wide that a title and its time drift apart. */
+    max-width: 680px;
+    margin-inline: auto;
+  }
+
+  .journal[data-note-open='true'] .note-list,
+  .journal[data-note-open='false'] .journal__main {
+    display: none;
+  }
+
+  .note-head__back {
+    display: inline-flex;
+  }
+
+  .note-head__panel,
+  .note-head__exit {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   /* Edge to edge. The page is the screen, not a card inside a padded frame: the
      frame drops its side padding and cancels the app's own (--content-pad-x, set
@@ -1420,11 +1534,24 @@ a.ghost-button {
     padding-inline: 0;
   }
 
-  .note-list,
+  .note-list {
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .note-list__head,
+  .note-list__search,
+  .note-list__hint,
+  .note-list > .banner,
+  .note-list__label,
   .note-head,
-  .note-meta,
+  .note-foot,
   .journal__empty,
   .note-surface--loading {
+    padding-inline: var(--gutter);
+  }
+
+  .note-list > .empty {
     padding-inline: var(--gutter);
   }
 
@@ -1438,33 +1565,77 @@ a.ghost-button {
     border-radius: 0;
   }
 
-  .note-head__panel {
-    display: none;
-  }
-
-  .journal__layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .journal__layout > :not([hidden]) ~ :not([hidden]) {
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  /* One screen at a time: the list, or the open note with a way back. */
+  /* The list is the page: rows run the whole width, ruled edge to edge, tall
+     enough to hit with a thumb. */
   .note-list {
-    position: static;
-    max-height: none;
-    padding-right: 0;
+    gap: 10px;
   }
 
-  .journal[data-note-open='true'] .note-list,
-  .journal[data-note-open='false'] .journal__main {
-    display: none;
+  .note-list__body {
+    gap: 0;
   }
 
-  .note-head__back {
-    display: inline-flex;
+  .note-list__label {
+    padding-top: 14px;
+    padding-bottom: 6px;
+  }
+
+  .note-row {
+    border-radius: 0;
+  }
+
+  .note-row:last-child {
+    border-bottom-color: var(--color-border);
+  }
+
+  .note-row__open {
+    min-height: 56px;
+    align-content: center;
+    padding: 10px var(--gutter);
+  }
+
+  .note-row__excerpt {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .note-row__actions {
+    padding-right: var(--gutter);
+  }
+
+  .note-list__foot {
+    padding: 0;
+    border-top: 0;
+  }
+
+  .note-list__trash-link {
+    min-height: 48px;
+    padding: 12px var(--gutter);
+    border-radius: 0;
+    font-size: var(--text-label);
+  }
+
+  /* Back, pin and delete are things a thumb has to find. */
+  .note-head {
+    min-height: 48px;
+  }
+
+  .note-head .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .note-list__actions .primary-button,
+  .note-list__actions .ghost-button,
+  .note-list__back {
+    min-height: 36px;
+    font-size: var(--text-item);
+  }
+
+  .note-row__actions .ghost-button--sm,
+  .note-row__actions .danger-button--sm {
+    padding: 6px 12px;
+    font-size: var(--text-item);
   }
 
   /* Below the sticky top bar: groups wrap instead of scrolling sideways, and the
@@ -1494,21 +1665,6 @@ a.ghost-button {
     min-height: 43px;
   }
 
-  /* Bigger touch targets on a phone: pin and delete/restore are easy to miss. */
-  .note-row__pin {
-    width: 40px;
-    height: 40px;
-  }
-  .note-row__pin svg {
-    width: 20px;
-    height: 20px;
-  }
-  .note-row__actions .ghost-button--sm,
-  .note-row__actions .danger-button--sm {
-    padding: 6px 12px;
-    font-size: var(--text-item);
-  }
-
   .note-sheet {
     --pad-top: 28px;
     --pad-x: 20px;
@@ -1522,11 +1678,23 @@ a.ghost-button {
   .note-sheet[data-margin='cornell'] {
     --pad-left: calc(28% + 12px);
   }
+
+  /* Above the tab bar, with the sheet's own bottom padding as its room. */
+  .note-foot {
+    padding-bottom: 12px;
+  }
 }
 
 @media (max-width: 640px) {
   .journal {
     --gutter: 16px;
+  }
+
+  /* "Notes" and the two buttons share one row at a phone's width only if the
+     buttons are compact; the word "New note" stays because it is the one button
+     on the screen. */
+  .note-list__actions {
+    gap: 4px;
   }
 
   .paper-presets {

@@ -10,7 +10,9 @@ import { NoteEditor, NoteSkeleton } from '../journal/NoteEditor.jsx'
 import { NoteList } from '../journal/NoteList.jsx'
 import '../../styles/journal.css'
 
-/* The Journal page: a list of notes beside the one that is open.
+/* The Journal page: a list of notes beside the one that is open — two panes from
+ * 1200px, and one screen at a time (the list, or the open note with a way back)
+ * below that.
  *
  * This file only decides which note is showing and what the list's buttons do.
  * Reading and writing are in state/useJournal.js; the editor and everything
@@ -23,10 +25,6 @@ import '../../styles/journal.css'
 
 const SELECTED_KEY = 'cadence-app:journal-note'
 const LIST_HIDDEN_KEY = 'cadence-app:journal-list-hidden'
-
-// Below this width the sidebar, the list and the page can't all be comfortable,
-// so until the writer chooses, an open note gets the room and the list steps aside.
-const AUTO_HIDE_LIST_BELOW = 1500
 
 // How long a chosen note may be missing from the list before it is given up on:
 // a just-created note appears on the next snapshot, so a few seconds means it
@@ -43,11 +41,13 @@ export function JournalView({ intent = null, onIntentHandled }) {
   )
 
   // Hiding the list gives the page the whole width. Remembered, like the open note.
-  // null = no choice made yet (follow the screen width); true/false = the writer's own.
-  const [chosenHidden, setChosenHidden] = usePersistentState(LIST_HIDDEN_KEY, null, (stored) =>
-    typeof stored === 'boolean' ? stored : null,
+  // The list is there until the writer says otherwise: it used to step aside by
+  // itself on a laptop-sized screen, which left no visible way to move between
+  // notes. (Below 1200px the list and the note are separate screens anyway, and
+  // the toggle is not shown.)
+  const [listHidden, setListHidden] = usePersistentState(LIST_HIDDEN_KEY, false, (stored) =>
+    typeof stored === 'boolean' ? stored : false,
   )
-  const listHidden = chosenHidden ?? (typeof window !== 'undefined' && window.innerWidth < AUTO_HIDE_LIST_BELOW)
 
   useEffect(() => {
     loadJournalFonts()
@@ -144,24 +144,17 @@ export function JournalView({ intent = null, onIntentHandled }) {
         onTrash={() => trash(selected)}
         onUseForNew={useForNewNotes}
         listHidden={listHidden}
-        onToggleList={() => setChosenHidden(!listHidden)}
+        onToggleList={() => setListHidden(!listHidden)}
       />
     )
   } else if (selectedId !== null && (loading || missing)) {
     main = <NoteSkeleton />
   } else {
+    // The list beside it has New note and Today; saying so again here, under a
+    // second "Journal", was the same page offering the same two buttons twice.
     main = (
       <div className="journal__empty">
-        <h3 className="journal__empty-title">Your journal</h3>
-        <p className="journal__empty-text">Pick a note from the list, or start a new one.</p>
-        <div className="journal__empty-actions">
-          <button type="button" className="primary-button" onClick={() => createAndOpen({})}>
-            New note
-          </button>
-          <button type="button" className="ghost-button" onClick={openToday}>
-            Today
-          </button>
-        </div>
+        <p className="journal__empty-text">Select a note, or start a new one.</p>
       </div>
     )
   }
@@ -182,7 +175,6 @@ export function JournalView({ intent = null, onIntentHandled }) {
           onSelect={setSelectedId}
           onNew={() => createAndOpen({})}
           onToday={openToday}
-          onPin={pin}
           onRestore={restore}
           onPurge={purge}
           onEmptyTrash={emptyTrash}

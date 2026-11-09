@@ -23,7 +23,7 @@ const LAYOUT = {
   focus: ['.focus-page', '.focus__task-row', '.focus__timer', '.focus__clock', '.focus__controls'],
   // The Journal's own stylesheet is part of its lazy chunk, so its skeleton uses
   // classes from the main one (shell.css) rather than the page's real ones.
-  journal: ['.journal-skel', '.journal-skel__list', '.journal-skel__row', '.journal-skel__page', '.journal-skel__sheet', '.section-head'],
+  journal: ['.journal-skel', '.journal-skel__list', '.journal-skel__row', '.journal-skel__page', '.journal-skel__sheet', '.note-list__head'],
   settings: ['.settings-page', '.section-head', '.settings-layout', '.settings-nav', '.settings-panel', '.settings-row', '.settings-row__text', '.settings-row__control'],
 }
 

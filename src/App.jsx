@@ -910,12 +910,13 @@ function AppShell() {
       </aside>
 
       <div className={`app-content${view === 'journal' ? ' app-content--wide' : ''}`}>
-        {/* Settings carries its own title; the shell's "Today" label above it
-            would name a page that isn't about today. The header stays, empty, so
-            the page starts below the top-right account cluster on a desktop
-            (see `.app__header:empty`). */}
+        {/* Settings and the Journal carry their own titles; the shell's "Today"
+            label above them would name a page that isn't about today (and, in the
+            Journal, sit beside a "Today" button that means something else). The
+            header stays, empty, so the page starts below the top-right account
+            cluster on a desktop (see `.app__header:empty`). */}
         <header className={`app__header${step ? ' app__header--schedule' : ''}`}>
-          {view === 'settings' ? null : step ? (
+          {view === 'settings' || view === 'journal' ? null : step ? (
             <>
               <div className="date-nav">
                 <button

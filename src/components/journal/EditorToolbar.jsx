@@ -317,53 +317,52 @@ function ColorMenu({ kind, editor, state, paperHex, disabled }) {
   )
 }
 
-function AlignMenu({ editor, state, disabled }) {
+/* Moving a paragraph or a list item in or out a level. A list item lifts and
+   sinks within its list; anything else indents as a block. */
+function indent(editor, direction) {
+  const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
+  if (direction === 'in') run(editor, (c) => (item ? c.sinkListItem(item) : c.indent()))
+  else run(editor, (c) => (item ? c.liftListItem(item) : c.outdent()))
+}
+
+/* Everything about the shape of a paragraph in one menu — where it sits, how far
+   apart its lines are, how far in it starts. They were a menu, another menu and
+   two buttons: four controls for one idea, which is what pushed the toolbar onto a
+   second row. */
+function ParagraphMenu({ editor, state, disabled }) {
   const [open, setOpen] = useState(false)
   const current = ALIGNMENTS.find((a) => a.id === state.align) ?? ALIGNMENTS[0]
   return (
     <ToolPopover
       open={open}
       onOpenChange={setOpen}
-      label="Alignment"
-      width={210}
+      label="Paragraph"
+      width={230}
+      maxHeight={440}
       renderTrigger={(props) => (
-        <TriggerButton {...props} icon={current.icon} label="Alignment" disabled={disabled} />
-      )}
-    >
-      {({ close }) =>
-        ALIGNMENTS.map((a) => (
-          <MenuItem
-            key={a.id}
-            icon={a.icon}
-            label={a.label}
-            shortcut={a.shortcut}
-            checked={state.align === a.id}
-            onSelect={() => {
-              run(editor, (c) => c.setTextAlign(a.id))
-              close()
-            }}
-          />
-        ))
-      }
-    </ToolPopover>
-  )
-}
-
-function SpacingMenu({ editor, state, disabled }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <ToolPopover
-      open={open}
-      onOpenChange={setOpen}
-      label="Line spacing"
-      width={200}
-      renderTrigger={(props) => (
-        <TriggerButton {...props} icon={LineSpacingIcon} label="Line spacing" disabled={disabled} />
+        <TriggerButton {...props} icon={current.icon} label="Paragraph" disabled={disabled} />
       )}
     >
       {({ close }) => (
         <>
+          <p className="picker__label tb-pop__label">Alignment</p>
+          {ALIGNMENTS.map((a) => (
+            <MenuItem
+              key={a.id}
+              icon={a.icon}
+              label={a.label}
+              shortcut={a.shortcut}
+              checked={state.align === a.id}
+              onSelect={() => {
+                run(editor, (c) => c.setTextAlign(a.id))
+                close()
+              }}
+            />
+          ))}
+
+          <p className="picker__label tb-pop__label">Line spacing</p>
           <MenuItem
+            icon={LineSpacingIcon}
             label="Paper default"
             checked={state.lineHeight == null}
             onSelect={() => {
@@ -382,6 +381,10 @@ function SpacingMenu({ editor, state, disabled }) {
               }}
             />
           ))}
+
+          <p className="picker__label tb-pop__label">Indent</p>
+          <MenuItem icon={OutdentIcon} label="Decrease indent" shortcut="outdent" onSelect={() => indent(editor, 'out')} />
+          <MenuItem icon={IndentIcon} label="Increase indent" shortcut="indent" onSelect={() => indent(editor, 'in')} />
         </>
       )}
     </ToolPopover>
@@ -718,35 +721,10 @@ function ActiveToolbar({
           </ToolPopover>
         </div>
         <div className="tb-group">
-          <AlignMenu editor={editor} state={s} disabled={off} />
-          <SpacingMenu editor={editor} state={s} disabled={off} />
+          <ParagraphMenu editor={editor} state={s} disabled={off} />
           <ToolButton icon={ListBulletIcon} label="Bulleted list" shortcut="bullets" pressed={s.bullet} disabled={off} onClick={() => run(editor, (c) => c.toggleBulletList())} />
           <ToolButton icon={ListNumberIcon} label="Numbered list" shortcut="numbers" pressed={s.ordered} disabled={off} onClick={() => run(editor, (c) => c.toggleOrderedList())} />
           <ToolButton icon={ListCheckIcon} label="Checklist" shortcut="checklist" pressed={s.task} disabled={off} onClick={() => run(editor, (c) => c.toggleTaskList())} />
-          <ToolButton
-            icon={OutdentIcon}
-            label="Decrease indent"
-            shortcut="outdent"
-            disabled={off}
-            onClick={() =>
-              run(editor, (c) => {
-                const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
-                return item ? c.liftListItem(item) : c.outdent()
-              })
-            }
-          />
-          <ToolButton
-            icon={IndentIcon}
-            label="Increase indent"
-            shortcut="indent"
-            disabled={off}
-            onClick={() =>
-              run(editor, (c) => {
-                const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
-                return item ? c.sinkListItem(item) : c.indent()
-              })
-            }
-          />
         </div>
         <div className="tb-group">
           <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} onInsertImage={onInsertImage} disabled={off} />

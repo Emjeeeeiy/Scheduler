@@ -552,19 +552,14 @@ function JournalSkeleton() {
     <div className="view-skeleton frame stack">
       <div className="journal-skel">
         <div className="journal-skel__list">
-          <div className="section-head">
-            <div>
-              <h2 className="section-head__title">
-                <span className="skel skel--section-title" />
-              </h2>
-              <p className="section-head__sub">
-                <span className="skel skel--section-sub" />
-              </p>
-            </div>
+          <div className="note-list__head">
+            <h2 className="section-head__title">
+              <span className="skel skel--section-title" />
+            </h2>
+            <span className="skel journal-skel__action" />
           </div>
           <span className="skel skel--input" />
-          <span className="skel skel--input" />
-          {Array.from({ length: 4 }, (_, i) => (
+          {Array.from({ length: 5 }, (_, i) => (
             <span key={i} className="skel journal-skel__row" />
           ))}
         </div>
