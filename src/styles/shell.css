@@ -1474,9 +1474,29 @@
   height: 12px;
   margin-top: 8px;
 }
-.skel--hero-hint {
-  width: min(260px, 60%);
+.skel--fact-label {
+  width: 34px;
   height: 12px;
+}
+.skel--fact-value {
+  width: 42px;
+  height: 22px;
+}
+.skel--takeaway {
+  width: min(440px, 90%);
+  height: 12px;
+}
+/* On a phone the hero's action and the range switch span the width, so the
+   placeholders for them do too. */
+@media (max-width: 640px) {
+  .view-skeleton .hero__foot .skel--primary-button {
+    width: 100%;
+    height: 44px;
+  }
+  .view-skeleton .trends__head .skel--ghost-button {
+    width: 100%;
+    height: 34px;
+  }
 }
 .skel--mini-label {
   width: 128px;
@@ -1491,7 +1511,7 @@
   height: 11px;
 }
 .skel--cal-cell {
-  aspect-ratio: 1;
+  aspect-ratio: 1.2;
   border-radius: 2px;
 }
 

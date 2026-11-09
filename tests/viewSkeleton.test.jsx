@@ -15,7 +15,7 @@ import { ViewSkeleton } from '../src/components/shell/ViewSkeleton.jsx'
 /** The structural classes each view keys its layout on — the ones its own
     component renders. A skeleton is right when it produces all of these. */
 const LAYOUT = {
-  dashboard: ['.dashboard__top', '.hero', '.mini-cal', '.tile-row', '.queue-row', '.stat-tile'],
+  dashboard: ['.dashboard__top', '.hero', '.hero__facts', '.mini-cal', '.queue-row', '.trends', '.figures'],
   today: ['.day-layout', '.day-panel', '.now-next', '.grid-scroll', '.gutter', '.day-column'],
   week: ['.week', '.week__summary', '.week__head', '.week__allday', '.grid-body'],
   month: ['.month', '.month__head', '.month__grid', '.month__week', '.month__cell'],
@@ -30,8 +30,8 @@ const LAYOUT = {
 /** Each view's own root class. These are what tells one page from another —
     deliberately not the structural containers above, because several of those
     are shared by the real views on purpose: Day and Week are both a
-    `.grid-scroll` over a `.grid-body`, and Dashboard and Review are both a
-    `.tile-row`. A skeleton that borrowed one of those would be wrong; a real
+    `.grid-scroll` over a `.grid-body`, and Review and Settings are both a
+    `.divided-row`. A skeleton that borrowed one of those would be wrong; a real
     page that shares it is not. */
 const ROOT = {
   dashboard: '.dashboard',
@@ -94,8 +94,13 @@ describe('ViewSkeleton', () => {
     expect(settings.querySelectorAll('.settings-nav > .skel').length).toBe(7)
     expect(settings.querySelectorAll('.settings-row').length).toBe(3)
 
-    expect(skeleton('dashboard').querySelectorAll('.stat-tile').length).toBe(4)
-    expect(skeleton('dashboard').querySelectorAll('.mini-cal__grid > .skel').length).toBe(35)
+    // The dashboard has no stat tiles any more: three facts in the hero, four
+    // figures in Trends.
+    const dashboard = skeleton('dashboard')
+    expect(dashboard.querySelectorAll('.stat-tile').length).toBe(0)
+    expect(dashboard.querySelectorAll('.hero__fact').length).toBe(3)
+    expect(dashboard.querySelectorAll('.figure').length).toBe(4)
+    expect(dashboard.querySelectorAll('.mini-cal__grid > .skel').length).toBe(35)
   })
 
   it('falls back to the dashboard for a missing or unknown view', () => {

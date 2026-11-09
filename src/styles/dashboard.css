@@ -1,10 +1,61 @@
 /* ============================================================= dashboard == */
 
-/* `.stack` draws the hairline between each of the dashboard's row-groups
-   (the hero pairing, both stat-tile rows, the queue row, the trends header,
-   the chart, the chart row) instead of a plain grid gap — see `.stack`. */
+/* `.stack` draws the hairline between the dashboard's three bands (the hero
+   pairing, the queue row, Trends) instead of a plain grid gap — see `.stack`.
+   Three rules instead of ten is the point: each band is a group, and inside it
+   items are separated by air, not by another line.
+
+   `--dash-pad` is that air. The shared `.stack` / `.divided-row` padding is 18px,
+   which suits a page of many small rows; three bands can take more. Those
+   shared selectors are deliberately heavy (`:not([hidden])` is part of their
+   weight), so everything here that overrides their padding is written one
+   class heavier (`.dashboard.stack …`, `.dashboard .divided-row …`) rather
+   than by loosening them — the other pages are written against that weight. */
 .dashboard {
+  --dash-pad: 24px;
   display: grid;
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    --dash-pad: 18px;
+  }
+}
+
+/* A plain band (Trends) — the `.stack` row-group rule, with the dashboard's air. */
+.dashboard.stack > :not([hidden]) ~ :not([hidden]):not(.divided-row) {
+  padding-top: var(--dash-pad);
+}
+
+.dashboard.stack > :not([hidden]):not(.divided-row):not(:last-child) {
+  padding-bottom: var(--dash-pad);
+}
+
+/* A divided band (hero | calendar, and the queues): each cell insets itself,
+   top and bottom and at the column gutter, by the same amount. Inline padding is
+   restated for the last and the following cells because the shared rules set it
+   per position and an override of the general rule would otherwise flatten them. */
+.dashboard .divided-row > :not([hidden]) {
+  padding-block: var(--dash-pad);
+  padding-right: var(--dash-pad);
+}
+
+.dashboard .divided-row > :not([hidden]):last-child {
+  padding-right: 0;
+}
+
+.dashboard .divided-row > :not([hidden]) ~ :not([hidden]) {
+  padding-left: var(--dash-pad);
+}
+
+/* The month beside the hero is context, not a second focal point. Its numerals
+   step down from primary to secondary ink (today keeps its filled circle, so the
+   one day that matters is still the one that is loud), and its cells are a touch
+   wider than tall: square cells made the calendar the tallest thing on the page
+   and stretched the hero, which is as tall as it, into an empty middle. */
+.dashboard .mini-cal__day {
+  color: var(--color-text-secondary);
+  aspect-ratio: 1.2;
 }
 
 /* A column, not a stack: the head sits at the top, the footer is pushed to the
@@ -142,14 +193,15 @@
   color: var(--color-text-muted);
 }
 
+/* The day's breakdown and its one action share a footer. No rule above it: the
+   load bar's own track already closes the figure, and a second line a few pixels
+   under it was the hero's busiest corner. */
 .hero__foot {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
+  margin-top: 24px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px 24px;
   flex-wrap: wrap;
 }
 
@@ -159,13 +211,92 @@
   min-width: 0;
 }
 
-/* Next up and Overdue share a row; auto-fit gives Next up the whole width on
-   its own when nothing is overdue. `.divided-row` draws the hairline between
-   them instead of a gap — and since it only rules off existing siblings,
-   Next up alone gets no stray line when Overdue isn't rendered. */
+/* Open · Done · Left: what used to be a tile row and a sentence. A label over a
+   figure each, the way a stat reads everywhere else — figures are the one place
+   Space Mono belongs. */
+.hero__facts {
+  display: flex;
+  gap: 28px;
+  min-width: 0;
+}
+
+.hero__fact {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hero__fact dt {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+
+.hero__fact dd {
+  font-family: var(--font-mono);
+  font-size: var(--text-headline);
+  font-weight: var(--font-weight-figure);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* Next up, and Overdue / Pinned when they exist: one row of one to three equal
+   columns, never wrapping into a grid with a stray rule on a second row.
+   `.divided-row` draws the hairline between the siblings that are actually
+   rendered, so Next up alone gets none. Where there is no room for columns
+   (a phone, a narrow window) they stack, and the rule that separated them
+   sideways separates them from above instead. */
 .queue-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 901px) {
+  .queue-row {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .queue-row.divided-row > :not([hidden]) ~ :not([hidden]) {
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+/* A task row insets itself 6px so its hover wash has room around the text; that
+   put every checkbox 6px in from the heading above it. Pulling the list out by
+   the same amount lines the checkboxes up with the headings and keeps the wash. */
+.queue-row ul {
+  margin-inline: -6px;
+}
+
+/* An overdue row carries "Tomorrow / Next week" beside its text. In a queue
+   column — a third of the page, or a phone — that squeezed the date, time and
+   tag onto a line each. The buttons take their own line under the row instead,
+   indented to the text, so every row is a title, one line of detail, and its
+   two actions. */
+.queue-row .task-row {
+  flex-wrap: wrap;
+}
+
+.queue-row .task-row__quick-actions {
+  /* A full line, less the indent — a 100% basis plus a 24px margin overran the
+     row by the margin, which a phone shows as a page wider than the screen. */
+  flex: 0 0 calc(100% - 24px);
+  margin: 0 0 2px 24px;
+}
+
+/* A quiet aside on a section head — the inbox count beside "Next up". */
+.section-head__meta {
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-meta);
+  color: var(--color-text-muted);
+  padding-top: 3px;
+  white-space: nowrap;
 }
 
 .tile-row {
@@ -239,6 +370,133 @@
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
+/* ================================================================ trends == */
+
+/* One band: the heading and its takeaway with the range switch at the other end,
+   the four figures, then the chart beside the tag breakdown. */
+.trends__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+}
+
+.trends__intro {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.trends__takeaway {
+  max-width: 64ch;
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.trends__takeaway strong {
+  font-weight: var(--font-weight-title);
+  color: var(--color-text-primary);
+}
+
+/* Figures rather than tiles: no icon, no hint, no rule between them — the
+   spacing groups them. Same label-over-number reading as a stat everywhere. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 24px;
+  margin-top: var(--dash-pad);
+}
+
+.figure {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.figure dt {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
+}
+
+.figure dd {
+  font-family: var(--font-mono);
+  font-size: var(--text-stat);
+  font-weight: var(--font-weight-figure);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.figure__unit {
+  font-size: var(--text-icon);
+  font-weight: var(--font-weight-label);
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+  margin-left: 2px;
+}
+
+.figure__of {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  letter-spacing: 0;
+  color: var(--color-text-muted);
+  margin-left: 6px;
+}
+
+.figure--good dd,
+.figure--good .figure__unit {
+  color: var(--color-good-text);
+}
+
+/* The chart takes the room; the tag breakdown sits beside it behind a single
+   hairline, the same device the bands use. Below 900px they stack and the rule
+   moves above the aside. */
+.trends__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  margin-top: var(--dash-pad);
+}
+
+.trends__body > .chart {
+  padding-right: var(--dash-pad);
+}
+
+.trends__aside {
+  display: grid;
+  align-content: start;
+  gap: 28px;
+  padding-left: var(--dash-pad);
+  border-left: 1px solid var(--color-border);
+}
+
+@media (max-width: 900px) {
+  .trends__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trends__body > .chart {
+    padding-right: 0;
+    padding-bottom: var(--dash-pad);
+  }
+
+  .trends__aside {
+    padding-left: 0;
+    padding-top: var(--dash-pad);
+    border-left: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+@media (max-width: 640px) {
+  .figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ================================================================ charts == */
 
 .chart__title {
@@ -281,9 +539,13 @@
   border: 1px solid var(--color-border);
 }
 
+/* The top padding is headroom for the busiest column's value label, which sits
+   above its bar — and above the plot itself when that bar reaches the axis top.
+   Without it the label ran into the legend row above. */
 .chart__body {
   display: flex;
   gap: 8px;
+  padding-top: 14px;
 }
 
 .chart__axis {
@@ -502,5 +764,114 @@
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono);
   font-size: var(--text-meta);
+}
+
+/* ============================================================ phone & tablet == */
+
+/* Where the bottom tab bar takes over, the dashboard stops being a padded frame
+   inside the page and becomes the page. It cancels the app's side padding the
+   way the Journal does (`--content-pad-x`, set on `.app-content`), so each
+   band's hairline runs from one edge of the screen to the other — the same
+   full-width rule the sign-in screen draws — and the content takes a gutter of
+   its own (`--dash-gutter`) instead of stacking the page's 12px on the frame's
+   14px for 26px a side. A single column has no column divider that needs the
+   cell's padding to stay one-sided, so every cell and the Trends band simply
+   take the gutter on both sides. These are written at the weight of the
+   `.dashboard .divided-row` rules above and sit after them. */
+@media (max-width: 900px) {
+  .dashboard {
+    --dash-gutter: 24px;
+  }
+
+  .dashboard.frame {
+    margin-inline: calc(var(--content-pad-x) * -1);
+    padding-inline: 0;
+  }
+
+  .dashboard .divided-row > :not([hidden]),
+  .dashboard .divided-row > :not([hidden]):last-child,
+  .dashboard .divided-row > :not([hidden]) ~ :not([hidden]) {
+    padding-inline: var(--dash-gutter);
+  }
+
+  .dashboard.stack > .trends {
+    padding-inline: var(--dash-gutter);
+  }
+}
+
+/* A phone. The first band starts under the top bar with one band's air rather
+   than the frame's and the band's together; the last one carries the bottom
+   air the frame no longer does. The hero's action spans the width — the one
+   thing to do here is also the easiest thing to hit — and its three facts share
+   the row in equal columns instead of huddling at the left. Controls that were
+   sized for a pointer get a thumb: the range switch is one segmented row, and
+   "Tomorrow / Next week" are equal buttons under their task. */
+@media (max-width: 640px) {
+  .dashboard {
+    --dash-gutter: 16px;
+  }
+
+  .dashboard.frame {
+    padding-block: 0;
+  }
+
+  .dashboard.stack > .trends {
+    padding-bottom: var(--dash-pad);
+  }
+
+  .hero__load {
+    padding-top: 20px;
+  }
+
+  .hero__foot {
+    margin-top: 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .hero__facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .hero__foot .primary-button {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    padding-block: 11px;
+  }
+
+  .trends__head .filter-row {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .trends__head .filter-chip {
+    flex: 1;
+    justify-content: center;
+    padding-block: 8px;
+  }
+
+  /* No hover to make room for on a touch screen, so the rows sit on the gutter
+     itself: checkboxes under the heading, and each separator from gutter to
+     gutter rather than 6px proud of it. */
+  .queue-row ul {
+    margin-inline: 0;
+  }
+
+  .queue-row .task-row {
+    padding-inline: 0;
+  }
+
+  .queue-row .task-row__quick-actions {
+    gap: 8px;
+  }
+
+  .queue-row .task-row__quick-actions .ghost-button {
+    flex: 1;
+    min-height: 36px;
+  }
 }
 

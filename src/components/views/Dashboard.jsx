@@ -13,7 +13,6 @@ import {
   summarize,
   tagBreakdown,
   upcomingTasks,
-  weakestTag,
 } from '@cadence/shared/stats.js'
 import {
   DAY_LONG,
@@ -26,23 +25,39 @@ import {
   toHours,
   weekKeys,
 } from '@cadence/shared/date.js'
-import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
 import { PixelType } from './PixelType.jsx'
-import { CheckIcon, ClockIcon, DayIcon, InboxIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
    next one — enough for "Next up" without walking the calendar forever. */
 const UPCOMING_HORIZON_DAYS = 15
+
+/* The overdue pile is a prompt to deal with it, not the place to do it all:
+   three rows say how bad it is, and the count beside the title and the "Go to"
+   button reach the rest. */
+const OVERDUE_ROWS = 3
+
+/* The tag breakdown shares a column with the chart, so it shows the few tags
+   that carry the time; the tail folds into "Other". */
+const TREND_TAG_ROWS = 5
 
 const RANGES = [
   { id: 7, label: 'Last 7 days' },
   { id: 30, label: 'Last 30 days' },
 ]
 
+/**
+ * The Dashboard is three bands, read top to bottom, and nothing else:
+ *   1. Today — the hero (one figure, one action) beside the month at a glance.
+ *   2. Up next — Next up, and Overdue / Pinned when there are any.
+ *   3. Trends — planned versus completed over a range, the loop PRODUCT.md
+ *      principle 3 closes.
+ * Counts that used to be tiles of their own live where they belong: today's
+ * open/done/left in the hero, the inbox beside Next up, overdue in its list.
+ */
 export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
   const { settings } = useSettings()
@@ -53,7 +68,6 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const todayTotals = dayStats(today)
 
   const weekKeysList = weekKeys(now.key, settings.weekStartsOn)
-  const week = summarize(rangeStats(tasksOn, weekKeysList))
   const weekByTag = tagBreakdown(weekKeysList.flatMap(tasksOn), tags)
   const goalTags = tags.filter((t) => t.goalMinutes)
 
@@ -78,8 +92,8 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const heavyToday = todayTotals.plannedMin > HEAVY_DAY_MIN
   const loadPct = Math.min(100, Math.round((todayTotals.plannedMin / HEAVY_DAY_MIN) * 100))
 
-  // Trends: the range picked here drives the chart, the tag breakdown, and
-  // the insights below it together, so they always describe the same window.
+  // Trends: the range picked here drives the chart, the figures, the tag
+  // breakdown, and the takeaway together, so they always describe one window.
   const rangeKeys = lastNDays(now.key, days)
   const rangeRows = rangeStats(tasksOn, rangeKeys).map((row, index) => ({
     ...row,
@@ -95,21 +109,20 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
   const rangeTasks = rangeKeys.flatMap(tasksOn)
   /* Rolled up to top-level tags: a nested tag's hours belong to the thing it
      files under, and charting both would draw the same time twice. The
-     weekly-goal bars above deliberately don't roll up — a goal is set on one
+     weekly-goal bars deliberately don't roll up — a goal is set on one
      specific tag, so it is measured against that tag's own hours. */
   const rangeByTag = rollUpTags(tagBreakdown(rangeTasks, tags), tags)
-  const weakest = weakestTag(rangeTasks, tags)
   const best = bestDayOfWeek(rangeRows)
-  const activeDays = rangeRows.filter((row) => row.plannedMin > 0).length
+  const completionPct =
+    rangeTotals.completionRate === null ? null : Math.round(rangeTotals.completionRate * 100)
 
   return (
     <div className="dashboard frame stack">
       <div className="dashboard__top divided-row">
         {/* Three zones anchored top and bottom rather than one stack piled at
-            the top: the figure and what it means, then air, then the footer
-            pairing the day's breakdown with its action. The space in the
-            middle is the point — it is what an unanchored stack would have
-            left dangling under the button instead. */}
+            the top: the figure, then the day's load, then a footer pairing the
+            day's breakdown with its one action. The load bar carries the
+            auto margin, so the lower two travel to the bottom together. */}
         <section className="hero" aria-label="Today at a glance">
           <div className="hero__head">
             <div className="hero__figure">
@@ -136,13 +149,24 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
           </div>
 
           <div className="hero__foot">
-            <p className="hero__hint">
-              {todayTotals.count === 0
-                ? 'Nothing on the books yet.'
-                : `${todayTotals.openCount} open · ${todayTotals.doneCount} done · ${durationLabel(
-                    todayTotals.remainingMin,
-                  )} left`}
-            </p>
+            {todayTotals.count === 0 ? (
+              <p className="hero__hint">Nothing on the books yet.</p>
+            ) : (
+              <dl className="hero__facts">
+                <div className="hero__fact">
+                  <dt>Open</dt>
+                  <dd>{todayTotals.openCount}</dd>
+                </div>
+                <div className="hero__fact">
+                  <dt>Done</dt>
+                  <dd>{todayTotals.doneCount}</dd>
+                </div>
+                <div className="hero__fact">
+                  <dt>Left</dt>
+                  <dd>{durationLabel(todayTotals.remainingMin)}</dd>
+                </div>
+              </dl>
+            )}
             <button
               type="button"
               className="primary-button"
@@ -156,85 +180,16 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
         <MiniCalendar onFocusDay={onFocusDay} onFocusMonth={onFocusMonth} />
       </div>
 
-      <div className="tile-row divided-row">
-        <StatTile
-          icon={DayIcon}
-          label="Open today"
-          value={todayTotals.openCount}
-          hint={`${todayTotals.count} scheduled in total`}
-        />
-        <StatTile
-          icon={WarningIcon}
-          label="Overdue"
-          value={overdue.length}
-          tone={overdue.length > 0 ? 'critical' : 'neutral'}
-          hint={overdue.length === 0 ? 'Nothing left behind' : 'Open, and the day has passed'}
-        />
-        <StatTile
-          icon={InboxIcon}
-          label="In the inbox"
-          value={openInbox}
-          hint={openInbox === 0 ? 'All captured work is scheduled' : 'Waiting for a slot'}
-        />
-        <StatTile
-          icon={CheckIcon}
-          label="Done this week"
-          value={week.completionRate === null ? '—' : Math.round(week.completionRate * 100)}
-          unit={week.completionRate === null ? '' : '%'}
-          hint={`${week.doneCount} of ${week.count} tasks`}
-        />
-      </div>
-
-      {pinned.length > 0 && (
-        <section aria-label="Pinned">
-          <div className="section-head">
-            <h2 className="section-head__title">Pinned</h2>
-          </div>
-          <ul>
-            {pinned.map((task) => (
-              <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {goalTags.length > 0 && (
-        <section aria-label="Weekly goals">
-          <div className="section-head">
-            <h2 className="section-head__title">Weekly goals</h2>
-          </div>
-          <ul className="tag-bars">
-            {goalTags.map((tag) => {
-              const plannedMin = weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0
-              const pct = Math.min(100, Math.round((plannedMin / tag.goalMinutes) * 100))
-              return (
-                <li key={tag.id} className="tag-bars__row">
-                  <span className="tag-bars__name">
-                    <span className="tag-bars__dot" style={{ background: tag.color }} aria-hidden="true" />
-                    {tag.name}
-                  </span>
-                  <span className="tag-bars__track">
-                    <span className="tag-bars__fill" style={{ width: `${pct}%`, background: tag.color }} />
-                  </span>
-                  <span className="tag-bars__value">
-                    {toHours(plannedMin)}h / {toHours(tag.goalMinutes)}h
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
-
-      {/* The two task queues side by side. Next up leads because it is always
-          there — a column that keeps its place is easier to read than one that
-          slides left whenever nothing is overdue. Overdue joins it on the
-          right when it exists, and Next up takes the full width when it does
-          not, which auto-fit handles without a second rule. */}
+      {/* The queues side by side, one row of one to three columns. Next up leads
+          because it is always there — a column that keeps its place is easier to
+          read than one that slides left whenever nothing is overdue. Overdue and
+          Pinned join it when they exist; `.divided-row` rules off only the
+          siblings that are actually rendered. */}
       <div className="queue-row divided-row">
         <section aria-label="Next up">
           <div className="section-head">
             <h2 className="section-head__title">Next up</h2>
+            {openInbox > 0 && <span className="section-head__meta">{openInbox} in the inbox</span>}
           </div>
           {next.length === 0 ? (
             <p className="empty empty--sm">Nothing scheduled ahead. Enjoy the clear run.</p>
@@ -262,116 +217,157 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
               </button>
             </div>
             <ul>
-              {overdue.slice(0, 5).map((task) => (
+              {overdue.slice(0, OVERDUE_ROWS).map((task) => (
                 <TaskRow key={task.id} task={task} onEdit={onEdit} showDate showQuickActions />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {pinned.length > 0 && (
+          <section aria-label="Pinned">
+            <div className="section-head">
+              <h2 className="section-head__title">Pinned</h2>
+            </div>
+            <ul>
+              {pinned.map((task) => (
+                <TaskRow key={task.id} task={task} onEdit={onEdit} showDate />
               ))}
             </ul>
           </section>
         )}
       </div>
 
-      <div className="section-head">
-        <h2 className="section-head__title">Trends</h2>
-        <div className="filter-row" role="group" aria-label="Time range">
-          {RANGES.map((range) => (
-            <button
-              key={range.id}
-              type="button"
-              className={`filter-chip${days === range.id ? ' filter-chip--on' : ''}`}
-              aria-pressed={days === range.id}
-              onClick={() => setDays(range.id)}
-            >
-              {range.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="tile-row divided-row">
-        <StatTile
-          icon={ClockIcon}
-          label="Hours planned"
-          value={toHours(rangeTotals.plannedMin)}
-          unit="h"
-          hint={`across ${activeDays} active day${activeDays === 1 ? '' : 's'}`}
-        />
-        <StatTile
-          icon={CheckIcon}
-          label="Hours completed"
-          value={toHours(rangeTotals.completedMin)}
-          unit="h"
-          hint={
-            rangeTotals.hourRate === null
-              ? 'Nothing planned yet'
-              : `${Math.round(rangeTotals.hourRate * 100)}% of planned time`
-          }
-        />
-        <StatTile
-          icon={CheckIcon}
-          label="Tasks done"
-          value={rangeTotals.doneCount}
-          hint={`of ${rangeTotals.count} scheduled`}
-        />
-        <StatTile
-          icon={TrendIcon}
-          label="Completion rate"
-          value={rangeTotals.completionRate === null ? '—' : Math.round(rangeTotals.completionRate * 100)}
-          unit={rangeTotals.completionRate === null ? '' : '%'}
-          tone={
-            rangeTotals.completionRate !== null && rangeTotals.completionRate >= 0.7 ? 'good' : 'neutral'
-          }
-          hint="Share of scheduled tasks ticked off"
-        />
-      </div>
-
-      <section>
-        <BarChart
-          rows={rangeRows}
-          label={`Planned versus completed — last ${days} days`}
-          emptyText="Nothing scheduled in this range yet."
-        />
-      </section>
-
-      <div className="chart-row divided-row">
-        <section>
-          <TagBars rows={rangeByTag} label={`Time by tag — last ${days} days`} />
-        </section>
-
-        <section>
-          <div className="section-head">
-            <h2 className="section-head__title">What this says</h2>
+      <section className="trends" aria-label="Trends">
+        <div className="trends__head">
+          <div className="trends__intro">
+            <h2 className="section-head__title">Trends</h2>
+            {/* One sentence, not a list: what the range says at a glance. The
+                longer reading — weakest tag, where to put the postponed work —
+                lives on the Review page. */}
+            <p className="trends__takeaway">
+              {rangeTotals.count === 0 ? (
+                'Schedule a few tasks and this fills in.'
+              ) : (
+                <>
+                  You planned <strong>{durationLabel(rangeTotals.plannedMin)}</strong> and completed{' '}
+                  <strong>{durationLabel(rangeTotals.completedMin)}</strong>
+                  {rangeTotals.hourRate !== null && <> — {Math.round(rangeTotals.hourRate * 100)}% of it</>}.
+                  {best && best.rate > 0 && (
+                    <>
+                      {' '}
+                      <strong>{DAY_LONG[best.day]}</strong> is where you follow through most.
+                    </>
+                  )}
+                </>
+              )}
+            </p>
           </div>
-          <ul className="notes-list">
-            <li>
-              You planned <strong>{durationLabel(rangeTotals.plannedMin)}</strong> and completed{' '}
-              <strong>{durationLabel(rangeTotals.completedMin)}</strong>
-              {rangeTotals.hourRate !== null && <> — {Math.round(rangeTotals.hourRate * 100)}% of it.</>}
-            </li>
-            {activeDays > 0 && (
-              <li>
-                That averages{' '}
-                <strong>{toHours(rangeTotals.plannedMin / activeDays)}h</strong> on the days you
-                planned anything.
-              </li>
-            )}
-            {best && best.rate > 0 && (
-              <li>
-                <strong>{DAY_LONG[best.day]}</strong> is where you follow through most — you tick
-                off {Math.round(best.rate * 100)}% of what lands on it. Worth putting the work you
-                keep postponing there.
-              </li>
-            )}
-            {weakest && (
-              <li>
-                <strong>{weakest.tag.name}</strong> is the tag you finish least often —{' '}
-                {Math.round(weakest.rate * 100)}% of its planned time. Either the estimates are
-                optimistic or the slots are in the wrong part of the day.
-              </li>
-            )}
-            {rangeTotals.count === 0 && <li>Schedule a few tasks and this fills in.</li>}
-          </ul>
-        </section>
-      </div>
+          <div className="filter-row" role="group" aria-label="Time range">
+            {RANGES.map((range) => (
+              <button
+                key={range.id}
+                type="button"
+                className={`filter-chip${days === range.id ? ' filter-chip--on' : ''}`}
+                aria-pressed={days === range.id}
+                onClick={() => setDays(range.id)}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Nothing scheduled in the range: the takeaway above already says so, and
+            four zeros over two empty panels would only repeat it. */}
+        {rangeTotals.count > 0 && (
+          <>
+            {/* Figures, not tiles: a label and a number each, with no icon, hint, or
+                rule of their own. The chart below is where the detail lives. */}
+            <dl className="figures">
+              <div className="figure">
+                <dt>Planned</dt>
+                <dd>
+                  {toHours(rangeTotals.plannedMin)}
+                  <span className="figure__unit">h</span>
+                </dd>
+              </div>
+              <div className="figure">
+                <dt>Completed</dt>
+                <dd>
+                  {toHours(rangeTotals.completedMin)}
+                  <span className="figure__unit">h</span>
+                </dd>
+              </div>
+              <div className="figure">
+                <dt>Tasks done</dt>
+                <dd>
+                  {rangeTotals.doneCount}
+                  <span className="figure__of">/ {rangeTotals.count}</span>
+                </dd>
+              </div>
+              <div
+                className={`figure${
+                  rangeTotals.completionRate !== null && rangeTotals.completionRate >= 0.7
+                    ? ' figure--good'
+                    : ''
+                }`}
+              >
+                <dt>Completion rate</dt>
+                <dd>
+                  {completionPct === null ? '—' : completionPct}
+                  {completionPct !== null && <span className="figure__unit">%</span>}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="trends__body">
+              <BarChart
+                rows={rangeRows}
+                label="Planned vs completed"
+                emptyText="Nothing scheduled in this range yet."
+              />
+
+              <div className="trends__aside">
+                {goalTags.length > 0 && (
+                  <figure className="chart">
+                    <figcaption className="chart__title">Weekly goals — this week</figcaption>
+                    <ul className="tag-bars">
+                      {goalTags.map((tag) => {
+                        const plannedMin = weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0
+                        const pct = Math.min(100, Math.round((plannedMin / tag.goalMinutes) * 100))
+                        return (
+                          <li key={tag.id} className="tag-bars__row">
+                            <span className="tag-bars__name">
+                              <span
+                                className="tag-bars__dot"
+                                style={{ background: tag.color }}
+                                aria-hidden="true"
+                              />
+                              {tag.name}
+                            </span>
+                            <span className="tag-bars__track">
+                              <span
+                                className="tag-bars__fill"
+                                style={{ width: `${pct}%`, background: tag.color }}
+                              />
+                            </span>
+                            <span className="tag-bars__value">
+                              {toHours(plannedMin)}h / {toHours(tag.goalMinutes)}h
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </figure>
+                )}
+
+                <TagBars rows={rangeByTag} label="Time by tag" maxRows={TREND_TAG_ROWS} />
+              </div>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   )
 }

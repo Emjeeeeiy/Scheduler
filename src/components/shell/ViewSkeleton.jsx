@@ -23,8 +23,9 @@
  */
 
 /* Repetition counts are the real ones where the real view fixes them — seven
-   days, seven weekday headers, four stat tiles, thirty-five mini-calendar
-   cells — so the block lands at the same size and the swap shifts nothing.
+   days, seven weekday headers, four stat tiles, three hero facts, four trend
+   figures, thirty-five mini-calendar cells — so the block lands at the same size
+   and the swap shifts nothing.
    Counts that depend on data (how many tasks, how many tags) are the shape the
    view tends to open at, because a skeleton that resizes as it loads is the
    exact jump this is meant to avoid. */
@@ -35,6 +36,8 @@ const MONTH_DOW = 7
 const MONTH_WEEKS = 5
 const MONTH_CELLS = 7
 const STAT_TILES = 4
+const HERO_FACTS = 3
+const TREND_FIGURES = 4
 const QUEUE_ROWS = 3
 const TILE_ROWS = 3
 const HOUR_MARKS = 9
@@ -204,8 +207,8 @@ function TagBarsSkeleton() {
   )
 }
 
-/** Dashboard: the hero and mini-calendar across the top, then the stat tile
-    row, then the two task queues. */
+/** Dashboard: the hero and mini-calendar across the top, then the two task
+    queues, then the head and figures of Trends. */
 function DashboardSkeleton() {
   return (
     <div className="view-skeleton dashboard frame stack">
@@ -234,9 +237,18 @@ function DashboardSkeleton() {
             </p>
           </div>
           <div className="hero__foot">
-            <p className="hero__hint">
-              <span className="skel skel--hero-hint" />
-            </p>
+            <dl className="hero__facts">
+              {Array.from({ length: HERO_FACTS }, (_, i) => (
+                <div key={i} className="hero__fact">
+                  <dt>
+                    <span className="skel skel--fact-label" />
+                  </dt>
+                  <dd>
+                    <span className="skel skel--fact-value" />
+                  </dd>
+                </div>
+              ))}
+            </dl>
             <span className="skel skel--primary-button" />
           </div>
         </section>
@@ -264,12 +276,6 @@ function DashboardSkeleton() {
         </section>
       </div>
 
-      <div className="tile-row divided-row">
-        {Array.from({ length: STAT_TILES }, (_, i) => (
-          <TileSkeleton key={i} />
-        ))}
-      </div>
-
       <div className="queue-row divided-row">
         <section>
           <SectionHeadSkeleton />
@@ -280,6 +286,32 @@ function DashboardSkeleton() {
           <TaskListSkeleton />
         </section>
       </div>
+
+      <section className="trends">
+        <div className="trends__head">
+          <div className="trends__intro">
+            <h2 className="section-head__title">
+              <span className="skel skel--section-title" />
+            </h2>
+            <p className="trends__takeaway">
+              <span className="skel skel--takeaway" />
+            </p>
+          </div>
+          <span className="skel skel--ghost-button" />
+        </div>
+        <dl className="figures">
+          {Array.from({ length: TREND_FIGURES }, (_, i) => (
+            <div key={i} className="figure">
+              <dt>
+                <span className="skel skel--tile-label" />
+              </dt>
+              <dd>
+                <span className="skel skel--tile-value" />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </div>
   )
 }

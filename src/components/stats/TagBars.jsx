@@ -5,10 +5,11 @@ const MAX_ROWS = 7
 /**
  * Hours by tag. Colour here is identity, not magnitude — each bar wears its own
  * tag's colour, and the tag name sits beside it as text, so the encoding never
- * rests on colour alone. Past seven tags the tail folds into "Other" rather
- * than inventing new hues, which would break the palette's ordering guarantee.
+ * rests on colour alone. Past `maxRows` tags (seven unless a narrower column
+ * asks for fewer) the tail folds into "Other" rather than inventing new hues,
+ * which would break the palette's ordering guarantee.
  */
-export function TagBars({ rows, label, emptyText = 'No tagged time in this range.' }) {
+export function TagBars({ rows, label, emptyText = 'No tagged time in this range.', maxRows = MAX_ROWS }) {
   const scored = rows.filter((row) => row.plannedMin > 0)
 
   if (scored.length === 0) {
@@ -20,8 +21,8 @@ export function TagBars({ rows, label, emptyText = 'No tagged time in this range
     )
   }
 
-  const head = scored.slice(0, MAX_ROWS)
-  const tail = scored.slice(MAX_ROWS)
+  const head = scored.slice(0, maxRows)
+  const tail = scored.slice(maxRows)
   const display = tail.length
     ? [
         ...head,
