@@ -4,7 +4,8 @@ import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
-import { hourMarks, visibleWindow } from '@cadence/shared/layout.js'
+import { gridOpenMinute, useGridScroll } from '../../lib/useGridScroll.js'
+import { FULL_DAY_END, FULL_DAY_START, hourMarks, visibleWindow } from '@cadence/shared/layout.js'
 import { isValidAiPlan, planDay, planningSlots } from '@cadence/shared/autoSchedule.js'
 import { planDayAi } from '../../lib/aiClient.js'
 import { freeSlots } from '@cadence/shared/slots.js'
@@ -15,7 +16,6 @@ import {
   formatFullDayLabel,
   minToLabel,
   minToShortLabel,
-  toHours,
 } from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
 import { TaskInbox } from '../calendar/TaskInbox.jsx'
@@ -75,7 +75,13 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
   const gridEvents = events.filter(
     (e) => Number.isFinite(e.startMin) && e.startDate === e.endDate,
   )
-  const [windowStart, windowEnd] = visibleWindow([...tasks, ...gridEvents])
+  /* The grid shows the whole day, 12 AM to 11:59 PM, and opens scrolled to the
+     hour that matters (below). What counts as a *reasonable* hour to put
+     something — for free slots and for planning — is still a normal day, widened
+     around anything already outside it, so a gap at 3am is never offered. */
+  const itemsOnDay = [...tasks, ...gridEvents]
+  const [windowStart, windowEnd] = visibleWindow(itemsOnDay, FULL_DAY_START, FULL_DAY_END)
+  const [reasonableStart, reasonableEnd] = visibleWindow(itemsOnDay)
   const marks = hourMarks(windowStart, windowEnd)
   const stats = dayStats(tasks)
 
@@ -92,14 +98,24 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
     Number.isFinite(workingHours?.startMin) &&
     Number.isFinite(workingHours?.endMin) &&
     workingHours.endMin > workingHours.startMin
-  const slotWindowStart = hasWorkingHours ? Math.max(windowStart, workingHours.startMin) : windowStart
-  const slotWindowEnd = hasWorkingHours ? Math.min(windowEnd, workingHours.endMin) : windowEnd
+  const slotWindowStart = hasWorkingHours ? Math.max(reasonableStart, workingHours.startMin) : reasonableStart
+  const slotWindowEnd = hasWorkingHours ? Math.min(reasonableEnd, workingHours.endMin) : reasonableEnd
   const gaps = freeSlots([...timed, ...gridEvents], slotWindowStart, slotWindowEnd, MIN_SLOT_MIN)
 
   /* "Right now" only means something on today's own page — a day you've
      navigated to isn't happening, so the callout is Focus's identity for
      today specifically, not a feature of every date this view can show. */
   const isToday = focusKey === now.key
+  const gridScrollRef = useRef(null)
+  /* The grid is 24 hours tall and scrolls inside the page. It opens at the current
+     time for today, otherwise at the first thing on the day — and again when the
+     day, or grid versus agenda, changes; never on a tick or an edit. */
+  useGridScroll(gridScrollRef, {
+    minute: gridOpenMinute({ isToday, nowMin: now.min, items: itemsOnDay }),
+    windowStart,
+    hourHeight: HOUR_HEIGHT,
+    resetKey: `${focusKey}|${mode}`,
+  })
   const current = isToday ? taskHappeningNow(tasks, now.min) : null
   // An all-day item has no place in a time sequence — it isn't "next", it's
   // just true all day — so only a timed block is eligible here.
@@ -239,21 +255,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
   return (
     <div className="day-layout frame">
       <section className="day-panel" aria-label={formatFullDayLabel(focusKey)}>
-        {focusTask && (
-          <div className="now-next">
-            <span className="now-next__dot" aria-hidden="true" />
-            <span className="now-next__label">{current ? 'Happening now' : 'Up next'}</span>
-            <button type="button" className="now-next__task" onClick={() => onEdit?.(focusTask)}>
-              {focusTask.title}
-            </button>
-            <span className="now-next__time">
-              {current
-                ? `until ${minToLabel(current.startMin + current.durationMin)}`
-                : minToLabel(next.startMin)}
-            </span>
-          </div>
-        )}
-
         <div className="section-head">
           <div>
             <h2 className="section-head__title">{formatFullDayLabel(focusKey)}</h2>
@@ -262,6 +263,11 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
                 ? 'Nothing scheduled yet'
                 : `${stats.openCount} open · ${durationLabel(stats.plannedMin)} planned` +
                   (stats.completedMin > 0 ? ` · ${durationLabel(stats.completedMin)} done` : '')}
+              {/* The one thing the old "6h planned of a 24h day" footer said that
+                  this line did not. */}
+              {stats.plannedMin > HEAVY_DAY_MIN && (
+                <span className="warn-text"> · heavy day</span>
+              )}
             </p>
           </div>
           <div className="day-panel__controls">
@@ -280,18 +286,25 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
                 </button>
               ))}
             </div>
-            {inbox.some((t) => !t.done) && (
-              <button
-                type="button"
-                className="ghost-button ghost-button--sm"
-                onClick={proposePlan}
-                aria-expanded={plan !== null}
-              >
-                Plan my day
-              </button>
-            )}
           </div>
         </div>
+
+        {/* One quiet line under the title, not a filled box above it: it is a
+            fact about the day, and the day's title should be what leads. */}
+        {focusTask && (
+          <div className="now-next">
+            <span className="now-next__dot" aria-hidden="true" />
+            <span className="now-next__label">{current ? 'Happening now' : 'Up next'}</span>
+            <button type="button" className="now-next__task" onClick={() => onEdit?.(focusTask)}>
+              {focusTask.title}
+            </button>
+            <span className="now-next__time">
+              {current
+                ? `until ${minToLabel(current.startMin + current.durationMin)}`
+                : minToLabel(next.startMin)}
+            </span>
+          </div>
+        )}
 
         {/* A proposal, shown in full and accepted as a whole or not at all.
             Writing straight to the calendar would be faster and much worse:
@@ -351,22 +364,25 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
           </div>
         )}
 
-        {/* Shown as their own rail rather than mixed into the task list,
-            because there is nothing here to tick off. */}
-        {railEvents.length > 0 && (
-          <ul className="event-rail">
-            {railEvents
-              .map((event) => {
+        {/* Everything that belongs to the day but not to a time, in one list under
+            one label: the events that own it or run across it first (there is
+            nothing to tick off there), then the tasks with no clock time. They
+            used to be two groups with two looks — a tinted rail and a row. */}
+        {(railEvents.length > 0 || allDay.length > 0) && (
+          <div className="all-day">
+            <span className="all-day__label">All day</span>
+            <ul className="all-day__list">
+              {railEvents.map((event) => {
                 const tag = getTag(event.tagId)
                 return (
-                  <li key={event.id}>
+                  <li key={event.id} className="event-rail">
                     <button
                       type="button"
                       className="event-rail__item"
                       style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
                       onClick={() => onEditEvent?.(event)}
                     >
-                      <SpanIcon className="event-rail__mark" width="13" height="13" />
+                      <SpanIcon className="event-rail__mark" width="15" height="15" />
                       <span className="event-rail__title">{event.title}</span>
                       {isMultiDay(event) && (
                         <span className="event-rail__meta">
@@ -384,13 +400,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
                   </li>
                 )
               })}
-          </ul>
-        )}
-
-        {allDay.length > 0 && (
-          <div className="all-day">
-            <span className="all-day__label">All day</span>
-            <ul className="all-day__list">
               {allDay.map((task) => (
                 <TaskRow key={task.id} task={task} onEdit={onEdit} showTime={false} />
               ))}
@@ -399,7 +408,8 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
         )}
 
         {/* The inverse of the schedule, and the question a time-blocker
-            actually asks: not "what is on today" but "where can this go". */}
+            actually asks: not "what is on today" but "where can this go". One
+            flat line of plain buttons, not a box of pills. */}
         {gaps.length > 0 && (
           <div className="free-slots">
             <span className="free-slots__label">Free</span>
@@ -458,7 +468,7 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
             })}
           </ul>
         ) : (
-          <div className="grid-scroll">
+          <div className="grid-scroll" ref={gridScrollRef}>
             <div className="grid-body grid-body--single">
               <div className="gutter" aria-hidden="true">
                 {marks.map((min) => (
@@ -493,14 +503,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
           </div>
         )}
 
-        {stats.plannedMin > 0 && (
-          <p className="day-panel__foot">
-            {toHours(stats.plannedMin)}h planned of a 24h day
-            {stats.plannedMin > HEAVY_DAY_MIN && (
-              <span className="warn-text"> · that is a heavy day</span>
-            )}
-          </p>
-        )}
       </section>
 
       <div className="day-side">
@@ -509,6 +511,8 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
           onEdit={onEdit}
           onCreate={onCreate}
           onCreateEvent={onCreateEvent}
+          onPlanDay={proposePlan}
+          planOpen={plan !== null}
         />
 
         <section className="today-list" aria-label={isToday ? "Today's tasks" : 'Tasks on this day'}>

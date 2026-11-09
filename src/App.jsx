@@ -106,11 +106,13 @@ const NAV_ITEMS = [
 ]
 
 /** The schedule page's four sub-views, and the tab shown for each. */
+/* Words only: four short labels need no pictograms to be told apart, and an icon
+   on each made the one bordered control in the header the busiest thing in it. */
 const SCHEDULE_TABS = [
-  { id: 'today', label: 'Day', Icon: DayIcon },
-  { id: 'week', label: 'Week', Icon: WeekIcon },
-  { id: 'month', label: 'Month', Icon: MonthIcon },
-  { id: 'review', label: 'Review', Icon: TrendIcon },
+  { id: 'today', label: 'Day' },
+  { id: 'week', label: 'Week' },
+  { id: 'month', label: 'Month' },
+  { id: 'review', label: 'Review' },
 ]
 const SCHEDULE_VIEWS = SCHEDULE_TABS.map((tab) => tab.id)
 
@@ -950,7 +952,6 @@ function AppShell() {
                     className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
                     onClick={() => setView(tab.id)}
                   >
-                    <tab.Icon className="view-tabs__icon" />
                     {tab.label}
                   </button>
                 ))}

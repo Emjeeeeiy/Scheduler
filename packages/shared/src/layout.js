@@ -103,10 +103,17 @@ export function minToPercent(min, dayStartMin, dayEndMin) {
   return ((min - dayStartMin) / (dayEndMin - dayStartMin)) * 100
 }
 
-/* The grid shows working hours by default rather than all 24, because a column
-   scaled to midnight–midnight makes a one-hour meeting too thin to read. */
+/* A day's own reasonable hours when nothing says otherwise. Free-slot search and
+   day planning still work inside this window — a gap at 3am is not somewhere to
+   put a task — whatever the grid itself chooses to show. */
 export const DEFAULT_WINDOW_START = 7 * 60
 export const DEFAULT_WINDOW_END = 22 * 60
+
+/* The whole day, 12:00 AM to 11:59 PM, for a grid that shows it all. Pass these to
+   `visibleWindow` to get the full day; it still returns a wider window if a caller
+   hands it something outside (nothing can be, but the clamp stays honest). */
+export const FULL_DAY_START = 0
+export const FULL_DAY_END = MINUTES_PER_DAY
 
 /**
  * The hour window to render, widened to whole hours around anything scheduled
@@ -126,10 +133,12 @@ export function visibleWindow(tasks, startMin = DEFAULT_WINDOW_START, endMin = D
   return [Math.max(0, start), Math.min(MINUTES_PER_DAY, Math.max(end, start + 60))]
 }
 
-/** Whole-hour marks inside a window, for the gutter labels and the rules. */
+/** Whole-hour marks inside a window, for the gutter labels and the rules. A window
+    that runs to midnight gets no mark at its far edge: that would be a second
+    "12 AM" under the last hour of the day, and the grid's own border closes it. */
 export function hourMarks(startMin, endMin) {
   const first = Math.ceil(startMin / 60) * 60
   const marks = []
-  for (let min = first; min <= endMin; min += 60) marks.push(min)
+  for (let min = first; min <= endMin && min < MINUTES_PER_DAY; min += 60) marks.push(min)
   return marks
 }

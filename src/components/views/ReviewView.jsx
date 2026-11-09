@@ -8,7 +8,15 @@ import {
   tagBreakdown,
   weakestTag,
 } from '@cadence/shared/stats.js'
-import { durationLabel, formatDayLabel, formatWeekLabel, toHours, weekKeys } from '@cadence/shared/date.js'
+import {
+  DAY_SHORT,
+  durationLabel,
+  formatDayLabel,
+  formatWeekLabel,
+  toHours,
+  weekKeys,
+  weekdayOf,
+} from '@cadence/shared/date.js'
 import { StatTile } from '../stats/StatTile.jsx'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
@@ -27,7 +35,14 @@ export function ReviewView({ focusKey }) {
   const { settings } = useSettings()
 
   const keys = weekKeys(focusKey, settings.weekStartsOn)
-  const rows = rangeStats(tasksOn, keys).map((row) => ({ ...row, label: formatDayLabel(row.key) }))
+  /* Seven columns under a title, so the axis names the weekday ("Mon") and the
+     tooltip and the table carry the full date — "Mon, Nov 2" under each of seven
+     columns ran into its neighbours on a phone. */
+  const rows = rangeStats(tasksOn, keys).map((row) => ({
+    ...row,
+    short: DAY_SHORT[weekdayOf(row.key)],
+    label: formatDayLabel(row.key),
+  }))
   const totals = summarize(rows)
   const weekTasks = keys.flatMap(tasksOn)
   const byTag = tagBreakdown(weekTasks, tags)

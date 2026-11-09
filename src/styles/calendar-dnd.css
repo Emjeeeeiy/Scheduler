@@ -61,6 +61,99 @@
   cursor: ns-resize;
 }
 
+/* Touch. At rest a block on a touch screen has no grips and cannot be dragged
+   (it is not `draggable` either — see DayColumn): the edge handle was 8px, a
+   30-minute block is 26px, and a thumb scrolling past one started a resize and
+   blocked the scroll where it landed. A block becomes editable only after it has
+   been held. Armed, it gets an Ink outline — no shadow, the system's rule — and
+   grips a finger can actually hit: a 28px target drawn as a 32×4px pill, hung off
+   each edge. `touch-action: none` lives only here, so an idle page scrolls under
+   any finger. */
+.block--armed {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 0;
+  z-index: 5;
+  touch-action: none;
+}
+
+/* The two 28px targets sit just *outside* the block's edges, overlapping it by
+   2px, rather than centred on them: a 30-minute block is 26px tall, so centred
+   grips would cover all of it and leave no body to drag. The top one hangs above
+   the top edge and the bottom one below the bottom edge, which is also where a
+   finger expects to pull from. */
+.block__handle--armed {
+  height: 28px;
+  z-index: 6;
+}
+
+.block__handle--top.block__handle--armed {
+  margin-top: -23px;
+}
+
+.block__handle--bottom.block__handle--armed {
+  margin-top: 3px;
+}
+
+.block__handle--armed::after {
+  width: 32px;
+  height: 4px;
+  opacity: 1;
+}
+
+/* The card a tap on a title-less block opens (see DayColumn's `peekOnTouch`): a
+   small floating layer above the tab bar, so it takes the floating material — a
+   border, the large radius, the one shadow a floating thing gets. */
+.block-peek {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.block-peek__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.block-peek__title {
+  min-width: 0;
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-item);
+  overflow-wrap: anywhere;
+}
+
+.block-peek__meta {
+  font-size: var(--text-meta);
+  color: var(--color-text-secondary);
+}
+
+.block-peek__actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (pointer: coarse) {
+  .block {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .block__handle:not(.block__handle--armed) {
+    display: none;
+  }
+}
+
 /* An event in the grid: the same material as a task block, but without the tag
    stripe and with nothing to tick off, so it reads as a different kind of
    thing without reaching for a second colour. */
@@ -177,35 +270,43 @@
   color: var(--color-text-muted);
 }
 
+/* An event on the all-day list. It is a row in the same list as the day's
+   all-day tasks, so it is built like one: the same 7px/6px inset, the same
+   hairline below, the same hover step, a 15px mark where the task has its
+   checkbox. What tells it from a task is the mark itself (an event happens, it is
+   not ticked off) and the tag colour on it — not a tinted fill and a radius of
+   its own. */
 .event-rail {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.event-rail:last-child {
+  border-bottom: none;
 }
 
 .event-rail__item {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 9px;
+  padding: 7px 6px;
   border: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--tag) 14%, var(--color-surface-1));
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
   font-size: var(--text-item);
-  font-weight: var(--font-weight-label);
+  font-weight: var(--font-weight-item);
 }
 
 .event-rail__item:hover {
-  background: color-mix(in srgb, var(--tag) 24%, var(--color-surface-1));
+  background: var(--color-surface-2);
 }
 
 .event-rail__mark {
   flex: none;
-  color: var(--color-text-secondary);
+  color: var(--tag, var(--color-text-secondary));
 }
 
 .event-rail__title {
@@ -223,19 +324,20 @@
   color: var(--color-text-secondary);
 }
 
+/* The day's free time: a label and a run of plain buttons, ruled from each other
+   by hairlines the way a `.divided-row` rules its cells — not a boxed strip of
+   outlined pills, which made a gap in the day look like more furniture on it. */
 .free-slots {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-sunken);
+  padding: 6px 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .free-slots__label {
   flex: none;
+  min-width: 48px;
   font-size: var(--text-micro);
   font-weight: var(--font-weight-label);
   text-transform: uppercase;
@@ -246,17 +348,21 @@
 .free-slots__list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  min-width: 0;
+}
+
+.free-slots__list > li + li {
+  border-left: 1px solid var(--color-border);
 }
 
 .free-slots__slot {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 3px 9px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-surface-1);
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
   font-size: var(--text-meta);
@@ -499,5 +605,347 @@
      hero is a second map of the same days and costs a full screen of scroll. */
   .dashboard__top .mini-cal {
     display: none;
+  }
+}
+
+/* ================================================== schedule: phone & tablet == */
+
+/* Where the bottom tab bar takes over, the schedule stops being a padded frame
+   inside the page and becomes the page — the same move the Dashboard and the
+   Journal make. The frame cancels the app's side padding (`--content-pad-x`, set
+   on `.app-content`), so every hairline and every grid runs from one edge of the
+   screen to the other, and the writing in between takes a gutter of its own
+   (`--sched-gutter`) instead of stacking the page's 12px on the frame's 14px.
+
+   Written after `toggles-responsive.css` on purpose: its stacked-column rules for
+   the Day layout have the same weight as these, and the later one wins. */
+@media (max-width: 900px) {
+  .day-layout.frame,
+  .week.frame,
+  .month.frame {
+    --sched-gutter: 24px;
+    /* Room for a whole screen's worth of grid between the two bars. */
+    --grid-view-height: max(380px, calc(100dvh - 210px));
+    margin-inline: calc(var(--content-pad-x) * -1);
+    padding-inline: 0;
+  }
+
+  /* Day: each group is a full-width row with its own gutter, so its hairline
+     reaches both edges. The grid is the one thing that takes no gutter. */
+  .day-panel > .section-head,
+  .day-panel > .now-next,
+  .day-panel > .all-day,
+  .day-panel > .free-slots {
+    padding-inline: var(--sched-gutter);
+  }
+
+  .day-panel > .day-plan {
+    margin-inline: var(--sched-gutter);
+  }
+
+  .day-panel > .agenda {
+    padding-inline: calc(var(--sched-gutter) - 10px);
+  }
+
+  .day-layout.frame > .day-panel {
+    padding-right: 0;
+    padding-bottom: 14px;
+  }
+
+  /* The inbox and the day's checklist stack under the grid as two bands, each
+     ruled off from the one above across the full width. */
+  .app-content .day-layout.frame > .day-side {
+    margin-top: 0;
+    padding: 0;
+    gap: 0;
+    position: static;
+  }
+
+  .day-side > .inbox,
+  .day-side > .today-list {
+    padding: 16px var(--sched-gutter);
+  }
+
+  .day-side > .today-list {
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Week and Month: the summary and the hint are text, so they take the gutter;
+     the grids themselves do not. */
+  .week > .week__summary,
+  .week > .week__hint {
+    padding-inline: var(--sched-gutter);
+  }
+
+  /* The grid already has its own right-hand rule on every cell, so the left
+     border it draws at the screen's edge would be a second line there. */
+  .month__grid {
+    border-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .day-layout.frame,
+  .week.frame,
+  .month.frame {
+    --sched-gutter: 16px;
+    padding-block: 0;
+  }
+
+  /* Day: the title on its own line and the Grid / Agenda switch under it as one
+     segmented row, instead of the date wrapping onto two lines beside the chips. */
+  .day-panel > .section-head {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .day-panel .day-panel__controls {
+    width: 100%;
+  }
+
+  .day-panel .filter-row {
+    width: 100%;
+    flex-wrap: nowrap;
+  }
+
+  .day-panel .filter-chip {
+    flex: 1;
+    justify-content: center;
+    padding-block: 8px;
+  }
+
+  /* One line that scrolls sideways, not a block of buttons that wraps. It fades
+     out at the edge it runs off, which is the only hint that there is more. */
+  .free-slots__list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-right: calc(var(--sched-gutter) * -1);
+    padding-right: var(--sched-gutter);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  .free-slots__slot {
+    white-space: nowrap;
+  }
+
+  /* A narrower hour gutter gives the blocks the room. */
+  .grid-body--single .gutter {
+    width: 44px;
+  }
+
+  /* ---- Week: all seven days fit ------------------------------------------ */
+
+  /* The 720px floor made the week scroll sideways showing three days at a time
+     with titles cut off mid-word. On a phone the week is an overview: seven slim
+     columns, each block a bar with its tag stripe and tint, and the Day tab is
+     where titles are read. */
+  .week__inner {
+    min-width: 0;
+  }
+
+  .week .gutter,
+  .week .gutter-spacer,
+  .week__head .gutter-spacer {
+    width: 40px;
+  }
+
+  .week .gutter__mark {
+    right: 5px;
+    font-size: var(--text-nano);
+  }
+
+  /* The label wraps to two lines in the 40px gutter, which is taller than an
+     empty all-day row — so the row keeps enough height for it, or it runs into
+     the first hour mark. */
+  .week__allday {
+    min-height: 32px;
+  }
+
+  /* Right-aligned and set in from the edge, like the hour marks beneath it. */
+  .week__allday .all-day__label {
+    font-size: var(--text-nano);
+    line-height: 1.1;
+    text-align: right;
+    padding-right: 5px;
+  }
+
+  .week__day {
+    padding: 6px 0 8px;
+  }
+
+  .week__date {
+    font-size: var(--text-item);
+  }
+
+  .week__day--today .week__date {
+    min-width: 24px;
+    height: 24px;
+    font-size: var(--text-label);
+  }
+
+  /* Visually hidden, not removed: the button still carries its title and time as
+     its accessible name, and as its tooltip on a hover-capable device. */
+  .week .block__title,
+  .week .block__time {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .week .block {
+    padding: 0;
+  }
+
+  /* ...except in a block tall enough (45 minutes or more) and alone in its column
+     to give a title a little room: a short title, wrapped, at the smallest size
+     the calendar uses. It is a hint at what the bar is, not a label to read —
+     tapping the bar says the rest. */
+  .week .block:not(.block--compact):not(.block--split) {
+    padding: 2px 1px 2px 3px;
+  }
+
+  .week .block:not(.block--compact):not(.block--split) .block__title {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    white-space: normal;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    font-size: var(--text-nano);
+    line-height: 1.15;
+  }
+
+  .week .block__tag-icon {
+    display: none;
+  }
+
+  /* The all-day row: bars, for the same reason. */
+  .week__spans {
+    grid-auto-rows: 6px;
+  }
+
+  .week__span {
+    padding: 0;
+    margin: 0 1px;
+    background: color-mix(in srgb, var(--tag) 60%, var(--color-surface-1));
+  }
+
+  .week__span-title,
+  .week__span-carry {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .week__allday-cell {
+    padding: 0 1px;
+  }
+
+  .week__allday-cell .chip {
+    height: 6px;
+    padding: 0;
+    font-size: 0;
+    background: var(--color-text-muted);
+  }
+
+  /* ---- Month: dots, and the whole cell opens the day ---------------------- */
+
+  /* A cell is about 55px wide, so a chip's text was cut mid-word ("8:0(") and a
+     bar's was cut to its first letter. The month is a map of which days have
+     something: a number, up to three dots, a line for each running event. Tapping
+     anywhere in the cell opens that day, where the titles are. */
+  .month__week {
+    grid-auto-rows: minmax(56px, auto);
+  }
+
+  .month__cell {
+    padding: 4px 2px 4px;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .month__cell-head {
+    justify-content: center;
+  }
+
+  .month__daynum::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .month__chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .month__chips > li {
+    width: auto;
+  }
+
+  .month__chips > li:nth-child(n + 4) {
+    display: none;
+  }
+
+  .month__chips .chip {
+    width: auto;
+    padding: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .month__chips .chip__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .month__chips .month__more,
+  .month__add {
+    display: none;
+  }
+
+  .month__lanes {
+    grid-auto-rows: 4px;
+    row-gap: 2px;
+    padding: 0 2px;
+  }
+
+  .month__bar {
+    padding: 0;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--tag) 65%, var(--color-surface-1));
+    pointer-events: none;
+  }
+
+  .month__bar-title,
+  .month__bar-carry,
+  .month__bar-icon {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .month__lane-spacer {
+    height: calc(var(--lanes, 0) * 6px);
   }
 }

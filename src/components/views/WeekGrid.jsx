@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
-import { hourMarks, visibleWindow } from '@cadence/shared/layout.js'
+import { FULL_DAY_END, FULL_DAY_START, hourMarks, visibleWindow } from '@cadence/shared/layout.js'
 import { HEAVY_DAY_MIN, dayStats } from '@cadence/shared/stats.js'
 import { packSpans } from '@cadence/shared/spans.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
+import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
+import { gridOpenMinute, useGridScroll } from '../../lib/useGridScroll.js'
 import {
   dayOfMonth,
   daysBetween,
@@ -35,6 +37,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   const { pushError } = useToast()
   const { settings } = useSettings()
   const now = useNow()
+  const coarse = useCoarsePointer()
   const [dropKey, setDropKey] = useState(null)
 
   // Memoized on `focusKey`/`weekStartsOn` so this array's identity survives a
@@ -55,6 +58,10 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
 
   const weekPlannedMin = dayTotals.reduce((sum, stats) => sum + stats.plannedMin, 0)
   const heavyDays = dayTotals.filter((stats) => stats.plannedMin > HEAVY_DAY_MIN).length
+  /* The how-to line under the grid is for a week with nothing on it — the moment
+     someone is looking at an empty grid wondering what it wants. Once there is
+     anything to look at it is chrome, and the cursor already says it. */
+  const weekIsEmpty = byDay.every((list) => list.length === 0) && eventsByDay.every((list) => list.length === 0)
 
   /* One window across all seven days so the rows line up; widened to fit the
      earliest and latest thing scheduled anywhere in the week — events included,
@@ -62,9 +69,20 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   const gridEvents = eventsByDay
     .flat()
     .filter((e) => Number.isFinite(e.startMin) && e.startDate === e.endDate)
-  const [windowStart, windowEnd] = visibleWindow([...byDay.flat(), ...gridEvents])
+  /* The whole day, 12 AM to 11:59 PM, in a grid that scrolls inside the page and
+     opens at the right hour (below). The day headers and the all-day row are
+     outside that scroll area, so they stay put while the hours move. */
+  const itemsInWeek = [...byDay.flat(), ...gridEvents]
+  const [windowStart, windowEnd] = visibleWindow(itemsInWeek, FULL_DAY_START, FULL_DAY_END)
   const marks = hourMarks(windowStart, windowEnd)
   const bodyHeight = ((windowEnd - windowStart) / 60) * HOUR_HEIGHT
+  const bodyScrollRef = useRef(null)
+  useGridScroll(bodyScrollRef, {
+    minute: gridOpenMinute({ isToday: keys.includes(now.key), nowMin: now.min, items: itemsInWeek }),
+    windowStart,
+    hourHeight: HOUR_HEIGHT,
+    resetKey: keys[0],
+  })
 
   const allDayByDay = byDay.map((tasks) => tasks.filter((t) => !Number.isFinite(t.startMin)))
 
@@ -156,18 +174,23 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                   className={`week__day${isToday ? ' week__day--today' : ''}`}
                   onClick={() => onFocusDay?.(key)}
                   title={`Open ${key}`}
+                  /* The header is the weekday, the date and the load bar. The
+                     hours and the event count it used to print under them are
+                     still said — here, to anyone who asks, and in the Day view
+                     it opens — rather than as a third line on every column.
+                     Events get a count, not a second bar: they are not planned
+                     work, and a capacity meter for them would invent a second
+                     answer to "how full is this day". */
+                  aria-label={[
+                    `${headers[index]} ${dayOfMonth(key)}`,
+                    stats.plannedMin > 0 ? `${durationLabel(stats.plannedMin)} planned` : null,
+                    eventCount > 0 ? `${eventCount} event${eventCount === 1 ? '' : 's'}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
                 >
                   <span className="week__dow">{headers[index]}</span>
                   <span className="week__date">{dayOfMonth(key)}</span>
-                  <span className="week__load">
-                    {stats.plannedMin > 0 ? durationLabel(stats.plannedMin) : '—'}
-                    {/* A count, not a second bar: events are not planned work,
-                        and giving them their own capacity meter would invent a
-                        second answer to "how full is this day". */}
-                    {eventCount > 0 && (
-                      <span className="week__events"> · {eventCount}e</span>
-                    )}
-                  </span>
                   {stats.plannedMin > 0 && (
                     <span className="week__load-track" aria-hidden="true">
                       <span
@@ -202,7 +225,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                         <button
                           key={segment.event.id}
                           type="button"
-                          draggable
+                          draggable={!coarse}
                           onDragStart={(dragEvent) => {
                             dragEvent.dataTransfer.effectAllowed = 'move'
                             dragEvent.dataTransfer.setData(
@@ -278,7 +301,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                       <button
                         key={task.id}
                         type="button"
-                        draggable
+                        draggable={!coarse}
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = 'move'
                           event.dataTransfer.setData(
@@ -299,44 +322,50 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
             </div>
           </div>
 
-          <div className="grid-body">
-            <div className="gutter" style={{ height: `${bodyHeight}px` }} aria-hidden="true">
-              {marks.map((min) => (
-                <div
-                  key={min}
-                  className="gutter__mark"
-                  style={{ top: `${((min - windowStart) / (windowEnd - windowStart)) * 100}%` }}
-                >
-                  {minToShortLabel(min)}
-                </div>
-              ))}
-            </div>
+          <div className="week__scroll" ref={bodyScrollRef}>
+            <div className="grid-body">
+              <div className="gutter" style={{ height: `${bodyHeight}px` }} aria-hidden="true">
+                {marks.map((min) => (
+                  <div
+                    key={min}
+                    className="gutter__mark"
+                    style={{ top: `${((min - windowStart) / (windowEnd - windowStart)) * 100}%` }}
+                  >
+                    {minToShortLabel(min)}
+                  </div>
+                ))}
+              </div>
 
-            <div className="grid-columns" style={{ height: `${bodyHeight}px` }}>
-              {keys.map((key, index) => (
-                <DayColumn
-                  key={key}
-                  dateKey={key}
-                  tasks={byDay[index]}
-                  events={eventsByDay[index]}
-                  windowStart={windowStart}
-                  windowEnd={windowEnd}
-                  hourMarkList={marks}
-                  onCreate={onCreate}
-                  onEdit={onEdit}
-                  onEditEvent={onEditEvent}
-                  nowMinute={key === now.key ? now.min : null}
-                />
-              ))}
+              <div className="grid-columns" style={{ height: `${bodyHeight}px` }}>
+                {keys.map((key, index) => (
+                  <DayColumn
+                    key={key}
+                    dateKey={key}
+                    tasks={byDay[index]}
+                    events={eventsByDay[index]}
+                    windowStart={windowStart}
+                    windowEnd={windowEnd}
+                    hourMarkList={marks}
+                    onCreate={onCreate}
+                    onEdit={onEdit}
+                    onEditEvent={onEditEvent}
+                    nowMinute={key === now.key ? now.min : null}
+                    peekOnTouch
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <p className="week__hint">
-        Drag down an empty column to block out time · drag a block to move it, or its edges to
-        resize
-      </p>
+      {weekIsEmpty && (
+        <p className="week__hint">
+          {coarse
+            ? 'Tap a day to open it. Hold a block to move or resize it.'
+            : 'Drag down an empty column to block out time · drag a block to move it, or its edges to resize'}
+        </p>
+      )}
     </section>
   )
 }

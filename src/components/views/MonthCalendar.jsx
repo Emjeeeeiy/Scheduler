@@ -4,6 +4,7 @@ import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
+import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
 import { packSpans } from '@cadence/shared/spans.js'
 import {
   dayOfMonth,
@@ -50,6 +51,9 @@ function MonthWeek({
   dropKey,
   setDropKey,
 }) {
+  // A finger would pick a chip up on a long press while only reading the month;
+  // on touch a day changes in the task form, and a tap on the cell opens it.
+  const coarse = useCoarsePointer()
   // Same reasoning as WeekGrid's rowEvents/spans: eventsInRange has no cache
   // of its own, so memoizing on `rowKeys` (stable across a dropKey-only
   // re-render — see MonthCalendar's own `rows` memo below) and eventsInRange's
@@ -109,18 +113,22 @@ function MonthWeek({
               </span>
             )}
 
+            {/* The number, and nothing beside it: the day's load is the strip
+                along the top of the cell, and the hours it stood for are said
+                to anyone who asks rather than printed in every cell. On a phone
+                the number's button spreads over the whole cell (see the phone
+                rules), so the cell itself is "open this day". */}
             <div className="month__cell-head">
               <button
                 type="button"
                 className="month__daynum"
                 onClick={() => onFocusDay(key)}
-                aria-label={`Open ${key}`}
+                aria-label={`Open ${key}${
+                  stats.plannedMin > 0 ? `, ${durationLabel(stats.plannedMin)} planned` : ''
+                }`}
               >
                 {dayOfMonth(key)}
               </button>
-              {stats.plannedMin > 0 && (
-                <span className="month__load">{durationLabel(stats.plannedMin)}</span>
-              )}
             </div>
 
             {/* Reserves the lanes' height so chips start below the bars. */}
@@ -133,7 +141,7 @@ function MonthWeek({
                   <li key={task.id}>
                     <button
                       type="button"
-                      draggable
+                      draggable={!coarse}
                       onDragStart={(dragEvent) => {
                         dragEvent.dataTransfer.effectAllowed = 'move'
                         dragEvent.dataTransfer.setData(
@@ -144,9 +152,9 @@ function MonthWeek({
                       className={`chip chip--dot${task.done ? ' chip--done' : ''}`}
                       style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
                       onClick={() => onEdit?.(task)}
-                      /* A month cell is too narrow for a repeat marker beside
-                         the dot, time, and title, so the rule rides in the
-                         tooltip and the day and week views carry the glyph. */
+                      /* A month cell is too narrow for a repeat marker or a time
+                         beside the dot and title, so both ride in the tooltip
+                         and the day and week views carry them. */
                       title={[
                         Number.isFinite(task.startMin) ? minToLabel(task.startMin) : null,
                         task.title,
@@ -159,9 +167,6 @@ function MonthWeek({
                         <TagGlyph tag={tag} variant="chip" className="chip__dot" />
                       ) : (
                         <span className="chip__dot" aria-hidden="true" />
-                      )}
-                      {Number.isFinite(task.startMin) && (
-                        <span className="chip__time">{minToLabel(task.startMin)}</span>
                       )}
                       <span className="chip__title">{task.title}</span>
                     </button>
@@ -209,7 +214,7 @@ function MonthWeek({
                 <button
                   key={segment.event.id}
                   type="button"
-                  draggable
+                  draggable={!coarse}
                   onDragStart={(dragEvent) => {
                     dragEvent.dataTransfer.effectAllowed = 'move'
                     dragEvent.dataTransfer.setData(

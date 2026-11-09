@@ -7,6 +7,7 @@ import { useToast } from '../../state/ToastContext.jsx'
    not exist. Events have no inbox, because an undated thing that runs for
    three days is a task, not an event. */
 import { DRAG_TASK, readDrag } from '../../lib/dnd.js'
+import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
 import { todayKey } from '@cadence/shared/date.js'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
@@ -14,10 +15,16 @@ import { TagGlyph } from '../editors/TagGlyph.jsx'
  * The inbox holds everything not yet given a slot. It is both a drag source
  * (drag an item onto the grid to schedule it) and a drop target (drag a block
  * back here to unschedule it), so planning is reversible in one gesture.
+ *
+ * On a touch screen a row is not draggable — a long press would pick it up while
+ * someone was only reading the list — and each row's "Plan" button is the way to
+ * give it a day instead. `onPlanDay` is the Day view's "Plan my day", which lives
+ * here because it is the inbox it plans.
  */
-export function TaskInbox({ focusKey, onEdit, onCreate }) {
+export function TaskInbox({ focusKey, onEdit, onCreate, onPlanDay, planOpen = false }) {
   const { inbox, addTask, toggleDone, unscheduleTask, scheduleTask, getTag } = useSchedule()
   const { pushError } = useToast()
+  const coarse = useCoarsePointer()
   const [title, setTitle] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [dropActive, setDropActive] = useState(false)
@@ -75,13 +82,20 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
         <h2 className="section-head__title">
           Inbox <span className="count-pill">{open.length}</span>
         </h2>
-        {done.length > 0 && (
-          <button type="button" className="ghost-button ghost-button--sm" onClick={() => setShowDone((v) => !v)}>
-            {showDone ? 'Hide done' : `Show done (${done.length})`}
+        {onPlanDay && open.length > 0 && (
+          <button
+            type="button"
+            className="ghost-button ghost-button--sm"
+            onClick={onPlanDay}
+            aria-expanded={planOpen}
+          >
+            Plan my day
           </button>
         )}
       </div>
 
+      {/* Capture is Enter in the field; the button is only its label. The page's
+          one loud button is "New task" in the sidebar, so this one is quiet. */}
       <form className="quick-add" onSubmit={onQuickAdd}>
         <input
           className="input"
@@ -91,7 +105,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
           maxLength={200}
           aria-label="New inbox task"
         />
-        <button type="submit" className="primary-button">
+        <button type="submit" className="ghost-button">
           Add
         </button>
       </form>
@@ -108,7 +122,7 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
               <li
                 key={task.id}
                 className={`inbox-item${task.done ? ' inbox-item--done' : ''}`}
-                draggable
+                draggable={!coarse}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move'
                   event.dataTransfer.setData(DRAG_TASK, JSON.stringify({ id: task.id, grabOffsetMin: 0 }))
@@ -146,11 +160,16 @@ export function TaskInbox({ focusKey, onEdit, onCreate }) {
         </ul>
       )}
 
-      <p className="inbox__hint">Drag onto the grid to give it a time — or drag a block back here.</p>
-
-      <button type="button" className="ghost-button ghost-button--block" onClick={() => onCreate?.({})}>
-        Add with details…
-      </button>
+      <div className="inbox__foot">
+        <button type="button" className="ghost-button ghost-button--sm" onClick={() => onCreate?.({})}>
+          Add with details…
+        </button>
+        {done.length > 0 && (
+          <button type="button" className="inbox__done-toggle" onClick={() => setShowDone((v) => !v)}>
+            {showDone ? 'Hide done' : `Show done (${done.length})`}
+          </button>
+        )}
+      </div>
     </section>
   )
 }

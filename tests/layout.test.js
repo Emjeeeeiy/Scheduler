@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { hourMarks, layoutDay, ratioToMin, visibleWindow } from '@cadence/shared/layout.js'
+import {
+  FULL_DAY_END,
+  FULL_DAY_START,
+  hourMarks,
+  layoutDay,
+  ratioToMin,
+  visibleWindow,
+} from '@cadence/shared/layout.js'
 
 const task = (id, startMin, durationMin) => ({ id, startMin, durationMin })
 
@@ -137,5 +144,20 @@ describe('ratioToMin', () => {
 describe('hourMarks', () => {
   it('lists whole hours inside the window', () => {
     assert.deepEqual(hourMarks(8 * 60, 11 * 60), [480, 540, 600, 660])
+  })
+
+  it('labels every hour of a whole day, and not midnight a second time', () => {
+    const marks = hourMarks(FULL_DAY_START, FULL_DAY_END)
+    assert.equal(marks.length, 24)
+    assert.equal(marks[0], 0)
+    assert.equal(marks[23], 23 * 60)
+  })
+})
+
+describe('the full-day window', () => {
+  it('is midnight to midnight whatever is scheduled', () => {
+    assert.deepEqual(visibleWindow([], FULL_DAY_START, FULL_DAY_END), [0, 24 * 60])
+    assert.deepEqual(visibleWindow([task('a', 5 * 60, 60)], FULL_DAY_START, FULL_DAY_END), [0, 24 * 60])
+    assert.deepEqual(visibleWindow([task('a', 23 * 60 + 30, 30)], FULL_DAY_START, FULL_DAY_END), [0, 24 * 60])
   })
 })

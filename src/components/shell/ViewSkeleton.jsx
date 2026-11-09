@@ -316,19 +316,12 @@ function DashboardSkeleton() {
   )
 }
 
-/** Day: the now/next callout, the section head with its Grid/Agenda switch,
-    then a single-column time grid. */
+/** Day: the section head with its Grid/Agenda switch, the now/next line under
+    it, then a single-column time grid. */
 function TodaySkeleton() {
   return (
     <div className="view-skeleton day-layout frame">
       <section className="day-panel">
-        <div className="now-next">
-          <span className="skel skel--now-dot" />
-          <span className="skel skel--now-label" />
-          <span className="skel skel--now-task" />
-          <span className="skel skel--now-time" />
-        </div>
-
         <div className="section-head">
           <div>
             <h2 className="section-head__title">
@@ -343,8 +336,14 @@ function TodaySkeleton() {
               <span className="skel skel--chip skel--chip--on" />
               <span className="skel skel--chip" />
             </div>
-            <span className="skel skel--ghost-button" />
           </div>
+        </div>
+
+        <div className="now-next">
+          <span className="skel skel--now-dot" />
+          <span className="skel skel--now-label" />
+          <span className="skel skel--now-task" />
+          <span className="skel skel--now-time" />
         </div>
 
         <div className="grid-scroll">
@@ -403,10 +402,6 @@ function WeekSkeleton() {
           </div>
         </div>
       </div>
-
-      <p className="week__hint">
-        <span className="skel skel--week-hint" />
-      </p>
     </section>
   )
 }
@@ -431,7 +426,6 @@ function MonthSkeleton() {
               <div key={day} className="month__cell">
                 <div className="month__cell-head">
                   <span className="skel skel--daynum" />
-                  <span className="skel skel--month-load" />
                 </div>
                 <div className="month__lane-spacer" />
                 <ul className="month__chips">

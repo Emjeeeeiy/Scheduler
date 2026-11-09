@@ -9,6 +9,14 @@
   align-items: start;
 }
 
+/* The day panel's own side of the divider gets the same 16px the inbox gets on
+   its side, so a time or a "Day 4 of 11" at the end of a row does not run into
+   the rule. (Below 900px the divider is a hairline across the top and the panel
+   is edge to edge — see the schedule phone rules.) */
+.day-layout > .day-panel {
+  padding-right: 16px;
+}
+
 /* The general-sibling combinator: everything after the first column — the
    inbox beside the day panel — is ruled off from it and inset. */
 .day-layout > :not([hidden]) ~ :not([hidden]) {
@@ -18,6 +26,33 @@
 
 .grid-scroll {
   overflow-x: auto;
+}
+
+/* The grid shows the whole day — 24 hours, 1,248px — so it scrolls inside the page
+   rather than making the page 1,248px longer, and it is opened at the right hour
+   (see `useGridScroll`). The Day grid is the scroll area itself; the Week's is the
+   box around its hours only, so the day headers and the all-day row above it stay
+   put while the hours move. The Week's scrollbar is not drawn: it would take 15px
+   from the columns and leave them out of line with the headers above. */
+.day-layout,
+.week {
+  --grid-view-height: max(420px, calc(100dvh - 200px));
+}
+
+.day-panel .grid-scroll,
+.week__scroll {
+  max-height: var(--grid-view-height);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gridline) transparent;
+}
+
+.week__scroll {
+  scrollbar-width: none;
+}
+
+.week__scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .week__inner {
@@ -56,6 +91,11 @@
 .grid-body {
   display: flex;
   align-items: stretch;
+  /* An hour label is centred on its rule, so the first and last ones hang half
+     their height outside the grid. `.grid-scroll` clips whatever overflows it, and
+     the first label ("7 AM") and the last ("10 PM") were being cut in half. The
+     margin is the room they hang into. */
+  margin-block: 8px;
 }
 
 .gutter,
@@ -235,14 +275,17 @@
 
 /* day panel ------------------------------------------------------------ */
 
+/* The groups under a day's title — what is happening now, what has no clock
+   time, where the free time is — are each one plain row ruled off from the next
+   by a hairline, the way every other section on a page is. They used to be a
+   filled box, a tinted rail and a bordered strip of pills, three looks for
+   three lines of text. */
 .now-next {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
-  margin-bottom: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
   font-size: var(--text-label);
 }
 
@@ -340,19 +383,18 @@
   font-family: var(--font-mono);
 }
 
-.day-panel__foot {
-  margin-top: 12px;
-  font-size: var(--text-label);
-  color: var(--color-text-secondary);
+/* The air between the last group and the grid (the grid body brings 8px of its
+   own, for the hour labels). */
+.day-panel .grid-scroll {
+  margin-top: 4px;
 }
 
 .all-day {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 12px;
+  padding: 4px 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .all-day__label {
@@ -364,8 +406,16 @@
   flex: none;
 }
 
+/* On the Day view the label sits beside a list of rows that carry their own 7px
+   inset, so it drops to the first row's text line. */
+.all-day > .all-day__label {
+  padding-top: 11px;
+  min-width: 48px;
+}
+
 .all-day__list {
   flex: 1;
+  min-width: 0;
 }
 
 /* week ----------------------------------------------------------------- */
@@ -426,13 +476,6 @@
   font-size: var(--text-subtitle);
   font-weight: var(--font-weight-title);
   line-height: 1.1;
-}
-
-.week__load {
-  font-size: var(--text-micro);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
 }
 
 .week__load-track {
@@ -542,10 +585,6 @@
   background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
-.week__events {
-  color: var(--color-text-muted);
-}
-
 .week__hint {
   margin-top: 12px;
   font-size: var(--text-meta);
@@ -593,13 +632,6 @@
   height: 7px;
   border-radius: 50%;
   background: var(--tag);
-  flex: none;
-}
-
-.chip__time {
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
   flex: none;
 }
 
@@ -739,8 +771,20 @@
   color: var(--color-text-muted);
 }
 
-.month__cell--today {
-  box-shadow: inset 0 0 0 2px var(--color-text-primary);
+/* Today is the Ink circle on its number — the mark the mini calendar and the
+   week header already use — not a heavy ring round the whole cell, which was
+   the loudest thing on the page for the one cell that needed saying once. */
+.month__cell--today .month__daynum {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border-radius: 999px;
+  min-width: 22px;
+  padding: 1px 5px;
+  text-align: center;
+}
+
+.month__cell--today .month__daynum:hover {
+  background: var(--color-text-secondary);
 }
 
 .month__cell--drop {
@@ -788,13 +832,6 @@
 
 .month__daynum:hover {
   background: var(--color-surface-2);
-}
-
-.month__load {
-  font-size: var(--text-nano);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
 }
 
 .month__chips {
@@ -926,11 +963,49 @@
   min-width: 0;
 }
 
-.inbox__hint {
+/* The foot of the inbox: the one way to add with a date, a tag and notes, and —
+   quieter than a button, because it is a setting of the list — whether the done
+   ones show. */
+.inbox__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.inbox__done-toggle {
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-meta);
   color: var(--color-text-muted);
-  margin-top: 12px;
-  text-align: center;
+  cursor: pointer;
+}
+
+.inbox__done-toggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
+}
+
+/* Every row carries a "Plan" button, and eight outlined buttons down a column is
+   the busiest thing in it. On a pointer that can hover, the outline appears with
+   the row's own hover step; on a touch screen there is no hover to wait for, so
+   it stays drawn. */
+.day-side .inbox-item .ghost-button {
+  border-color: transparent;
+}
+
+.day-side .inbox-item:hover .ghost-button,
+.day-side .inbox-item .ghost-button:focus-visible {
+  border-color: var(--color-border);
+}
+
+@media (hover: none), (pointer: coarse) {
+  .day-side .inbox-item .ghost-button {
+    border-color: var(--color-border);
+  }
 }
 
 /* Every level from the inbox column down to the title needs min-width: 0 —

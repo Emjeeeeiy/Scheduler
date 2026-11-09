@@ -300,13 +300,21 @@
   }
 
   .date-nav .icon-button {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .date-nav__label {
     min-width: 0;
     flex: 1;
+  }
+
+  /* "Today" only exists when you are away from it, and then it is one small
+     button at the end of the row rather than a fourth full-size control. */
+  .date-nav .ghost-button {
+    flex: none;
+    padding: 4px 10px;
+    font-size: var(--text-label);
   }
 
   /* The three-column grid only works with room either side of the date
@@ -315,7 +323,8 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 6px;
+    padding-bottom: 0;
   }
 
   .view-tabs {
@@ -325,6 +334,14 @@
   .view-tabs__tab {
     flex: 1;
     justify-content: center;
+    padding: 7px 4px;
+    font-size: var(--text-item);
+  }
+
+  /* The schedule starts one short step under its switcher; the dashboard's
+     header is a single word, so its own rule above stays. */
+  .app-content:has(.app__header--schedule) .app__main {
+    margin-top: 10px;
   }
 }
 
