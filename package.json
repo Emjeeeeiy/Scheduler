@@ -42,7 +42,7 @@
     "perfect-freehand": "1.2.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "web-push": "^3.6.7"
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
