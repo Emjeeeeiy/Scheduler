@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -15,6 +16,10 @@ const LEAD_TIME_OPTIONS = [15, 30, 60, 120]
     morning email. */
 export function NotificationsSection() {
   const { profile, updateDigestPreference } = useSchedule()
+  // Push and the digest run on our servers, which only serve confirmed
+  // addresses (api/_lib/auth.js, functions/index.js). Turning either OFF
+  // always works.
+  const { emailVerified } = useAuth()
   const { settings, updateSetting } = useSettings()
   const { pushError, pushSuccess } = useToast()
   const push = usePushNotifications()
@@ -114,6 +119,8 @@ export function NotificationsSection() {
                 Blocked at the browser level. Allow notifications for this site in your browser's
                 site settings, then reload.
               </p>
+            ) : !emailVerified && !push.subscribed ? (
+              <p className="field__hint">Confirm your email address to turn this on.</p>
             ) : null}
             {push.subscribed && (
               <>
@@ -171,7 +178,7 @@ export function NotificationsSection() {
             type="button"
             className="ghost-button ghost-button--sm"
             onClick={onTogglePush}
-            disabled={push.busy}
+            disabled={push.busy || (!push.subscribed && !emailVerified)}
           >
             {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
           </button>
@@ -181,13 +188,20 @@ export function NotificationsSection() {
       {/* The row's title is the label, so the box carries no second line of the
           same words — only an accessible name. (The digest needs the backend in
           functions/ deployed; README-functions.md says how.) */}
-      <Row title="Daily digest email" hint="One email each morning with today's plan, anything overdue, and what's coming up.">
+      <Row
+        title="Daily digest email"
+        hint={
+          emailVerified
+            ? "One email each morning with today's plan, anything overdue, and what's coming up."
+            : "One email each morning with today's plan — confirm your email address to turn it on."
+        }
+      >
         <label className="checkbox-row settings-check">
           <input
             type="checkbox"
             aria-label="Email me a daily digest"
             checked={profile?.dailyDigestEnabled === true}
-            disabled={digestBusy}
+            disabled={digestBusy || (!emailVerified && profile?.dailyDigestEnabled !== true)}
             onChange={(e) => onToggleDigest(e.target.checked)}
           />
         </label>

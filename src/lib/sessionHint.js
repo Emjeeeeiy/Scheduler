@@ -57,3 +57,18 @@ export function noteSession(user) {
        falls back to memory for this visit */
   }
 }
+
+/* The "Remember me" choice on the sign-in form. Read by the form itself, by
+   Google sign-in, and by sign-out: an unticked box means "this isn't my
+   device", which is when sign-out also stops this device's push reminders. */
+export const REMEMBER_ME_KEY = 'cadence:remember_me'
+
+/** true unless the person explicitly unticked "Remember me". */
+export function rememberMeChoice() {
+  try {
+    const stored = localStorage.getItem(REMEMBER_ME_KEY)
+    return stored === null ? true : stored === 'true'
+  } catch {
+    return true
+  }
+}

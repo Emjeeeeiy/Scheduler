@@ -16,8 +16,11 @@
  * Vercel function to reach into src/lib/.
  */
 
-import { verifyRequest, AuthError } from './_lib/auth.js'
-import { generateJson, GeminiError } from './_lib/gemini.js'
+import { verifyRequest } from './_lib/auth.js'
+import { generateJson } from './_lib/gemini.js'
+import { readJsonBody, route } from './_lib/pushRoute.js'
+import { enforceAiLimits } from './_lib/rateLimit.js'
+import { readPlanTasks, readSlots } from './_lib/aiInput.js'
 import { isValidAiPlan } from '@cadence/shared/autoSchedule.js'
 
 const MODEL = process.env.GEMINI_MODEL_PLAN ?? 'gemini-3.5-flash'
@@ -46,55 +49,47 @@ const SCHEMA = {
   required: ['placements'],
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' })
+export default route('plan-day', ['POST'], async (req, res) => {
+  const uid = await verifyRequest(req)
+  const body = readJsonBody(req)
 
-  try {
-    await verifyRequest(req)
-
-    const { tasks, slots } = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-    if (!Array.isArray(tasks) || tasks.length === 0) {
-      return res.status(200).json({ placements: [] })
-    }
-    if (!Array.isArray(slots) || slots.length === 0) {
-      return res.status(200).json({ placements: [] })
-    }
-
-    const prompt = [
-      'Free windows today (minutes since local midnight):',
-      ...slots.map((s) => `- ${s.startMin}-${s.endMin}`),
-      '',
-      'Open tasks:',
-      ...tasks.map(
-        (t) => `- id ${JSON.stringify(t.id)}: "${t.title}", ${t.durationMin} min, priority ${t.priority}`,
-      ),
-    ].join('\n')
-
-    const result = await generateJson({
-      model: MODEL,
-      systemInstruction: SYSTEM_INSTRUCTION,
-      prompt,
-      schema: SCHEMA,
-      // Matches (with a little margin) planDayAi's own 15000ms client
-      // budget — see enrich-task.js's identical fix for the full reasoning.
-      timeoutMs: 14000,
-    })
-
-    const placements = Array.isArray(result?.placements) ? result.placements : []
-    // Server-side validation is a first line of defense, using the exact
-    // slots/tasks THIS request supplied — the client re-validates again
-    // against its own live data before ever writing anything, since a
-    // schedule change between this request and the moment someone clicks
-    // Accept is a real possibility this route has no way to see.
-    if (!isValidAiPlan(placements, { tasks, slots })) {
-      return res.status(200).json({ placements: [] })
-    }
-
-    return res.status(200).json({ placements })
-  } catch (caught) {
-    if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
-    if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
-    console.error('plan-day failed', caught)
-    return res.status(500).json({ error: 'Internal error.' })
+  const tasks = readPlanTasks(body.tasks)
+  const slots = readSlots(body.slots)
+  if (tasks.length === 0 || slots.length === 0) {
+    return res.status(200).json({ placements: [] })
   }
-}
+
+  await enforceAiLimits('planDay', uid)
+
+  const prompt = [
+    'Free windows today (minutes since local midnight):',
+    ...slots.map((s) => `- ${s.startMin}-${s.endMin}`),
+    '',
+    'Open tasks:',
+    ...tasks.map(
+      (t) => `- id ${JSON.stringify(t.id)}: ${JSON.stringify(t.title)}, ${t.durationMin} min, priority ${t.priority}`,
+    ),
+  ].join('\n')
+
+  const result = await generateJson({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    prompt,
+    schema: SCHEMA,
+    // Matches (with a little margin) planDayAi's own 15000ms client
+    // budget — see enrich-task.js's identical fix for the full reasoning.
+    timeoutMs: 14000,
+  })
+
+  const placements = Array.isArray(result?.placements) ? result.placements : []
+  // Server-side validation is a first line of defense, using the exact
+  // slots/tasks THIS request supplied — the client re-validates again
+  // against its own live data before ever writing anything, since a
+  // schedule change between this request and the moment someone clicks
+  // Accept is a real possibility this route has no way to see.
+  if (!isValidAiPlan(placements, { tasks, slots })) {
+    return res.status(200).json({ placements: [] })
+  }
+
+  return res.status(200).json({ placements })
+})

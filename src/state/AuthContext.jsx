@@ -1,24 +1,32 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { noteSession } from '../lib/sessionHint.js'
+import { noteSession, rememberMeChoice } from '../lib/sessionHint.js'
+import { unsubscribePush } from '../lib/pushSubscription.js'
 import {
   auth,
+  clearLocalData,
   deleteAccount,
   firebaseReady,
   logout,
   reauthenticate,
-  registerWithUsername,
+  refreshVerification,
+  registerAccount,
   requestPasswordReset,
+  resendVerification,
+  signInWithEmail,
   signInWithGoogle,
-  signInWithUsernameOrEmail,
 } from '../firebase.js'
 
 const AuthContext = createContext(null)
 
 const FRIENDLY_MESSAGES = {
-  'auth/email-already-in-use': 'An account with that email already exists.',
+  // Deliberately not "that email is taken": the sign-up form shouldn't be a
+  // way to test which addresses have an account.
+  'auth/email-already-in-use':
+    'Couldn’t create an account with that email. If it’s yours, log in or reset your password.',
   'auth/invalid-email': 'Enter a valid email address.',
-  'auth/weak-password': 'Password must be at least 6 characters.',
+  'auth/weak-password': 'Choose a longer, harder-to-guess password.',
+  'auth/password-does-not-meet-requirements': 'Choose a longer, harder-to-guess password.',
   'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
   'auth/network-request-failed': 'Network error — check your connection and try again.',
   // Backstop for any Firestore call that reaches this banner without going
@@ -39,22 +47,70 @@ export function AuthProvider({ children }) {
      flashes "Sign in" at an already-signed-in user. */
   const [loading, setLoading] = useState(firebaseReady)
   const [error, setError] = useState(null)
+  /* Mirrors user.emailVerified, which Firebase only updates on reload() — and
+     reloading doesn't re-render anything, so the flag is held here. Google
+     accounts arrive verified. */
+  const [emailVerified, setEmailVerified] = useState(false)
+  const checking = useRef(false)
 
   useEffect(() => {
     if (!firebaseReady) return undefined
     return onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser)
+      setEmailVerified(Boolean(nextUser?.emailVerified))
       setLoading(false)
       // The signed_in hint for Gate (see sessionHint.js).
       noteSession(nextUser)
     })
   }, [])
 
+  async function checkVerification() {
+    if (checking.current) return false
+    checking.current = true
+    try {
+      const verified = await refreshVerification()
+      setEmailVerified(verified)
+      return verified
+    } catch (caught) {
+      console.warn('Could not refresh the verification state.', caught)
+      return false
+    } finally {
+      checking.current = false
+    }
+  }
+
+  /* Verifying happens in another tab (the emailed link), so coming back to
+     this one is the natural moment to look again. */
+  useEffect(() => {
+    if (!user || emailVerified) return undefined
+    const onFocus = () => {
+      checkVerification()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [user, emailVerified])
+
   const value = useMemo(
     () => ({
       user,
       loading,
       error,
+      emailVerified,
+      checkVerification,
+
+      /** Resolves to whether the email went out; failures (most often
+          Firebase's own resend throttle) surface on the shared banner. */
+      async resendVerification() {
+        setError(null)
+        try {
+          await resendVerification()
+          return true
+        } catch (caught) {
+          console.error('Could not resend the verification email.', caught)
+          setError(friendlyMessage(caught))
+          return false
+        }
+      },
       clearError: () => setError(null),
       // Exposed for a form's own pre-submit checks (password mismatch, too
       // short) so every error — client-side or server round-trip — surfaces
@@ -98,10 +154,10 @@ export function AuthProvider({ children }) {
         }
       },
 
-      async signInWithPassword({ identifier, password, rememberMe = true }) {
+      async signInWithPassword({ email, password, rememberMe = true }) {
         setError(null)
         try {
-          await signInWithUsernameOrEmail({ identifier, password, rememberMe })
+          await signInWithEmail({ email, password, rememberMe })
         } catch (caught) {
           console.error('Sign-in failed.', caught)
           setError(friendlyMessage(caught))
@@ -114,10 +170,10 @@ export function AuthProvider({ children }) {
          "check your email" message has to show whether the account was real
          or not (see requestPasswordReset), so the form needs an explicit
          yes/no to know when that's safe to say. */
-      async resetPassword(identifier) {
+      async resetPassword(email) {
         setError(null)
         try {
-          await requestPasswordReset(identifier)
+          await requestPasswordReset(email)
           return true
         } catch (caught) {
           console.error('Password reset failed.', caught)
@@ -129,19 +185,28 @@ export function AuthProvider({ children }) {
       async register({ username, email, password, rememberMe = true }) {
         setError(null)
         try {
-          await registerWithUsername({ username, email, password, rememberMe })
+          await registerAccount({ username, email, password, rememberMe })
         } catch (caught) {
           console.error('Registration failed.', caught)
           setError(friendlyMessage(caught))
         }
       },
 
+      /* An unticked "Remember me" means "not my device": reminders for this
+         account stop arriving here too. Either way the offline copy of the
+         account is wiped from this browser (clearLocalData reloads the page
+         into the signed-out state). */
       async signOut() {
+        if (!rememberMeChoice()) {
+          await unsubscribePush().catch((caught) => console.warn('Could not turn off push here.', caught))
+        }
         try {
           await logout()
         } catch (caught) {
           console.error('Sign-out failed.', caught)
+          return
         }
+        await clearLocalData()
       },
 
       /* Deliberately left to throw, unlike the methods above: the profile
@@ -153,7 +218,7 @@ export function AuthProvider({ children }) {
       reauthenticate,
       deleteAccount,
     }),
-    [user, loading, error],
+    [user, loading, error, emailVerified],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -23,15 +23,19 @@ vi.mock('../src/firebase.js', () => ({
   deleteAccount: vi.fn(),
   logout: vi.fn(),
   reauthenticate: vi.fn(),
-  registerWithUsername: vi.fn(),
+  registerAccount: vi.fn(),
+  refreshVerification: vi.fn(),
+  resendVerification: vi.fn(),
+  clearLocalData: vi.fn(),
+  DISPLAY_NAME_MAX: 60,
   requestPasswordReset: vi.fn(),
   signInWithGoogle: vi.fn(),
-  signInWithUsernameOrEmail: vi.fn(),
+  signInWithEmail: vi.fn(),
 }))
 
 vi.mock('../src/state/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => <>{children}</>,
-  useAuth: () => ({ user: { uid: 'user-1' }, loading: false }),
+  useAuth: () => ({ user: { uid: 'user-1' }, loading: false, emailVerified: true }),
 }))
 
 /* Enough of a schedule for the shell to mount. The views themselves are stubbed

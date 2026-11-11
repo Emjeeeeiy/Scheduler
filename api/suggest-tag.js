@@ -9,8 +9,11 @@
  * combine and what happens when this route is unreachable.
  */
 
-import { verifyRequest, AuthError } from './_lib/auth.js'
-import { generateJson, GeminiError } from './_lib/gemini.js'
+import { verifyRequest } from './_lib/auth.js'
+import { generateJson } from './_lib/gemini.js'
+import { ApiError, readJsonBody, route } from './_lib/pushRoute.js'
+import { enforceAiLimits } from './_lib/rateLimit.js'
+import { CAPS, readTags, readText } from './_lib/aiInput.js'
 
 const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 
@@ -29,53 +32,46 @@ const SCHEMA = {
   required: ['tagId'],
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' })
+export default route('suggest-tag', ['POST'], async (req, res) => {
+  const uid = await verifyRequest(req)
+  const body = readJsonBody(req)
 
-  try {
-    await verifyRequest(req)
-
-    const { title, tags } = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-    if (typeof title !== 'string' || !title.trim()) {
-      return res.status(400).json({ error: 'title is required.' })
-    }
-    if (!Array.isArray(tags) || tags.length === 0) {
-      // Nothing to file under — same as "no suggestion," not an error.
-      return res.status(200).json({ tagId: null })
-    }
-
-    const prompt = [
-      `Task title: ${JSON.stringify(title.trim())}`,
-      'Available tags:',
-      ...tags.map((tag) => `- id ${JSON.stringify(tag.id)}: ${tag.name}`),
-    ].join('\n')
-
-    const result = await generateJson({
-      model: MODEL,
-      systemInstruction: SYSTEM_INSTRUCTION,
-      prompt,
-      schema: SCHEMA,
-      // Was relying on generateJson's 8000ms default exactly equalling
-      // suggestTagAi's own 8000ms client budget — a dead heat, not a real
-      // margin. Given a fair margin like the other three routes now have;
-      // see enrich-task.js for the full reasoning.
-      timeoutMs: 7000,
-    })
-
-    // The one rule the client CANNOT be trusted to skip re-checking on its
-    // own: never hand back a tagId the caller didn't offer. Gemini is asked
-    // not to invent one, but the response is still untrusted input, exactly
-    // like anything else this app reads off the network — see
-    // normalize.js's own stance on Firestore documents for the same
-    // principle applied elsewhere in this codebase.
-    const known = new Set(tags.map((tag) => tag.id))
-    const tagId = known.has(result?.tagId) ? result.tagId : null
-
-    return res.status(200).json({ tagId })
-  } catch (caught) {
-    if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
-    if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
-    console.error('suggest-tag failed', caught)
-    return res.status(500).json({ error: 'Internal error.' })
+  const title = readText(body.title, CAPS.title)
+  if (!title) throw new ApiError(400, 'title is required.')
+  const tags = readTags(body.tags)
+  if (tags.length === 0) {
+    // Nothing to file under — same as "no suggestion," not an error.
+    return res.status(200).json({ tagId: null })
   }
-}
+
+  await enforceAiLimits('suggestTag', uid)
+
+  const prompt = [
+    `Task title: ${JSON.stringify(title)}`,
+    'Available tags:',
+    ...tags.map((tag) => `- id ${JSON.stringify(tag.id)}: ${JSON.stringify(tag.name)}`),
+  ].join('\n')
+
+  const result = await generateJson({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    prompt,
+    schema: SCHEMA,
+    // Was relying on generateJson's 8000ms default exactly equalling
+    // suggestTagAi's own 8000ms client budget — a dead heat, not a real
+    // margin. Given a fair margin like the other three routes now have;
+    // see enrich-task.js for the full reasoning.
+    timeoutMs: 7000,
+  })
+
+  // The one rule the client CANNOT be trusted to skip re-checking on its
+  // own: never hand back a tagId the caller didn't offer. Gemini is asked
+  // not to invent one, but the response is still untrusted input, exactly
+  // like anything else this app reads off the network — see
+  // normalize.js's own stance on Firestore documents for the same
+  // principle applied elsewhere in this codebase.
+  const known = new Set(tags.map((tag) => tag.id))
+  const tagId = known.has(result?.tagId) ? result.tagId : null
+
+  return res.status(200).json({ tagId })
+})

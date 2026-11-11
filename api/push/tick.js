@@ -13,8 +13,11 @@
  *   check   — the VAPID settings are valid, BEFORE anything is taken off the
  *             queue. A missing or malformed setting fails the run loudly while
  *             the reminders are still queued, instead of consuming them first
- *   claim   — atomically take what is due; overlapping runs never share a
- *             reminder (see claimDue)
+ *   claim   — atomically take what is due, 200 at a time, and keep going
+ *             while a full batch keeps coming back (up to ~20 s, inside the
+ *             function's 30 s limit) — so a burst can't leave real reminders
+ *             waiting behind it until they go stale. Overlapping runs never
+ *             share a reminder (see claimDue)
  *   filter  — drop a reminder that was cancelled since it was queued, or that
  *             is now too late to be useful (STALE_AFTER_MS)
  *   send    — to every device the account has, in parallel, with a TTL that
@@ -42,6 +45,9 @@ import { getRedis } from '../_lib/redis.js'
 import { ensureConfigured, sendPush } from '../_lib/webPush.js'
 
 const CLAIM_LIMIT = 200
+// How long one run keeps claiming batches. vercel.json gives this function
+// 30 s; the rest is headroom for the last batch's sends.
+const TIME_BUDGET_MS = 20_000
 const CONCURRENCY = 20
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 60_000
@@ -75,9 +81,9 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
 
   const store = createPushStore(getRedis())
   const now = Date.now()
-  const claimed = await store.claimDue(now, CLAIM_LIMIT)
+  const started = Date.now()
   const stats = {
-    claimed: claimed.length,
+    claimed: 0,
     sent: 0,
     dropped: 0,
     retried: 0,
@@ -167,7 +173,7 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
     }
   }
 
-  await mapLimit(claimed, CONCURRENCY, async (job) => {
+  async function deliverSafely(job) {
     try {
       await deliver(job)
     } catch (caught) {
@@ -182,7 +188,16 @@ export default route('push/tick', ['GET', 'POST'], async (req, res) => {
         console.error('push reminder could not be requeued', { id: job.id }, again)
       }
     }
-  })
+  }
+
+  // A full batch means there may be more due. A retried reminder is requeued
+  // for a minute from now, so it is never claimed twice in one run.
+  let claimed
+  do {
+    claimed = await store.claimDue(now, CLAIM_LIMIT)
+    stats.claimed += claimed.length
+    await mapLimit(claimed, CONCURRENCY, deliverSafely)
+  } while (claimed.length === CLAIM_LIMIT && Date.now() - started < TIME_BUDGET_MS)
 
   res.setHeader?.('Cache-Control', 'no-store')
   return res.status(200).json(stats)

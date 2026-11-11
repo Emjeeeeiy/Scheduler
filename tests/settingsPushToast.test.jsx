@@ -8,7 +8,9 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { pushStub, diagStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
+const { pushStub, diagStub, authStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
+  // Push only serves confirmed addresses (api/_lib/auth.js).
+  authStub: { emailVerified: true },
   pushStub: {
     supported: true,
     permission: 'default',
@@ -28,6 +30,10 @@ const { pushStub, diagStub, mockPushSuccess, mockPushError } = vi.hoisted(() => 
 
 vi.mock('../src/lib/usePushNotifications.js', () => ({
   usePushNotifications: () => pushStub,
+}))
+
+vi.mock('../src/state/AuthContext.jsx', () => ({
+  useAuth: () => authStub,
 }))
 
 vi.mock('../src/lib/usePushDiagnostics.js', () => ({
@@ -94,6 +100,7 @@ beforeEach(() => {
   })
   pushStub.enable.mockReset()
   pushStub.disable.mockReset()
+  authStub.emailVerified = true
   Object.assign(diagStub, { diagnosis: null, checking: false, testing: false })
   diagStub.refresh.mockReset()
   diagStub.test.mockReset()
@@ -340,5 +347,27 @@ describe('the server status and the test notification', () => {
     diagStub.diagnosis = healthy()
     await click('Check again')
     expect(diagStub.refresh).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('before the email address is confirmed', () => {
+  it('will not turn push on, and says why', () => {
+    authStub.emailVerified = false
+    render(<SettingsView section="notifications" />)
+    expect(screen.getByRole('button', { name: 'Turn on' }).disabled).toBe(true)
+    expect(screen.getByText('Confirm your email address to turn this on.')).toBeTruthy()
+  })
+
+  it('still lets a device that already has push turn it off', () => {
+    authStub.emailVerified = false
+    pushStub.subscribed = true
+    render(<SettingsView section="notifications" />)
+    expect(screen.getByRole('button', { name: 'Turn off' }).disabled).toBe(false)
+  })
+
+  it('will not switch the daily digest on', () => {
+    authStub.emailVerified = false
+    render(<SettingsView section="notifications" />)
+    expect(screen.getByRole('checkbox', { name: 'Email me a daily digest' }).disabled).toBe(true)
   })
 })

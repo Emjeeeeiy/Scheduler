@@ -15,6 +15,7 @@
     "icons:mobile": "node scripts/makeMobileAssets.mjs",
     "test": "node --test \"tests/**/*.test.js\"",
     "test:functions": "npm --prefix functions test",
+    "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-cadence-rules \"node --test tests/rules/firestoreRules.spec.mjs\"",
     "test:dom": "vitest run",
     "test:render": "vite build --config tests/smoke/vite.config.js && node node_modules/.smoke/entry.js",
     "preview": "vite preview"
@@ -39,11 +40,12 @@
     "firebase": "^12.8.0",
     "jose": "^6.2.11",
     "perfect-freehand": "1.2.3",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.2.18",
@@ -52,7 +54,7 @@
     "jsdom": "^29.1.1",
     "oxlint": "^1.79.0",
     "tailwindcss": "^4.3.3",
-    "vite": "^8.2.2",
+    "vite": "^8.3.8",
     "vitest": "^5.0.0"
   }
 }

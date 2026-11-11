@@ -51,6 +51,7 @@ afterEach(() => {
     if (saved[name] === undefined) delete process.env[name]
     else process.env[name] = saved[name]
   }
+  vi.restoreAllMocks()
 })
 
 describe('ensureConfigured', () => {
@@ -87,21 +88,23 @@ describe('ensureConfigured', () => {
     expect(attempt(ensureConfigured)).toEqual({ status: 500, message: 'Server is missing VAPID_PRIVATE_KEY.' })
   })
 
-  it('says a subject without a scheme is invalid, instead of a generic internal error', async () => {
+  it('says a subject without a scheme is invalid — the detail goes to the log, not to the caller', async () => {
     validEnv({ VAPID_SUBJECT: 'cadenceplan.vercel.app' })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     const { ensureConfigured } = await load()
     const failure = attempt(ensureConfigured)
-    expect(failure.status).toBe(500)
-    expect(failure.message).toMatch(/^VAPID configuration is invalid: /)
-    expect(failure.message).toContain('cadenceplan.vercel.app')
+    expect(failure).toEqual({ status: 500, message: 'VAPID configuration is invalid — see the server logs.' })
+    // Any signed-in account can read this message through /api/push/diagnose.
+    expect(failure.message).not.toContain('cadenceplan.vercel.app')
+    expect(String(logged.mock.calls[0]?.[1])).toContain('cadenceplan.vercel.app')
   })
 
   it('says a malformed key is invalid', async () => {
     validEnv({ VAPID_PUBLIC_KEY: 'not a real key' })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     const { ensureConfigured } = await load()
     const failure = attempt(ensureConfigured)
-    expect(failure.status).toBe(500)
-    expect(failure.message).toMatch(/^VAPID configuration is invalid: /)
+    expect(failure).toEqual({ status: 500, message: 'VAPID configuration is invalid — see the server logs.' })
   })
 
   it('shrugs off stray whitespace around values, as pasted env vars often carry', async () => {

@@ -1331,6 +1331,20 @@
   align-self: start;
 }
 
+/* "Remove these?" — the one AI answer that waits for a yes. */
+.ai-chat__confirm {
+  display: flex;
+  gap: 6px;
+  align-self: start;
+}
+
+/* Who sees what you type, said up front, quietly. */
+.ai-chat__disclosure {
+  max-width: 44ch;
+  margin: 12px auto 0;
+  text-align: center;
+}
+
 .ai-chat__undone {
   margin: 0;
   font-size: var(--text-label);

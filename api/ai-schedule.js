@@ -31,8 +31,18 @@
  * way a single day's plan is not.
  */
 
-import { verifyRequest, AuthError } from './_lib/auth.js'
-import { generateJson, GeminiError } from './_lib/gemini.js'
+import { verifyRequest } from './_lib/auth.js'
+import { generateJson } from './_lib/gemini.js'
+import { ApiError, readJsonBody, route } from './_lib/pushRoute.js'
+import { enforceAiLimits } from './_lib/rateLimit.js'
+import {
+  ISO_DATE,
+  readExistingTasks,
+  readHistory,
+  readMessages,
+  readSlots,
+  readTags,
+} from './_lib/aiInput.js'
 
 // Started on GEMINI_MODEL_PLAN (gemini-3.5-flash) since this route reasons
 // over several items across a week, not just one — the same theory
@@ -47,22 +57,12 @@ import { generateJson, GeminiError } from './_lib/gemini.js'
 // costs nothing a stronger one wasn't already being fact-checked against.
 const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 
-const MAX_MESSAGES = 12
 const MAX_ITEMS = 10
 const MAX_QUESTION_LEN = 300
 const MAX_NOTES_LEN = 500
-// Same cap and same reasoning as enrich-task.js's MAX_HISTORY: enough of
-// this account's own tagging pattern to be useful, without letting it
-// become the dominant part of the prompt.
-const MAX_HISTORY = 15
-// How many of the account's current open tasks are offered as real
-// update/remove targets. Generous relative to MAX_HISTORY (which is about
-// a *pattern*, not a lookup table) since a task genuinely missing from this
-// list is one "cancel the dentist thing" can never reach.
-const MAX_EXISTING = 40
+// How much history and how many open tasks are offered is capped in
+// _lib/aiInput.js (CAPS), shared with enrich-task.js.
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-const ROLES = new Set(['user', 'assistant'])
 const PRIORITIES = new Set(['low', 'normal', 'high'])
 
 const SYSTEM_INSTRUCTION = `You manage someone's real task list from a short, conversational request. Every item is a TASK — something to get done, tickable off a list. This system has no separate notion of an event; do not treat anything as one.
@@ -293,126 +293,98 @@ function sanitize(result, { tags, slots, existingTasks }) {
   return { status: 'act', question: null, items }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' })
+export default route('ai-schedule', ['POST'], async (req, res) => {
+  const uid = await verifyRequest(req)
+  const body = readJsonBody(req)
 
-  try {
-    await verifyRequest(req)
-
-    const { messages, today, nowMin, tags, slots, history, existingTasks } =
-      typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-
-    const safeMessages = Array.isArray(messages)
-      ? messages
-          .filter((m) => ROLES.has(m?.role) && typeof m?.content === 'string' && m.content.trim())
-          .slice(-MAX_MESSAGES)
-      : []
-    if (safeMessages.length === 0) {
-      return res.status(400).json({ error: 'messages must include at least one message with content.' })
-    }
-    if (typeof today !== 'string' || !ISO_DATE.test(today)) {
-      return res.status(400).json({ error: 'today must be a YYYY-MM-DD date key.' })
-    }
-
-    const safeTags = Array.isArray(tags)
-      ? tags.filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string')
-      : []
-    const safeSlots = Array.isArray(slots)
-      ? slots.filter(
-          (s) =>
-            typeof s?.date === 'string' &&
-            ISO_DATE.test(s.date) &&
-            Number.isInteger(s?.startMin) &&
-            Number.isInteger(s?.endMin) &&
-            s.endMin > s.startMin,
-        )
-      : []
-
-    const slotsByDate = new Map()
-    for (const slot of safeSlots) {
-      if (!slotsByDate.has(slot.date)) slotsByDate.set(slot.date, [])
-      slotsByDate.get(slot.date).push(slot)
-    }
-
-    // Titles, tags and durations only — same privacy stance enrich-task.js
-    // already takes with this account's own history: notes and checklists
-    // never leave the device just to improve a tag/duration guess.
-    const safeHistory = Array.isArray(history) ? history.slice(0, MAX_HISTORY) : []
-
-    const safeExisting = Array.isArray(existingTasks)
-      ? existingTasks
-          .filter(
-            (t) =>
-              typeof t?.id === 'string' &&
-              typeof t?.title === 'string' &&
-              (t.date === null || (typeof t.date === 'string' && ISO_DATE.test(t.date))),
-          )
-          .slice(0, MAX_EXISTING)
-      : []
-
-    const prompt = [
-      `today: ${today}`,
-      `current time: ${Number.isInteger(nowMin) ? `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${String(nowMin % 60).padStart(2, '0')}` : '(not given)'}`,
-      '',
-      'available tags:',
-      ...(safeTags.length ? safeTags.map((t) => `- id ${JSON.stringify(t.id)}: ${t.name}`) : ['(none created yet)']),
-      '',
-      'real free time over the next 7 days (minutes since local midnight):',
-      ...(slotsByDate.size
-        ? [...slotsByDate.entries()].map(
-            ([date, daySlots]) => `- ${date}: ${daySlots.map((s) => `${s.startMin}-${s.endMin}`).join(', ')}`,
-          )
-        : ['(no free time found)']),
-      '',
-      "recent tasks, most recent first (this person's own patterns):",
-      ...(safeHistory.length
-        ? safeHistory.map((h) => {
-            const bits = [`"${h.title}"`]
-            if (h.tagId) bits.push(`tag ${JSON.stringify(h.tagId)}`)
-            if (Number.isFinite(h.durationMin)) bits.push(`${h.durationMin} min`)
-            if (Number.isFinite(h.startMin)) bits.push(`started at minute ${h.startMin}`)
-            return `- ${bits.join(', ')}`
-          })
-        : ['(no history yet)']),
-      '',
-      'current open tasks (real ids — update/remove must use one of these, never invent one):',
-      ...(safeExisting.length
-        ? safeExisting.map((t) => {
-            const bits = [`id ${JSON.stringify(t.id)}`, `"${t.title}"`]
-            if (t.date) bits.push(t.date)
-            if (Number.isFinite(t.startMin)) bits.push(`started at minute ${t.startMin}`)
-            if (t.tagId) bits.push(`tag ${JSON.stringify(t.tagId)}`)
-            return `- ${bits.join(', ')}`
-          })
-        : ['(no open tasks right now)']),
-      '',
-      'conversation so far:',
-      ...safeMessages.map((m) => `${m.role}: ${m.content.trim()}`),
-    ].join('\n')
-
-    const result = await generateJson({
-      model: MODEL,
-      systemInstruction: SYSTEM_INSTRUCTION,
-      prompt,
-      schema: SCHEMA,
-      // A little under the client's own 30000ms budget (aiClient.js) so a
-      // genuine timeout comes back as this route's own clear error instead
-      // of the client's fetch aborting first with nothing to say why — the
-      // same margin every other route here keeps. Bumped from an original
-      // 18000/20000 pairing after live testing under vercel dev showed the
-      // client aborting at almost exactly its own ceiling rather than
-      // receiving this route's shorter internal timeout first — the same
-      // local cold-start overhead (JWKS fetch, function cold start) already
-      // seen adding real latency on top of Gemini's own response time for
-      // every other route in this app.
-      timeoutMs: 27000,
-    })
-
-    return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots, existingTasks: safeExisting }))
-  } catch (caught) {
-    if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
-    if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
-    console.error('ai-schedule failed', caught)
-    return res.status(500).json({ error: 'Internal error.' })
+  const safeMessages = readMessages(body.messages)
+  if (safeMessages.length === 0) {
+    throw new ApiError(400, 'messages must include at least one message with content.')
   }
-}
+  const { today, nowMin } = body
+  if (typeof today !== 'string' || !ISO_DATE.test(today)) {
+    throw new ApiError(400, 'today must be a YYYY-MM-DD date key.')
+  }
+
+  const safeTags = readTags(body.tags)
+  const safeSlots = readSlots(body.slots, { dated: true })
+  // Titles, tags and durations only — same privacy stance enrich-task.js
+  // already takes with this account's own history: notes and checklists
+  // never leave the device just to improve a tag/duration guess.
+  const safeHistory = readHistory(body.history)
+  const safeExisting = readExistingTasks(body.existingTasks)
+
+  await enforceAiLimits('aiSchedule', uid)
+
+  const slotsByDate = new Map()
+  for (const slot of safeSlots) {
+    if (!slotsByDate.has(slot.date)) slotsByDate.set(slot.date, [])
+    slotsByDate.get(slot.date).push(slot)
+  }
+
+  const clock = Number.isInteger(nowMin) && nowMin >= 0 && nowMin < 24 * 60
+    ? `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${String(nowMin % 60).padStart(2, '0')}`
+    : '(not given)'
+
+  const prompt = [
+    `today: ${today}`,
+    `current time: ${clock}`,
+    '',
+    'available tags:',
+    ...(safeTags.length
+      ? safeTags.map((t) => `- id ${JSON.stringify(t.id)}: ${JSON.stringify(t.name)}`)
+      : ['(none created yet)']),
+    '',
+    'real free time over the next 7 days (minutes since local midnight):',
+    ...(slotsByDate.size
+      ? [...slotsByDate.entries()].map(
+          ([date, daySlots]) => `- ${date}: ${daySlots.map((s) => `${s.startMin}-${s.endMin}`).join(', ')}`,
+        )
+      : ['(no free time found)']),
+    '',
+    "recent tasks, most recent first (this person's own patterns):",
+    ...(safeHistory.length
+      ? safeHistory.map((h) => {
+          const bits = [JSON.stringify(h.title)]
+          if (h.tagId) bits.push(`tag ${JSON.stringify(h.tagId)}`)
+          if (Number.isFinite(h.durationMin)) bits.push(`${h.durationMin} min`)
+          if (Number.isFinite(h.startMin)) bits.push(`started at minute ${h.startMin}`)
+          return `- ${bits.join(', ')}`
+        })
+      : ['(no history yet)']),
+    '',
+    'current open tasks (real ids — update/remove must use one of these, never invent one):',
+    ...(safeExisting.length
+      ? safeExisting.map((t) => {
+          const bits = [`id ${JSON.stringify(t.id)}`, JSON.stringify(t.title)]
+          if (t.date) bits.push(t.date)
+          if (Number.isFinite(t.startMin)) bits.push(`started at minute ${t.startMin}`)
+          if (t.tagId) bits.push(`tag ${JSON.stringify(t.tagId)}`)
+          return `- ${bits.join(', ')}`
+        })
+      : ['(no open tasks right now)']),
+    '',
+    'conversation so far:',
+    ...safeMessages.map((m) => `${m.role}: ${m.content}`),
+  ].join('\n')
+
+  const result = await generateJson({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    prompt,
+    schema: SCHEMA,
+    // A little under the client's own 30000ms budget (aiClient.js) so a
+    // genuine timeout comes back as this route's own clear error instead
+    // of the client's fetch aborting first with nothing to say why — the
+    // same margin every other route here keeps. Bumped from an original
+    // 18000/20000 pairing after live testing under vercel dev showed the
+    // client aborting at almost exactly its own ceiling rather than
+    // receiving this route's shorter internal timeout first — the same
+    // local cold-start overhead (JWKS fetch, function cold start) already
+    // seen adding real latency on top of Gemini's own response time for
+    // every other route in this app.
+    timeoutMs: 27000,
+  })
+
+  return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots, existingTasks: safeExisting }))
+})

@@ -57,8 +57,12 @@ describe('there is no boot splash', () => {
   })
 
   it('still stamps the stored theme onto <html> before first paint, and gives it the theme\'s page colour', () => {
-    expect(html).toMatch(/localStorage\.getItem\('cadence-app:theme'\)/)
-    expect(html).toMatch(/setAttribute\('data-theme'/)
+    // A classic, render-blocking script in <head> (no async/defer/module), kept
+    // as a file so the CSP in vercel.json needs no inline-script hash.
+    expect(html).toMatch(/<head>[\s\S]*<script src="\/theme-boot\.js"><\/script>[\s\S]*<\/head>/)
+    const boot = read('public/theme-boot.js')
+    expect(boot).toMatch(/localStorage\.getItem\('cadence-app:theme'\)/)
+    expect(boot).toMatch(/setAttribute\('data-theme'/)
     expect(html).toMatch(/html\[data-theme='dark'\]\s*\{\s*background:\s*#050505/)
     expect(html).toMatch(/prefers-color-scheme:\s*dark\)\s*\{\s*html:not\(\[data-theme\]\)/)
   })

@@ -33,6 +33,7 @@ vi.mock('../src/state/ToastContext.jsx', () => ({
 vi.mock('../src/state/AuthContext.jsx', () => ({
   useAuth: () => ({
     user: { displayName: 'Sam', email: 'sam@example.com', providerData: [{ providerId: 'google.com' }] },
+    emailVerified: true,
     reauthenticate: vi.fn(),
     deleteAccount: vi.fn(),
   }),
@@ -178,7 +179,7 @@ describe('what each category holds', () => {
     ['tags', ['Your tags', 'New tag']],
     ['notifications', ['Notify ahead of time', 'Push notifications', 'Daily digest email']],
     ['keyboard', ['Shortcuts']],
-    ['data', ['Backup and restore', 'Export for other tools']],
+    ['data', ['Backup and restore', 'Export for other tools', 'Where your data goes']],
   ])('%s', (section, titles) => {
     render(<SettingsView section={section} />)
     expect(rowTitles()).toEqual(titles)
@@ -209,11 +210,17 @@ describe('what each category holds', () => {
   it('sets what a control reports or caveats under its row, not inside the control column', () => {
     const { container } = render(<SettingsView section="data" />)
     const rows = [...container.querySelectorAll('.settings-row')]
-    expect(rows).toHaveLength(2)
+    expect(rows).toHaveLength(3)
     for (const row of rows) {
       expect(row.querySelector(':scope > .settings-row__below .field__hint')).toBeTruthy()
       expect(row.querySelector('.settings-row__control .field__hint')).toBeNull()
     }
+  })
+
+  it('says where data goes, AI included, before anyone has to ask', () => {
+    render(<SettingsView section="data" />)
+    expect(screen.getByText(/to Google Gemini/)).toBeTruthy()
+    expect(screen.getByText(/up to 16 days/)).toBeTruthy()
   })
 
   it('keeps the panel heading in the outline, and draws the page title alone', () => {

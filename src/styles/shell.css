@@ -1071,6 +1071,25 @@
   flex: none;
 }
 
+/* The "confirm your email" notice (VerifyEmailBanner.jsx): informational, not
+   an error — the app works without it, only the server-side features wait. */
+.banner--verify {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+}
+
+.banner--verify .banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner--verify .banner__actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
 .warn-text {
   color: var(--color-critical-text);
 }

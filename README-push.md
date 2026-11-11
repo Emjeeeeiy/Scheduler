@@ -184,9 +184,17 @@ refused for good` lines for delivery errors.
 - **Lead time is per device** (it lives in that browser's settings): the device
   that synced last decides.
 - **Privacy.** Reminder text (task titles) is stored in Redis in plain text so
-  it can be sent, and shows on the lock screen after you log out. The push
-  message itself is end-to-end encrypted to the device. Account deletion
-  removes all of it.
+  it can be sent — for up to 16 days after the last sync — and shows on the
+  lock screen after you log out (unless "Remember me" was unticked, in which
+  case signing out also turns push off on that device). The push message itself
+  is end-to-end encrypted to the device. Account deletion removes all of it.
+  Settings → Your data says this to the person using the app too.
+- **Abuse limits.** Push needs a verified email address. An account can have
+  at most ten devices (registering an eleventh forgets the one refreshed longest
+  ago), nothing is queued for an account with no device, and every route has a
+  per-account (or, for the two session-less calls, per-IP) rate limit — see
+  `api/_lib/rateLimit.js`. The cron run drains the queue in batches of 200 for
+  up to ~20 s, so a burst can't push real reminders past their stale limit.
 - **Free tier.** An idle minute costs one Redis command (~43k a month); each
   schedule sync is a handful more. Upstash's free plan allows 500,000 commands a
   month, so expect to use roughly a tenth of it.
@@ -199,6 +207,7 @@ refused for good` lines for delivery errors.
 | `push:subs:{uid}` | set of that account's device ids |
 | `push:rem:{uid}` | hash: reminder id → what to show (expires 16 days after last sync) |
 | `push:queue` | sorted set `uid\|reminderId`, scored by due time |
+| `rl:{route}:{uid or ip}:{window}` | rate-limit counters (expire with their window) |
 
 Push services only ever see the endpoint, your VAPID subject and encrypted
 bytes. The routes accept only real push-service hosts (Google, Mozilla,

@@ -1,8 +1,13 @@
-/* The request/response glue every /api/push/* route shares, so each route file
- * is only its own decision-making: method check, JSON body parse, and one
- * place that turns a thrown error into an HTTP status. Mirrors the shape the
- * AI routes already use (AuthError -> its status, anything else -> a logged
- * 500 that leaks nothing), it just doesn't repeat it four times.
+/* The request/response glue every /api/* route shares — the push routes and the
+ * AI routes alike — so each route file is only its own decision-making: method
+ * check, JSON body parse, and one place that turns a thrown error into an HTTP
+ * status:
+ *
+ *   AuthError / ApiError   their own status and message (written to be shown)
+ *   an upstream failure    its status, mapped, with a GENERIC message — what a
+ *                          third-party API (Gemini) said about itself is
+ *                          logged here, never handed to the browser
+ *   anything else          a logged 500 that leaks nothing
  */
 
 import { AuthError } from './auth.js'
@@ -37,6 +42,16 @@ export function hasAuthorization(req) {
   return Boolean(req.headers?.authorization ?? req.headers?.Authorization)
 }
 
+/** A failure that came from a service we call, not from the request. Marked
+    by a flag rather than by class, so this file never has to import the AI
+    client (and with it @google/genai) into every push route's bundle. */
+function upstreamResponse(caught) {
+  if (caught?.upstream !== true) return null
+  if (caught.status === 429) return { status: 429, error: 'AI is busy right now — try again in a moment.' }
+  if (caught.status === 504) return { status: 504, error: 'AI took too long to answer.' }
+  return { status: 502, error: 'AI request failed.' }
+}
+
 export function route(name, methods, run) {
   return async function handler(req, res) {
     if (!methods.includes(req.method)) {
@@ -48,6 +63,11 @@ export function route(name, methods, run) {
     } catch (caught) {
       if (caught instanceof AuthError || caught instanceof ApiError) {
         return res.status(caught.status).json({ error: caught.message })
+      }
+      const upstream = upstreamResponse(caught)
+      if (upstream) {
+        console.warn(`${name}: upstream failure`, { status: caught.status, message: caught.message })
+        return res.status(upstream.status).json({ error: upstream.error })
       }
       console.error(`${name} failed`, caught)
       return res.status(500).json({ error: 'Internal error.' })

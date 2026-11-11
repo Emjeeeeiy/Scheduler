@@ -23,6 +23,7 @@ import {
 import { parseQuickAdd } from '@cadence/shared/parseQuickAdd.js'
 import { parseTaskAi } from './lib/aiClient.js'
 import { SetupNotice } from './components/shell/SetupNotice.jsx'
+import { VerifyEmailBanner } from './components/shell/VerifyEmailBanner.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'
 import { Dashboard } from './components/views/Dashboard.jsx'
 import { TodayView } from './components/views/TodayView.jsx'
@@ -969,6 +970,8 @@ function AppShell() {
             <WarningIcon className="banner__icon" /> {error}
           </p>
         )}
+
+        <VerifyEmailBanner />
 
         <main className="app__main">
           {/* Skeleton, not a line of text: the view is already chosen, so the

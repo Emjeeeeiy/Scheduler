@@ -12,7 +12,7 @@
  *   push:queue         ZSET  "{uid}|{reminderId}" scored by due time in ms —
  *                      "what is due now" is one ranged read
  *
- * Two invariants hold across every write here:
+ * Three invariants hold across every write here:
  *   - an endpoint belongs to exactly ONE person. A browser has one push
  *     subscription per origin, so when someone else signs in on the same
  *     device the newest registration takes it over (a device is a place, not
@@ -20,11 +20,18 @@
  *   - a person with no registered device has no queued reminders. Nothing
  *     could receive them, and leaving them behind is how a queue fills with
  *     work no one will ever do.
+ *   - a person has at most MAX_DEVICES devices. Registering one more forgets
+ *     the one that was refreshed longest ago, so a single account can't
+ *     register thousands of endpoints and make every reminder (or a
+ *     diagnostics test) fan out to all of them.
  */
 
 import { createHash } from 'node:crypto'
 
 const QUEUE = 'push:queue'
+
+/* A person's phones, tablets and browsers. Ten is generous for one human. */
+export const MAX_DEVICES = 10
 
 /* A person's schedule is rewritten whenever they open the app. If they stop
    opening it, the hash expires on its own a day after the last reminder it
@@ -79,8 +86,12 @@ export function createPushStore(redis) {
     return ids.length
   }
 
+  async function deviceCount(uid) {
+    return Number(await redis.scard(userSubsKey(uid)))
+  }
+
   async function dropScheduleIfNoDevices(uid) {
-    if ((await redis.scard(userSubsKey(uid))) === 0) await clearSchedule(uid)
+    if ((await deviceCount(uid)) === 0) await clearSchedule(uid)
   }
 
   /** Swaps a person's whole schedule for `reminders` in one transaction, so a
@@ -203,7 +214,30 @@ export function createPushStore(redis) {
 
     const takenFrom = previous && previous.uid !== uid ? previous.uid : null
     if (takenFrom) await dropScheduleIfNoDevices(takenFrom)
-    return { subId, takenFrom }
+    const evicted = await evictOldDevices(uid, subId)
+    return { subId, takenFrom, evicted }
+  }
+
+  /** Over MAX_DEVICES, forgets the devices refreshed longest ago — never the
+      one just registered. A record that is already gone counts as oldest.
+      The account still has devices afterwards, so its schedule stays. */
+  async function evictOldDevices(uid, keepSubId) {
+    const ids = await redis.smembers(userSubsKey(uid))
+    if (ids.length <= MAX_DEVICES) return 0
+    const read = redis.pipeline()
+    for (const id of ids) read.get(subKey(id))
+    const records = (await read.exec()).map(parse)
+    const victims = ids
+      .map((id, i) => ({ id, at: records[i]?.updatedAt ?? records[i]?.createdAt ?? -Infinity }))
+      .filter(({ id }) => id !== keepSubId)
+      .sort((a, b) => a.at - b.at)
+      .slice(0, ids.length - MAX_DEVICES)
+      .map(({ id }) => id)
+    const tx = redis.multi()
+    for (const id of victims) tx.del(subKey(id))
+    tx.srem(userSubsKey(uid), ...victims)
+    await tx.exec()
+    return victims.length
   }
 
   async function removeSubscription(endpoint) {
@@ -259,6 +293,7 @@ export function createPushStore(redis) {
   }
 
   return {
+    deviceCount,
     clearSchedule,
     replaceSchedule,
     scheduleSummary,

@@ -4,6 +4,7 @@ import { useToast } from '../../state/ToastContext.jsx'
 import { todayKey } from '@cadence/shared/date.js'
 import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { toCsv, toIcs } from '@cadence/shared/exportFormats.js'
+import { AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
 import { DownloadIcon, UploadIcon } from '../icons.jsx'
 import { Row } from './SettingsParts.jsx'
 
@@ -172,6 +173,22 @@ export function DataSection() {
           </button>
         </div>
       </Row>
+
+      {/* What leaves the device, said plainly. No control: each AI feature is
+          something you ask for, and nothing is sent until you do. */}
+      <Row
+        title="Where your data goes"
+        hint="Your schedule and journal are stored in your own Firebase account, readable only by you."
+        below={
+          <>
+            <p className="field__hint">{AI_DISCLOSURE}</p>
+            <p className="field__hint">
+              With push reminders on, the title of each upcoming reminder is kept on our server for
+              up to 16 days so it can be delivered while Cadence is closed.
+            </p>
+          </>
+        }
+      />
     </>
   )
 }

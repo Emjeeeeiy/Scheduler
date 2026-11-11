@@ -1,28 +1,20 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { PasswordField } from './PasswordField.jsx'
-
-const REMEMBER_ME_STORAGE_KEY = 'cadence:remember_me'
+import { REMEMBER_ME_KEY, rememberMeChoice } from '../../lib/sessionHint.js'
 
 export function LoginForm({ onSwitchToRegister, onForgotPassword }) {
   const { signInWithPassword } = useAuth()
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(() => {
-    try {
-      const stored = localStorage.getItem(REMEMBER_ME_STORAGE_KEY)
-      return stored !== null ? stored === 'true' : true
-    } catch {
-      return true
-    }
-  })
+  const [rememberMe, setRememberMe] = useState(rememberMeChoice)
   const [submitting, setSubmitting] = useState(false)
 
   function onToggleRememberMe(e) {
     const nextValue = e.target.checked
     setRememberMe(nextValue)
     try {
-      localStorage.setItem(REMEMBER_ME_STORAGE_KEY, String(nextValue))
+      localStorage.setItem(REMEMBER_ME_KEY, String(nextValue))
     } catch {
       // storage may be restricted in private browsing
     }
@@ -33,7 +25,7 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }) {
     if (submitting) return
     setSubmitting(true)
     try {
-      await signInWithPassword({ identifier, password, rememberMe })
+      await signInWithPassword({ email, password, rememberMe })
     } finally {
       setSubmitting(false)
     }
@@ -42,13 +34,14 @@ export function LoginForm({ onSwitchToRegister, onForgotPassword }) {
   return (
     <form className="auth-form" onSubmit={onSubmit}>
       <label className="field">
-        <span className="field__label">Username or email</span>
+        <span className="field__label">Email</span>
         <input
+          type="email"
           className="input"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          autoComplete="username"
-          placeholder="yourname"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          placeholder="you@example.com"
           required
         />
       </label>

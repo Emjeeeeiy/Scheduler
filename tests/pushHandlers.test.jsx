@@ -290,7 +290,7 @@ describe('POST /api/push/subscribe', () => {
         fakeReq({ body: { oldEndpoint: device(9).endpoint, subscription: device(2) }, headers: {} }),
       )
       expect(res.statusCode).toBe(404)
-      expect(redis.keys()).toEqual([])
+      expect(redis.keys('push:')).toEqual([])
     })
 
     it('leaves the device registered when the “new” subscription is the old one', async () => {
@@ -311,7 +311,7 @@ describe('POST /api/push/unsubscribe', () => {
     const res = await call(unsubscribeHandler, fakeReq({ body: { endpoint: device(1).endpoint }, headers: {} }))
     expect(res.body).toEqual({ ok: true, removed: true })
     expect(verifyRequest).not.toHaveBeenCalled()
-    expect(redis.keys()).toEqual([])
+    expect(redis.keys('push:')).toEqual([])
   })
 
   it('shrugs at an endpoint it never knew', async () => {
@@ -363,11 +363,37 @@ describe('POST /api/push/unsubscribe', () => {
 })
 
 describe('POST /api/push/schedule', () => {
+  // Reminders are only queued for an account that has somewhere to send them.
+  beforeEach(async () => {
+    await register('uid-1', device(1))
+    await register('uid-2', device(2))
+  })
+
   it('needs a signed-in account', async () => {
     verifyRequest.mockRejectedValue(new AuthError(401, 'Missing bearer token.'))
     const res = await call(scheduleHandler, fakeReq({ body: { reminders: [reminder('a', NOW + 5 * MIN)] }, headers: {} }))
     expect(res.statusCode).toBe(401)
-    expect(redis.keys()).toEqual([])
+    expect(redis.keys('push:rem:')).toEqual([])
+    expect(redis.queue()).toEqual([])
+  })
+
+  it('queues nothing for an account with no device, and clears what it had', async () => {
+    await schedule('uid-3', [reminder('stale', NOW + 5 * MIN)])
+    verifyRequest.mockResolvedValue('uid-3')
+    const res = await call(scheduleHandler, fakeReq({ body: { reminders: [reminder('a', NOW + 5 * MIN)] } }))
+    expect(res.body).toEqual({ ok: true, count: 0, skipped: 0, noDevice: true })
+    expect(redis.queue()).toEqual([])
+    expect(redis.has('push:rem:uid-3')).toBe(false)
+  })
+
+  it('answers 429 once an account has re-sent its schedule too often', async () => {
+    const { LIMITS } = await import('../api/_lib/rateLimit.js')
+    for (let i = 0; i < LIMITS.pushSchedule.limit; i += 1) {
+      await call(scheduleHandler, fakeReq({ body: { reminders: [] } }))
+    }
+    const res = await call(scheduleHandler, fakeReq({ body: { reminders: [reminder('a', NOW + 5 * MIN)] } }))
+    expect(res.statusCode).toBe(429)
+    expect(redis.queue()).toEqual([])
   })
 
   it('stores each reminder and queues it by its due time', async () => {
@@ -502,6 +528,84 @@ describe('POST /api/push/schedule', () => {
   it('lets an abandoned schedule expire on its own', async () => {
     await call(scheduleHandler, fakeReq({ body: { reminders: [reminder('a', NOW + MIN)] } }))
     expect(redis.ttls.get('push:rem:uid-1')).toBe(16 * 24 * 60 * 60)
+  })
+})
+
+describe('abuse limits on the push routes', () => {
+  it('caps an account at MAX_DEVICES, forgetting the one refreshed longest ago', async () => {
+    const { MAX_DEVICES } = await import('../api/_lib/pushStore.js')
+    for (let n = 1; n <= MAX_DEVICES; n += 1) {
+      vi.setSystemTime(NOW + n * MIN)
+      await register('uid-1', device(n))
+    }
+    vi.setSystemTime(NOW + 100 * MIN)
+    await register('uid-1', device(99))
+
+    const ids = await redis.smembers('push:subs:uid-1')
+    expect(ids).toHaveLength(MAX_DEVICES)
+    expect(ids).toContain(subIdOf(device(99).endpoint))
+    expect(ids).not.toContain(subIdOf(device(1).endpoint))
+    expect(redis.has(`push:sub:${subIdOf(device(1).endpoint)}`)).toBe(false)
+  })
+
+  it('keeps the schedule when the device cap forgets an old device', async () => {
+    const { MAX_DEVICES } = await import('../api/_lib/pushStore.js')
+    for (let n = 1; n <= MAX_DEVICES; n += 1) await register('uid-1', device(n))
+    await schedule('uid-1', [reminder('a', NOW + 5 * MIN)])
+    await register('uid-1', device(99))
+    expect(redis.queue()).toEqual(['uid-1|a'])
+  })
+
+  it('limits session-less calls per IP', async () => {
+    const { LIMITS } = await import('../api/_lib/rateLimit.js')
+    const headers = { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }
+    for (let i = 0; i < LIMITS.pushAnonymous.limit; i += 1) {
+      const ok = await call(unsubscribeHandler, fakeReq({ body: { endpoint: device(5).endpoint }, headers }))
+      expect(ok.statusCode).toBe(200)
+    }
+    const refused = await call(unsubscribeHandler, fakeReq({ body: { endpoint: device(5).endpoint }, headers }))
+    expect(refused.statusCode).toBe(429)
+
+    // Someone else's IP has its own budget.
+    const other = await call(
+      unsubscribeHandler,
+      fakeReq({ body: { endpoint: device(5).endpoint }, headers: { 'x-forwarded-for': '198.51.100.2' } }),
+    )
+    expect(other.statusCode).toBe(200)
+  })
+
+  it('gives test notifications their own, smaller budget', async () => {
+    const { LIMITS } = await import('../api/_lib/rateLimit.js')
+    getPublicKey.mockReturnValue('server-key')
+    await register('uid-1', device(1))
+    sendPush.mockResolvedValue({ ok: true, gone: false, retryable: false, status: 201 })
+    for (let i = 0; i < LIMITS.pushTest.limit; i += 1) {
+      expect((await call(diagnoseHandler, fakeReq({ body: { test: true } }))).statusCode).toBe(200)
+    }
+    sendPush.mockClear()
+    const res = await call(diagnoseHandler, fakeReq({ body: { test: true } }))
+    expect(res.statusCode).toBe(429)
+    expect(sendPush).not.toHaveBeenCalled()
+  })
+
+  it('drains more than one batch in a single tick, so a burst cannot starve real reminders', async () => {
+    await register('uid-1', device(1))
+    const due = Array.from({ length: 450 }, (_, i) => reminder(`r${i}`, NOW + MIN))
+    await schedule('uid-1', due)
+    vi.setSystemTime(NOW + 90_000)
+    sendPush.mockResolvedValue({ ok: true, gone: false, retryable: false, status: 201 })
+
+    const res = await tick()
+    expect(res.body.claimed).toBe(450)
+    expect(res.body.sent).toBe(450)
+    expect(redis.queue()).toEqual([])
+  })
+
+  it('lets an unverified account purge its own devices (account deletion)', async () => {
+    await register('uid-1', device(1))
+    const res = await call(unsubscribeHandler, fakeReq({ body: { all: true } }))
+    expect(res.statusCode).toBe(200)
+    expect(verifyRequest).toHaveBeenCalledWith(expect.anything(), { requireVerifiedEmail: false })
   })
 })
 

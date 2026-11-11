@@ -12,25 +12,9 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0b0b0b" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="A personal time-blocking scheduler: plan the day in blocks, and see where the hours actually went." />
-    <script>
-      /* Stamp the stored theme onto <html> before first paint, so the app's
-         first frame — the sign-in screen, or the skeleton of a returning
-         session — is already in the right one. data-theme is the only thing
-         tokens.css keys off, and until React mounts nothing else writes it.
-         'system' is deliberately left unstamped, which is exactly the state
-         tokens.css expects: with no explicit choice, its media query decides.
-         Runs here, synchronously in <head>, so there is no wrong-theme frame
-         to correct. */
-      try {
-        var bootTheme = localStorage.getItem('cadence-app:theme')
-        if (bootTheme === 'light' || bootTheme === 'dark') {
-          document.documentElement.setAttribute('data-theme', bootTheme)
-        }
-      } catch (e) {
-        /* No storage access: <html> stays unstamped, the media query owns the
-           theme, and ThemeContext settles it on mount. */
-      }
-    </script>
+    <!-- Stamps the stored theme before first paint. A file, not inline, so the
+         CSP in vercel.json needs no script hashes. -->
+    <script src="/theme-boot.js"></script>
     <style>
       /* The page colour for the chosen theme, before the bundle's stylesheet has
          arrived (in development it is injected by script, after first paint),

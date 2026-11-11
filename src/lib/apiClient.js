@@ -12,6 +12,7 @@
  */
 
 import { auth as firebaseAuth } from '../firebase.js'
+import { appCheckHeaders } from './appCheck.js'
 
 const DEFAULT_TIMEOUT_MS = 8000
 
@@ -32,7 +33,12 @@ export async function callApi(path, body, { timeoutMs = DEFAULT_TIMEOUT_MS, auth
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const headers = { 'Content-Type': 'application/json' }
-    if (auth) headers.Authorization = `Bearer ${await firebaseAuth.currentUser.getIdToken()}`
+    if (auth) {
+      headers.Authorization = `Bearer ${await firebaseAuth.currentUser.getIdToken()}`
+      // Proves the call comes from this app, not just from a valid account —
+      // only attached when App Check is set up (see lib/appCheck.js).
+      Object.assign(headers, await appCheckHeaders())
+    }
     const response = await fetch(path, {
       method: 'POST',
       headers,
