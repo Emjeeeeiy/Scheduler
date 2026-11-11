@@ -27,6 +27,7 @@ import { AuthError, verifyRequest } from '../_lib/auth.js'
 import { hostOf } from '../_lib/pushInput.js'
 import { ApiError, readJsonBody, route } from '../_lib/pushRoute.js'
 import { createPushStore } from '../_lib/pushStore.js'
+import { enforceLimit } from '../_lib/rateLimit.js'
 import { getRedis } from '../_lib/redis.js'
 import { ensureConfigured, getPublicKey, sendPush } from '../_lib/webPush.js'
 
@@ -40,7 +41,11 @@ const TEST_PAYLOAD = {
 
 export default route('push/diagnose', ['POST'], async (req, res) => {
   const uid = await verifyRequest(req)
+  await enforceLimit('pushDiagnose', uid)
   const body = readJsonBody(req)
+  // A test sends a real notification to every device, so it has its own,
+  // smaller budget — spent before anything is sent.
+  if (body.test === true) await enforceLimit('pushTest', uid)
   const store = createPushStore(getRedis())
   const now = Date.now()
 

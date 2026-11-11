@@ -210,7 +210,9 @@ expect('Dashboard trends compute a completion rate', html.dashboard.includes('Co
 
 const signIn = render(<SignIn />)
 expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))
-expect('Sign-in screen defaults to the login form', signIn.includes('Username or email'))
+expect('Sign-in screen defaults to the login form', signIn.includes('Forgot password?'))
+expect('Sign-in is by email, not a public username lookup', signIn.includes('autoComplete="email"') || signIn.includes('autocomplete="email"'))
+expect('Sign-in no longer offers username login', !signIn.includes('Username or email'))
 const register = render(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))

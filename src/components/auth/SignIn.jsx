@@ -4,6 +4,7 @@ import { usePushNotifications } from '../../lib/usePushNotifications.js'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
+import { rememberMeChoice } from '../../lib/sessionHint.js'
 import { AuthCalendar } from './AuthCalendar.jsx'
 import { AuthWeek } from './AuthWeek.jsx'
 import { ClockIcon, GoogleIcon, ListIcon, TrendIcon, WarningIcon } from '../icons.jsx'
@@ -122,14 +123,7 @@ export function SignIn() {
                   type="button"
                   className="google-button"
                   onClick={() => {
-                    let rememberMe = true
-                    try {
-                      const stored = localStorage.getItem('cadence:remember_me')
-                      if (stored !== null) rememberMe = stored === 'true'
-                    } catch {
-                      // ignore
-                    }
-                    signIn({ rememberMe })
+                    signIn({ rememberMe: rememberMeChoice() })
                   }}
                 >
                   <GoogleIcon /> Sign in with Google

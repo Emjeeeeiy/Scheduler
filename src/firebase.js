@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app'
+import { ReCaptchaEnterpriseProvider, getToken, initializeAppCheck } from 'firebase/app-check'
 import {
   EmailAuthProvider,
   GoogleAuthProvider,
@@ -9,6 +10,7 @@ import {
   getAuth,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
+  sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
@@ -16,14 +18,15 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth'
+import { setAppCheckTokenProvider } from './lib/appCheck.js'
 import {
+  clearIndexedDbPersistence,
   doc,
-  getDoc,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
-  runTransaction,
   setDoc,
+  terminate,
 } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -49,6 +52,23 @@ let db = null
 
 if (firebaseReady) {
   const app = initializeApp(firebaseConfig)
+
+  /* App Check, when a reCAPTCHA Enterprise site key is configured: it makes
+     Firestore, Auth and our own /api calls carry proof that they come from this
+     app on our domain. Must run before any other Firebase service is used, so
+     their requests pick the token up. Off (and costs nothing) without the key.
+     In development a debug token is used instead of reCAPTCHA; the SDK prints
+     it to the console once, to be registered in the Firebase console. */
+  const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY
+  if (appCheckSiteKey) {
+    if (import.meta.env.DEV) globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+    const appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    })
+    setAppCheckTokenProvider(async () => (await getToken(appCheck, false)).token)
+  }
+
   auth = getAuth(app)
 
   /* persistentLocalCache keeps the whole working set in IndexedDB: the app
@@ -141,13 +161,14 @@ function appError(code, message) {
   return error
 }
 
-/* Both auth paths touch Firestore before there is anything useful to show the
-   person typing, so both can fail for a reason that has nothing to do with
-   their credentials. `permission-denied` here means one thing in practice: the
-   rules in firestore.rules were never published, so a production-mode database
-   is still denying everything (README step 6). The SDK's own wording —
-   "Missing or insufficient permissions" — surfaces on the login form as an
-   accusation the visitor can do nothing about, so name the real cause instead. */
+
+/* Registration touches Firestore before there is anything useful to show the
+   person typing, so it can fail for a reason that has nothing to do with their
+   credentials. `permission-denied` here means one thing in practice: the rules
+   in firestore.rules were never published, so a production-mode database is
+   still denying everything (README step 6). The SDK's own wording — "Missing or
+   insufficient permissions" — surfaces on the form as an accusation the visitor
+   can do nothing about, so name the real cause instead. */
 function describeInfraFailure(caught, action) {
   if (caught.code === 'permission-denied') {
     return appError(
@@ -156,108 +177,68 @@ function describeInfraFailure(caught, action) {
     )
   }
   if (caught.code === 'unavailable') {
-    return appError(
-      'auth/network-request-failed',
-      'Network error — check your connection and try again.',
-    )
+    return appError('auth/network-request-failed', 'Network error — check your connection and try again.')
   }
   return caught
 }
 
-const normalizeUsername = (raw) => raw.trim().toLowerCase()
+/** The display name is shown only to its owner, so it needs no uniqueness and
+    no public lookup — just a sane length. */
+export const DISPLAY_NAME_MAX = 60
 
-/* No length or character-set restriction on a username — the only rejects
-   left are the ones Firestore itself would reject as a document id
-   regardless of what this app wants: empty, a bare "." or "..", or containing
-   "/" (which would otherwise split into a nested path). Everything else a
-   person might type is accepted as-is. */
-function assertUsableUsername(normalized) {
-  if (!normalized || normalized === '.' || normalized === '..' || normalized.includes('/')) {
-    throw appError('app/invalid-username', 'That username isn’t allowed — try something else.')
-  }
+/** Where the verification and reset links land: back on this app. */
+function actionCodeSettings() {
+  return typeof window === 'undefined' ? undefined : { url: window.location.origin }
 }
 
 /**
- * Firebase Auth's email/password provider has no concept of a username, so an
- * account still needs a real email under the hood. The username lives in a
- * separate `usernames/{normalized}` doc — `{ uid, email }` only — that a
- * signed-out client can look up by exact id to resolve email-for-sign-in, and
- * that the security rules let anyone GET but never LIST, so the namespace
- * can't be enumerated.
+ * Creates an email/password account. Sign-in is by email only: there is no
+ * public username → email lookup any more (it let anyone who guessed a
+ * username read that account's email address). The name typed here is just the
+ * display name.
  *
- * The Auth account is created FIRST, then the username is reserved as that
- * now-signed-in user (a `create`-if-not-exists write the rules enforce
- * atomically). If the username turns out to be taken, the just-created Auth
- * account is rolled back — an auth user with no matching profile is dead
- * weight, not a recoverable state worth keeping around.
+ * A verification email goes out straight away. The app works unverified, but
+ * the server-side features — AI, push reminders, the daily digest — wait for
+ * it (api/_lib/auth.js, functions/index.js), so an address nobody controls can
+ * never be signed up for them.
  */
-export async function registerWithUsername({ username, email, password, rememberMe = true }) {
+export async function registerAccount({ username, email, password, rememberMe = true }) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
 
-  const trimmedUsername = username.trim()
-  const normalized = normalizeUsername(trimmedUsername)
-  assertUsableUsername(normalized)
+  const displayName = username.trim().slice(0, DISPLAY_NAME_MAX)
+  if (!displayName) throw appError('app/invalid-username', 'Enter a display name.')
 
   await setAuthPersistence(rememberMe)
-
-  const credential = await createUserWithEmailAndPassword(auth, email, password)
+  const credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
 
   try {
-    await updateProfile(credential.user, { displayName: trimmedUsername })
-
-    await runTransaction(db, async (tx) => {
-      const usernameRef = doc(db, 'usernames', normalized)
-      const existing = await tx.get(usernameRef)
-      if (existing.exists()) {
-        throw appError('app/username-taken', 'That username is already taken.')
-      }
-      const stamp = Date.now()
-      tx.set(usernameRef, { uid: credential.user.uid, email, createdAt: stamp })
-      tx.set(doc(db, 'users', credential.user.uid), { username: trimmedUsername, email, createdAt: stamp })
+    await updateProfile(credential.user, { displayName })
+    await setDoc(doc(db, 'users', credential.user.uid), {
+      username: displayName,
+      email: credential.user.email,
+      createdAt: Date.now(),
     })
   } catch (caught) {
+    // An Auth user with no profile is dead weight, not a recoverable state.
     await deleteUser(credential.user).catch(() => {})
     throw describeInfraFailure(caught, 'Creating an account')
   }
 
+  // Best effort: a failed send is retried from the banner, never a reason to
+  // undo an account that otherwise exists.
+  await sendEmailVerification(credential.user, actionCodeSettings()).catch((caught) => {
+    console.warn('Could not send the verification email.', caught)
+  })
   return credential.user
 }
 
-/**
- * Accepts either a username or an email in the same field, matching the
- * ISUZU-CALAPAN convention: a value containing "@" is tried as an email
- * directly, otherwise it's resolved via the `usernames` lookup first.
- *
- * Every failure path — unknown username, unknown email, wrong password —
- * throws the identical message. A login form that distinguishes "no such
- * user" from "wrong password" hands an attacker a free username-enumeration
- * oracle for nothing in return.
- */
-export async function signInWithUsernameOrEmail({ identifier, password, rememberMe = true }) {
-  if (!auth || !db) throw new Error('Firebase is not configured.')
-
+/** Every failure that is about the credentials throws the identical message —
+    "no such account" and "wrong password" must look the same. */
+export async function signInWithEmail({ email, password, rememberMe = true }) {
+  if (!auth) throw new Error('Firebase is not configured.')
   await setAuthPersistence(rememberMe)
-
-  const trimmed = identifier.trim()
-  let email = trimmed
-
-  if (!trimmed.includes('@')) {
-    let snap
-    try {
-      snap = await getDoc(doc(db, 'usernames', normalizeUsername(trimmed)))
-    } catch (caught) {
-      // Signing in by email skips this lookup entirely, so it's worth saying
-      // that out loud — it's a working way through while the rules are fixed.
-      throw describeInfraFailure(caught, 'Signing in with a username, rather than an email address,')
-    }
-    if (!snap.exists()) {
-      throw appError('app/invalid-credential', 'Incorrect username/email or password.')
-    }
-    email = snap.data().email
-  }
-
   try {
-    return await signInWithEmailAndPassword(auth, email, password)
+    return await signInWithEmailAndPassword(auth, email.trim(), password)
   } catch (caught) {
     if (
       caught.code === 'auth/user-not-found' ||
@@ -265,43 +246,58 @@ export async function signInWithUsernameOrEmail({ identifier, password, remember
       caught.code === 'auth/invalid-credential' ||
       caught.code === 'auth/invalid-email'
     ) {
-      throw appError('app/invalid-credential', 'Incorrect username/email or password.')
+      throw appError('app/invalid-credential', 'Incorrect email or password.')
     }
     throw caught
   }
 }
 
-/**
- * Same identifier resolution as signInWithUsernameOrEmail, and the same
- * non-enumeration stance carried one step further: where sign-in can't avoid
- * distinguishing "wrong password" from "no such account" forever (the user
- * eventually gets in or doesn't), a reset request never has to reveal that —
- * so an unknown username, an unknown email, and a Google-only account with no
- * password to reset all resolve as a quiet no-op instead of a thrown error.
- * The caller shows the identical "check your email" message either way; only
- * a genuine infrastructure failure (network, unpublished rules) still throws.
- */
-export async function requestPasswordReset(identifier) {
-  if (!auth || !db) throw new Error('Firebase is not configured.')
-
-  const trimmed = identifier.trim()
-  let email = trimmed
-
-  if (!trimmed.includes('@')) {
-    let snap
-    try {
-      snap = await getDoc(doc(db, 'usernames', normalizeUsername(trimmed)))
-    } catch (caught) {
-      throw describeInfraFailure(caught, 'Resetting a password by username, rather than an email address,')
-    }
-    if (!snap.exists()) return
-    email = snap.data().email
-  }
-
+/** An unknown email, or a Google-only account with no password, is a quiet
+    no-op: the caller shows the same "check your email" either way. */
+export async function requestPasswordReset(email) {
+  if (!auth) throw new Error('Firebase is not configured.')
   try {
-    await sendPasswordResetEmail(auth, email)
+    await sendPasswordResetEmail(auth, email.trim(), actionCodeSettings())
   } catch (caught) {
     if (caught.code === 'auth/user-not-found' || caught.code === 'auth/invalid-email') return
     throw describeInfraFailure(caught, 'Sending a password reset email')
   }
+}
+
+export async function resendVerification() {
+  if (!auth?.currentUser) throw new Error('Not signed in.')
+  await sendEmailVerification(auth.currentUser, actionCodeSettings())
+}
+
+/** Picks up a verification done in another tab or on another device. The
+    reload refreshes `emailVerified` on the user; the forced token refresh is
+    what the server sees, since it reads the claim from the ID token. */
+export async function refreshVerification() {
+  const user = auth?.currentUser
+  if (!user) return false
+  await user.reload()
+  if (user.emailVerified) await user.getIdToken(true)
+  return user.emailVerified
+}
+
+/**
+ * Drops this browser's offline copy of the account. Firestore's persistent
+ * cache lives in IndexedDB and survives sign-out, so on a shared computer the
+ * next person could read the previous account's schedule from DevTools.
+ *
+ * Terminating is required before the cache can be cleared, and a terminated
+ * instance can't be used again — so the page reloads into a fresh one. Another
+ * open tab still holding the cache makes clearing fail (`failed-precondition`);
+ * that is tolerated, since there is nothing more this tab can do about it.
+ */
+export async function clearLocalData() {
+  if (db) {
+    try {
+      await terminate(db)
+      await clearIndexedDbPersistence(db)
+    } catch (caught) {
+      console.warn('Could not clear the offline cache.', caught)
+    }
+  }
+  if (typeof window !== 'undefined') window.location.reload()
 }

@@ -5,13 +5,22 @@ on:
     branches: [main]
   pull_request:
 
+# Nothing here writes to the repo, so nothing gets a token that could. (The
+# default token's permissions depend on repository settings; this pins them.)
+permissions:
+  contents: read
+
+# Actions are pinned to a commit, not a tag: a tag can be moved to different
+# code after the fact. The comment names the release the commit is on;
+# Dependabot (.github/dependabot.yml) opens the PR to move it.
+
 jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: lts/*
           cache: npm
@@ -43,3 +52,26 @@ jobs:
       # needed at build time — firebaseReady only gates initializeApp() at
       # runtime in the browser — so this runs with no secrets configured.
       - run: npm run build
+
+  # firestore.rules is the app's data boundary, so it is tested against the
+  # real rules engine. Its own job because it needs a JDK (the Firestore
+  # emulator is a Java program) and downloads the emulator — neither belongs
+  # in the fast checks above.
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - run: npm ci
+
+      - run: npm run test:rules

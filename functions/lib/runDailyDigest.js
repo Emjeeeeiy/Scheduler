@@ -9,25 +9,39 @@ import { tasksOnDay, expandHorizon, normalizeAll } from './dayModel.js'
 import { buildDigestSummary, renderDigestEmail } from './digest.js'
 
 /**
- * @param db        a Firestore-shaped client
- * @param sendEmail `({ to, subject, text, html }) => Promise<{ ok, status?, body? }>`
- *                  — the one thing this doesn't own is HOW an email actually
- *                  gets sent; index.js supplies the real SendGrid call, tests
- *                  supply a fake that just records what it was asked to send
- * @param todayKey  this run's "today"
- * @param nowMin    this run's clock, in minutes since midnight
+ * @param db               a Firestore-shaped client
+ * @param sendEmail        `({ to, subject, text, html }) => Promise<{ ok, status?, body? }>`
+ *                         — the one thing this doesn't own is HOW an email
+ *                         actually gets sent; index.js supplies the real
+ *                         SendGrid call, tests supply a fake that just records
+ *                         what it was asked to send
+ * @param resolveRecipient `(uid) => Promise<string | null>` — where this
+ *                         account's digest may go: its VERIFIED Auth address,
+ *                         or null to skip it. Never the profile doc's `email`
+ *                         field: that doc is written by the client, so reading
+ *                         the address from it would let any account point our
+ *                         daily email at any inbox it liked.
+ * @param todayKey         this run's "today"
+ * @param nowMin           this run's clock, in minutes since midnight
  */
-export async function runDailyDigest({ db, sendEmail, todayKey, nowMin, logger = console }) {
+export async function runDailyDigest({ db, sendEmail, resolveRecipient, todayKey, nowMin, logger = console }) {
+  if (typeof resolveRecipient !== 'function') throw new TypeError('runDailyDigest needs resolveRecipient.')
+
   const usersSnap = await db.collection('users').where('dailyDigestEnabled', '==', true).get()
   if (usersSnap.empty) return { usersProcessed: 0, emailsSent: 0 }
 
   let emailsSent = 0
+  let skipped = 0
 
   for (const userDoc of usersSnap.docs) {
     const uid = userDoc.id
     try {
-      const email = userDoc.data().email
-      if (!email) continue // a Google account with no email on the profile doc yet
+      const email = await resolveRecipient(uid)
+      if (!email) {
+        // Unverified, or no longer an Auth account at all.
+        skipped += 1
+        continue
+      }
 
       const tasksSnap = await db.collection('users').doc(uid).collection('tasks').get()
       const rawTasks = tasksSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -52,5 +66,5 @@ export async function runDailyDigest({ db, sendEmail, todayKey, nowMin, logger =
     }
   }
 
-  return { usersProcessed: usersSnap.docs.length, emailsSent }
+  return { usersProcessed: usersSnap.docs.length, emailsSent, skipped }
 }

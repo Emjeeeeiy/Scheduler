@@ -19,6 +19,7 @@ import { AuthError, verifyRequest } from '../_lib/auth.js'
 import { clip, readSubscription } from '../_lib/pushInput.js'
 import { ApiError, hasAuthorization, readJsonBody, route } from '../_lib/pushRoute.js'
 import { createPushStore } from '../_lib/pushStore.js'
+import { clientIp, enforceLimit } from '../_lib/rateLimit.js'
 import { getRedis } from '../_lib/redis.js'
 
 export default route('push/subscribe', ['POST'], async (req, res) => {
@@ -28,6 +29,7 @@ export default route('push/subscribe', ['POST'], async (req, res) => {
 
   if (hasAuthorization(req)) {
     const uid = await verifyRequest(req)
+    await enforceLimit('pushSubscribe', uid)
     const store = createPushStore(getRedis())
     await store.upsertSubscription(uid, subscription, { ua })
     return res.status(200).json({ ok: true })
@@ -37,6 +39,7 @@ export default route('push/subscribe', ['POST'], async (req, res) => {
   if (typeof oldEndpoint !== 'string' || !oldEndpoint || oldEndpoint.length > 2048) {
     throw new AuthError(401, 'Missing bearer token.')
   }
+  await enforceLimit('pushAnonymous', `ip:${clientIp(req)}`)
   const store = createPushStore(getRedis())
   const previous = await store.getSubscription(oldEndpoint)
   if (!previous) throw new ApiError(404, 'Unknown subscription.')

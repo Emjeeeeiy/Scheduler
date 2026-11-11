@@ -3,7 +3,7 @@ import { useAuth } from '../../state/AuthContext.jsx'
 
 export function ForgotPasswordForm({ onSwitchToLogin }) {
   const { resetPassword, clearError } = useAuth()
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
 
@@ -13,7 +13,7 @@ export function ForgotPasswordForm({ onSwitchToLogin }) {
     clearError()
     setSubmitting(true)
     try {
-      const ok = await resetPassword(identifier)
+      const ok = await resetPassword(email)
       if (ok) setSent(true)
     } finally {
       setSubmitting(false)
@@ -24,7 +24,7 @@ export function ForgotPasswordForm({ onSwitchToLogin }) {
     return (
       <div className="auth-form">
         <p className="field__hint">
-          If an account matches “{identifier}”, a password reset link is on its way — check your
+          If an account uses “{email}”, a password reset link is on its way — check your
           inbox (and spam folder).
         </p>
         <button
@@ -41,13 +41,14 @@ export function ForgotPasswordForm({ onSwitchToLogin }) {
   return (
     <form className="auth-form" onSubmit={onSubmit}>
       <label className="field">
-        <span className="field__label">Username or email</span>
+        <span className="field__label">Email</span>
         <input
+          type="email"
           className="input"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          autoComplete="username"
-          placeholder="yourname"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          placeholder="you@example.com"
           required
         />
         <span className="field__hint">We’ll email a reset link if that account exists.</span>

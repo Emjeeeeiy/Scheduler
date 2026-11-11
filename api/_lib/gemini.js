@@ -84,10 +84,14 @@ export async function generateJson({ model, systemInstruction, prompt, schema, t
   }
 }
 
+/** `message` is for the logs only: it can carry whatever Gemini said about
+    itself (quota details, model names). route() (pushRoute.js) answers the
+    browser with a generic message instead, keyed off `upstream`. */
 export class GeminiError extends Error {
   constructor(status, message, cause) {
     super(message)
     this.status = status
     this.cause = cause
+    this.upstream = true
   }
 }

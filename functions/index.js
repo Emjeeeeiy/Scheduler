@@ -26,6 +26,7 @@
  */
 
 import { initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { defineSecret } from 'firebase-functions/params'
@@ -36,6 +37,7 @@ import { runDailyDigest } from './lib/runDailyDigest.js'
 
 initializeApp()
 const db = getFirestore()
+const adminAuth = getAuth()
 
 const sendgridApiKey = defineSecret('SENDGRID_API_KEY')
 /* The address digest emails claim to come FROM. SendGrid (like every
@@ -56,6 +58,19 @@ function nowUtc() {
   }
 }
 
+/** Where an account's digest may go: the address Firebase Auth holds for it,
+    and only once that address is verified. The profile doc's own `email` is
+    client-written and never trusted for this. */
+async function resolveRecipient(uid) {
+  try {
+    const user = await adminAuth.getUser(uid)
+    return user.emailVerified && user.email ? user.email : null
+  } catch (caught) {
+    if (caught?.code === 'auth/user-not-found') return null
+    throw caught
+  }
+}
+
 async function sendViaSendGrid({ to, subject, text, html }) {
   const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
@@ -68,6 +83,10 @@ async function sendViaSendGrid({ to, subject, text, html }) {
         { type: 'text/plain', value: text },
         { type: 'text/html', value: html },
       ],
+      /* SendGrid adds an unsubscribe link (and the List-Unsubscribe header) to
+         every digest and suppresses any address that uses it — so nobody can
+         be stuck receiving this, whatever the app's own setting says. */
+      tracking_settings: { subscription_tracking: { enable: true } },
     }),
   })
   return { ok: response.ok, status: response.status, body: response.ok ? null : await response.text() }
@@ -77,7 +96,7 @@ export const sendDailyDigest = onSchedule(
   { schedule: '0 7 * * *', timeZone: 'Etc/UTC', secrets: [sendgridApiKey, digestFromEmail] },
   async () => {
     const { key: todayKey, min: nowMin } = nowUtc()
-    const result = await runDailyDigest({ db, sendEmail: sendViaSendGrid, todayKey, nowMin, logger })
+    const result = await runDailyDigest({ db, sendEmail: sendViaSendGrid, resolveRecipient, todayKey, nowMin, logger })
     logger.info('sendDailyDigest', result)
   },
 )

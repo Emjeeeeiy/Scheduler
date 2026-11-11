@@ -8,12 +8,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#f9f9f7",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f9f9f7",
-      "imageWidth": 180
-    },
     "plugins": [
       [
         "expo-splash-screen",

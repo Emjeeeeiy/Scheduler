@@ -11,8 +11,11 @@
  * arithmetic about time" principle this route applies to its own startMin.
  */
 
-import { verifyRequest, AuthError } from './_lib/auth.js'
-import { generateJson, GeminiError } from './_lib/gemini.js'
+import { verifyRequest } from './_lib/auth.js'
+import { generateJson } from './_lib/gemini.js'
+import { ApiError, readJsonBody, route } from './_lib/pushRoute.js'
+import { enforceAiLimits } from './_lib/rateLimit.js'
+import { CAPS, ISO_DATE, readHistory, readSlots, readTags, readText } from './_lib/aiInput.js'
 
 // Started on GEMINI_MODEL_PLAN (the reasoning-tier model plan-day.js also
 // uses) on the theory that this call reasons rather than just classifies.
@@ -26,16 +29,13 @@ import { generateJson, GeminiError } from './_lib/gemini.js'
 // costs nothing a stronger one wasn't already being fact-checked against.
 const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 
-// Halved from the plan's original 30 after live testing under vercel dev
-// showed this route needing more than 15s round-trip — this is the biggest
-// variable-size part of the prompt, and personalization from the most
-// recent 15 tasks is still meaningfully better than none.
-const MAX_HISTORY = 15
+// The form fields the client may say it already filled in.
+const FILLABLE = ['tagId', 'durationMin', 'startMin', 'subtasks', 'notes']
+
 const MAX_SUBTASKS = 8
 const MAX_SUBTASK_LEN = 100
 const MAX_NOTES_LEN = 500
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 const SYSTEM_INSTRUCTION = `You help fill in the rest of a task someone is creating, from just its title, their own recent task history, and today's real free time.
 Some fields already have a value the person chose themselves — the request tells you which. Still return your best answer for those too (it will be ignored), but never let "it's already set" make you guess wildly for the fields that are NOT already set — give an honest best guess, or null/empty when you truly have none.
@@ -94,79 +94,66 @@ function sanitize(result, { tags, slots }) {
   return { tagId, durationMin, startMin, subtasks, notes }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' })
+export default route('enrich-task', ['POST'], async (req, res) => {
+  const uid = await verifyRequest(req)
+  const body = readJsonBody(req)
 
-  try {
-    await verifyRequest(req)
-
-    const { title, today, tags, slots, history, filled } =
-      typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-
-    if (typeof title !== 'string' || !title.trim()) {
-      return res.status(400).json({ error: 'title is required.' })
-    }
-    if (typeof today !== 'string' || !ISO_DATE.test(today)) {
-      return res.status(400).json({ error: 'today must be a YYYY-MM-DD date key.' })
-    }
-
-    const safeTags = Array.isArray(tags)
-      ? tags.filter((t) => typeof t?.id === 'string' && typeof t?.name === 'string')
-      : []
-    const safeSlots = Array.isArray(slots)
-      ? slots.filter((s) => Number.isInteger(s?.startMin) && Number.isInteger(s?.endMin) && s.endMin > s.startMin)
-      : []
-    const safeHistory = Array.isArray(history) ? history.slice(0, MAX_HISTORY) : []
-    // Purely descriptive text for the prompt — telling Gemini which fields
-    // not to bother re-suggesting. The client re-checks emptiness itself
-    // before ever applying anything, so this being briefly stale (the
-    // person filled a field while the debounced request was already in
-    // flight) costs nothing beyond a wasted suggestion for that one field.
-    const filledKeys = Object.entries(filled ?? {})
-      .filter(([, v]) => v === true)
-      .map(([k]) => k)
-
-    const prompt = [
-      `today: ${today}`,
-      `task title: ${JSON.stringify(title.trim())}`,
-      `already set, do not re-suggest: ${filledKeys.length ? filledKeys.join(', ') : '(nothing yet)'}`,
-      '',
-      'available tags:',
-      ...(safeTags.length ? safeTags.map((t) => `- id ${JSON.stringify(t.id)}: ${t.name}`) : ['(none created yet)']),
-      '',
-      "today's free time windows (minutes since local midnight):",
-      ...(safeSlots.length ? safeSlots.map((s) => `- ${s.startMin}-${s.endMin}`) : ['(none left today)']),
-      '',
-      "recent tasks, most recent first (this person's own patterns):",
-      ...(safeHistory.length
-        ? safeHistory.map((h) => {
-            const bits = [`"${h.title}"`]
-            if (h.tagId) bits.push(`tag ${JSON.stringify(h.tagId)}`)
-            if (Number.isFinite(h.durationMin)) bits.push(`${h.durationMin} min`)
-            if (Number.isFinite(h.startMin)) bits.push(`started at minute ${h.startMin}`)
-            return `- ${bits.join(', ')}`
-          })
-        : ['(no history yet)']),
-    ].join('\n')
-
-    const result = await generateJson({
-      model: MODEL,
-      systemInstruction: SYSTEM_INSTRUCTION,
-      prompt,
-      schema: SCHEMA,
-      // Matches (with a little margin) parse-task.js's own budget now that
-      // both share GEMINI_MODEL_FAST — this route still sends more content
-      // than that one (history + tags + slots, not just one sentence), so
-      // it keeps a bit more room, but a debounced while-you-type suggestion
-      // has no business waiting anywhere near as long as it used to.
-      timeoutMs: 10000,
-    })
-
-    return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots }))
-  } catch (caught) {
-    if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
-    if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
-    console.error('enrich-task failed', caught)
-    return res.status(500).json({ error: 'Internal error.' })
+  const title = readText(body.title, CAPS.title)
+  if (!title) throw new ApiError(400, 'title is required.')
+  if (typeof body.today !== 'string' || !ISO_DATE.test(body.today)) {
+    throw new ApiError(400, 'today must be a YYYY-MM-DD date key.')
   }
-}
+
+  const safeTags = readTags(body.tags)
+  const safeSlots = readSlots(body.slots)
+  const safeHistory = readHistory(body.history)
+  // Purely descriptive text for the prompt — telling Gemini which fields
+  // not to bother re-suggesting. Only the five known field names are ever
+  // echoed into the prompt. The client re-checks emptiness itself before
+  // ever applying anything, so this being briefly stale costs nothing beyond
+  // a wasted suggestion for that one field.
+  const filled = body.filled && typeof body.filled === 'object' ? body.filled : {}
+  const filledKeys = FILLABLE.filter((key) => filled[key] === true)
+
+  await enforceAiLimits('enrichTask', uid)
+
+  const prompt = [
+    `today: ${body.today}`,
+    `task title: ${JSON.stringify(title)}`,
+    `already set, do not re-suggest: ${filledKeys.length ? filledKeys.join(', ') : '(nothing yet)'}`,
+    '',
+    'available tags:',
+    ...(safeTags.length
+      ? safeTags.map((t) => `- id ${JSON.stringify(t.id)}: ${JSON.stringify(t.name)}`)
+      : ['(none created yet)']),
+    '',
+    "today's free time windows (minutes since local midnight):",
+    ...(safeSlots.length ? safeSlots.map((s) => `- ${s.startMin}-${s.endMin}`) : ['(none left today)']),
+    '',
+    "recent tasks, most recent first (this person's own patterns):",
+    ...(safeHistory.length
+      ? safeHistory.map((h) => {
+          const bits = [JSON.stringify(h.title)]
+          if (h.tagId) bits.push(`tag ${JSON.stringify(h.tagId)}`)
+          if (Number.isFinite(h.durationMin)) bits.push(`${h.durationMin} min`)
+          if (Number.isFinite(h.startMin)) bits.push(`started at minute ${h.startMin}`)
+          return `- ${bits.join(', ')}`
+        })
+      : ['(no history yet)']),
+  ].join('\n')
+
+  const result = await generateJson({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    prompt,
+    schema: SCHEMA,
+    // Matches (with a little margin) parse-task.js's own budget now that
+    // both share GEMINI_MODEL_FAST — this route still sends more content
+    // than that one (history + tags + slots, not just one sentence), so
+    // it keeps a bit more room, but a debounced while-you-type suggestion
+    // has no business waiting anywhere near as long as it used to.
+    timeoutMs: 10000,
+  })
+
+  return res.status(200).json(sanitize(result, { tags: safeTags, slots: safeSlots }))
+})

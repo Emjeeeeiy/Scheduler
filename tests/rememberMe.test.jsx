@@ -49,17 +49,17 @@ describe('LoginForm - Remember me', () => {
 
   it('passes rememberMe: true to signInWithPassword on form submit when checked', async () => {
     render(<LoginForm onSwitchToRegister={vi.fn()} onForgotPassword={vi.fn()} />)
-    const usernameInput = screen.getByPlaceholderText('yourname')
+    const emailInput = screen.getByLabelText('Email')
     const passwordInput = screen.getByLabelText('Password')
     const submitButton = screen.getByRole('button', { name: /log in/i })
 
-    fireEvent.change(usernameInput, { target: { value: 'alice' } })
+    fireEvent.change(emailInput, { target: { value: 'alice@example.com' } })
     fireEvent.change(passwordInput, { target: { value: 'secret123' } })
     fireEvent.click(submitButton)
 
     expect(mockSignInWithPassword).toHaveBeenCalledTimes(1)
     expect(mockSignInWithPassword).toHaveBeenCalledWith({
-      identifier: 'alice',
+      email: 'alice@example.com',
       password: 'secret123',
       rememberMe: true,
     })
@@ -67,7 +67,7 @@ describe('LoginForm - Remember me', () => {
 
   it('passes rememberMe: false to signInWithPassword on form submit when unchecked', async () => {
     render(<LoginForm onSwitchToRegister={vi.fn()} onForgotPassword={vi.fn()} />)
-    const usernameInput = screen.getByPlaceholderText('yourname')
+    const emailInput = screen.getByLabelText('Email')
     const passwordInput = screen.getByLabelText('Password')
     const checkbox = screen.getByRole('checkbox', { name: /remember me/i })
     const submitButton = screen.getByRole('button', { name: /log in/i })
@@ -75,13 +75,13 @@ describe('LoginForm - Remember me', () => {
     fireEvent.click(checkbox)
     expect(checkbox.checked).toBe(false)
 
-    fireEvent.change(usernameInput, { target: { value: 'bob' } })
+    fireEvent.change(emailInput, { target: { value: 'bob@example.com' } })
     fireEvent.change(passwordInput, { target: { value: 'secret456' } })
     fireEvent.click(submitButton)
 
     expect(mockSignInWithPassword).toHaveBeenCalledTimes(1)
     expect(mockSignInWithPassword).toHaveBeenCalledWith({
-      identifier: 'bob',
+      email: 'bob@example.com',
       password: 'secret456',
       rememberMe: false,
     })

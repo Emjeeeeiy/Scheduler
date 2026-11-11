@@ -17,6 +17,7 @@
  */
 
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { AppCheckError, appCheckEnforced, verifyAppCheck } from './appCheck.js'
 
 const JWKS_URL = new URL(
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com',
@@ -31,14 +32,20 @@ const JWKS = createRemoteJWKSet(JWKS_URL)
 /** Every Firebase ID token's issuer names the specific project it belongs
     to, and every claim this function checks is exactly what Firebase's own
     documented verification contract requires: RS256 (enforced by JWKS
-    lookup itself, since only RS256 keys live at that endpoint), `iss` and
-    `aud` matching the project, and `exp` in the future (jwtVerify's own
-    default). `sub`/`auth_time` are Firebase Admin SDK's own additional
-    checks beyond what a bare JWT library does; skipped here as more rigor
-    than this endpoint needs — a stolen, still-valid ID token is a Firebase
-    Auth session-security question, not something this proxy can add much
-    to by re-deriving Admin SDK's exact checklist. */
-export async function verifyRequest(req) {
+    lookup itself, since only RS256 keys live at that endpoint — and pinned
+    explicitly below as well), `iss` and `aud` matching the project, `exp` in
+    the future (jwtVerify's own default), and a non-empty `sub` of at most 128
+    characters, as Firebase's own contract requires.
+
+    Every route that costs us something — a Gemini call, a push send, a slot
+    in the reminder queue — also needs a VERIFIED email address
+    (`email_verified`). Registration is open, so without that an account made
+    for an address nobody controls could use all of it. The one caller that
+    opts out is account deletion's push purge: an unverified account must
+    still be able to delete itself completely.
+
+    @return the Firebase uid */
+export async function verifyRequest(req, { requireVerifiedEmail = true } = {}) {
   /* Deliberately its OWN env var, not a re-read of the client's
      VITE_FIREBASE_PROJECT_ID — same value, but VITE_ is a client-build-time
      convention, and a serverless function reading it is exactly the kind of
@@ -57,15 +64,36 @@ export async function verifyRequest(req) {
   const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : null
   if (!token) throw new AuthError(401, 'Missing bearer token.')
 
+  let payload
   try {
-    const { payload } = await jwtVerify(token, JWKS, {
+    const verified = await jwtVerify(token, JWKS, {
       issuer: `https://securetoken.google.com/${projectId}`,
       audience: projectId,
+      algorithms: ['RS256'],
     })
-    return payload.sub // the Firebase uid — not currently used beyond proving a real signed-in caller, but kept for future per-user logging/rate-limiting
+    payload = verified.payload
   } catch (caught) {
     throw new AuthError(401, 'Invalid or expired token.', caught)
   }
+
+  const uid = payload.sub
+  if (typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
+    throw new AuthError(401, 'Invalid or expired token.')
+  }
+  if (requireVerifiedEmail && payload.email_verified !== true) {
+    throw new AuthError(403, 'Verify your email address to use this feature.')
+  }
+
+  // Off until APPCHECK_ENFORCE=true — see appCheck.js for the rollout order.
+  if (appCheckEnforced()) {
+    try {
+      await verifyAppCheck(req)
+    } catch (caught) {
+      if (caught instanceof AppCheckError) throw new AuthError(caught.status, caught.message, caught.cause)
+      throw caught
+    }
+  }
+  return uid
 }
 
 export class AuthError extends Error {

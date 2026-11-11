@@ -14,7 +14,7 @@ General, Appearance, Account, Tags, Notifications, Keyboard and Your data —
 reached from the sidebar, the account menu on a phone, or the command palette.
 
 Built with React 19 + Vite, data in Firebase Firestore. Sign in with Google, or
-with a username and password.
+with an email address and password.
 
 ## Setup
 
@@ -54,6 +54,7 @@ is not optional. `.env.local` is gitignored regardless.
 | `npm test` | pure-logic tests, on Node's built-in runner — no extra dependencies |
 | `npm run test:dom` | vitest + jsdom — components and hooks that need a real DOM: dialogs' focus handling, and the Journal's editor, toolbar, autosave and drawing |
 | `npm run test:functions` | the Cloud Functions' own tests (`functions/`) |
+| `npm run test:rules` | `firestore.rules` against the Firestore emulator (`tests/rules/`) — needs JDK 21+; CI runs it |
 | `npm run test:render` | smoke-renders every view against mock data |
 | `node tests/smoke/qa.mjs` | manual visual QA — screenshots a running `npm run dev` with a real browser; not part of `npm test`, not run in CI, needs `playwright` installed separately (see the comment at the top of the file) |
 
@@ -68,7 +69,8 @@ no production module knows it is being tested.
 ## How the data is shaped
 
 ```text
-users/{uid}                    profile — username  email  createdAt
+users/{uid}                    profile — username (display name)  email  createdAt
+                                 displayName  photoBase64  dailyDigestEnabled
 users/{uid}/tasks/{taskId}
   title  notes  date  startMin  durationMin  tagId  done
   completedAt  createdAt  updatedAt
@@ -81,9 +83,11 @@ users/{uid}/journal/{noteId}   a note's metadata — title  excerpt  dayKey  pin
   hasDrawing  bytes  paper  createdAt  updatedAt  deletedAt
 users/{uid}/journal/{noteId}/content/body
   json  schemaVersion  updatedAt        the note's text, as one JSON string
-
-usernames/{usernameLower}      top-level — uid  email  createdAt
 ```
+
+Nothing lives outside `users/{uid}`. (A top-level `usernames` collection once
+mapped usernames to emails for username sign-in; it is retired, unreadable by
+the rules, and can be deleted from the console.)
 
 Three task states fall out of two fields, with no extra flag to keep in sync:
 
@@ -153,19 +157,21 @@ separation, not validator-checked. Three light-mode slots sit
 under 3:1 contrast, so anything wearing a tag colour also carries a visible text
 label — never colour alone.
 
-**Username login needs a real email under the hood, because Firebase Auth's
-email/password provider has no concept of a username.** Registration collects
-one anyway (`usernames/{usernameLower} → { uid, email }`, a top-level
-collection separate from the owner-only `/users` tree) so the account can be
-recovered and so `signInWithEmailAndPassword` has something to call. The Auth
-account is created *first*; the username is then reserved as that
-now-signed-in user, and if it's taken, the Auth account is rolled back
-(`deleteUser`) rather than left as an orphan with no profile. Security rules
-allow a `get` on any single known username (needed to resolve it before
-sign-in) but never a `list`, so the namespace can't be enumerated — and every
-login failure, whether the username doesn't exist or the password is wrong,
-shows the identical "Incorrect username/email or password," so a login form
-never doubles as a username-enumeration oracle.
+**Sign-in is by email, and the name typed at registration is only a display
+name.** Username sign-in used to resolve a username to its email through a
+publicly readable `usernames` collection, which meant anyone who guessed a
+username could read that account's email address. It was removed rather than
+patched. Every credential failure shows the identical "Incorrect email or
+password," and the sign-up form doesn't confirm which addresses already have an
+account.
+
+**A new password account gets a verification email, and the server-side
+features wait for it** — AI suggestions, push reminders and the daily digest
+(`api/_lib/auth.js` checks `email_verified`; `functions/index.js` only mails a
+verified Auth address). Everything that runs on the device works unverified,
+with a banner offering to resend the link. Registration is open, so without this
+an account made for someone else's address could use all of it. See
+[Security](#security).
 
 ## The Journal
 
@@ -326,6 +332,59 @@ Firestore rules are not deployed from here either — see step 6 of Setup.
 optional extra with their own setup — an Upstash Redis database, a VAPID key
 pair, and a once-a-minute cron call. See [README-push.md](README-push.md).
 Nothing else needs it, and the app behaves exactly as before until it's set up.
+
+## Security
+
+What the app relies on, and where it's enforced:
+
+- **`firestore.rules` is the data boundary.** Each account reaches only
+  `users/{uid}/**`; everything else is denied. The profile doc accepts only its
+  known fields (an `email`, if written, must be the account's own). Tested
+  against the emulator in `tests/rules/` (`npm run test:rules`).
+- **Every `/api/*` route that costs something needs a verified account and has
+  a budget.** Firebase ID tokens are checked (RS256, project issuer/audience,
+  `sub`, `email_verified`), then per-account rate limits in
+  `api/_lib/rateLimit.js` (Upstash; per-IP for the two session-less push calls),
+  then input size caps (`api/_lib/aiInput.js`) before anything reaches Gemini.
+  What Gemini says about its own errors is logged, never shown.
+- **Push** accepts only real push-service endpoints, caps an account at ten
+  devices, queues nothing for an account with no device, and drains the queue in
+  batches so a burst can't starve real reminders.
+- **The digest** is only ever sent to a verified Firebase Auth address, never to
+  the client-written profile field, and carries SendGrid's unsubscribe link.
+- **Headers** (`vercel.json`): `nosniff`, `Referrer-Policy`, `X-Frame-Options:
+  DENY`, `Permissions-Policy`, and a Content Security Policy — shipped as
+  `Content-Security-Policy-Report-Only` first. Once a Preview deployment shows no
+  CSP reports in the browser console across sign-in (email and Google), the
+  Journal (fonts, images, drawing), push and AI, rename the header to
+  `Content-Security-Policy` to enforce it.
+- **Signing out wipes this browser's offline copy** of the account (Firestore's
+  IndexedDB cache), and with "Remember me" unticked also stops push on that
+  device.
+- **Notes never load remote images**, whether pasted, stored or imported from a
+  backup.
+
+**Known and accepted:** `npm audit` reports a high-severity advisory in the
+`firebase` web SDK through `@grpc/grpc-js`. That code path is the Node.js gRPC
+transport; in the browser Firestore uses WebChannel, so the advisory does not
+apply to the shipped bundle. Revisit when `firebase` ships a release that clears
+it (Dependabot will open it).
+
+**Console settings the code can't enforce:**
+
+1. Google Cloud → Credentials → the browser API key: restrict it by HTTP
+   referrer (production, Vercel previews, localhost) and to the Firebase APIs it
+   needs (Identity Toolkit, Token Service, Cloud Firestore, Firebase
+   Installations, App Check). Make sure the Generative Language (Gemini) API is
+   not allowed on it.
+2. Firebase Authentication → Settings: turn on email enumeration protection,
+   set a password policy (minimum 8) if your plan offers it, and keep Authorized
+   domains to the ones you use.
+3. Budget alerts on Google Cloud, SendGrid, Upstash and Vercel.
+4. App Check (optional, recommended): register the web app with reCAPTCHA
+   Enterprise, set `VITE_APPCHECK_SITE_KEY` (see `.env.example`), watch the App
+   Check metrics for a week, then enforce it for Firestore and Authentication
+   and set `APPCHECK_ENFORCE=true` for the `/api` routes.
 
 ## Not built yet
 

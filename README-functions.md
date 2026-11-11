@@ -99,6 +99,12 @@ Opt-in, from Cadence's own Settings panel — nothing sends until someone
 checks the box there. It writes `dailyDigestEnabled: true` on the account's
 own `users/{uid}` document.
 
+The digest goes to the account's **verified Firebase Auth address**, looked up
+with the Admin SDK at send time — never to the `email` field on the profile
+doc, which the client writes and so could point anywhere. An account whose
+address isn't verified (or that no longer exists in Auth) is skipped and
+counted in the logged `skipped`.
+
 ## 5. Verify it actually works
 
 This is the step nothing here has done for you.
@@ -107,7 +113,7 @@ This is the step nothing here has done for you.
 2. Rather than waiting a day, temporarily change the schedule in
    `functions/index.js` (`'0 7 * * *'`) to a few minutes from now, redeploy,
    and check `firebase functions:log` (or the Firebase console) for
-   `sendDailyDigest`'s result — it logs `{ usersProcessed, emailsSent }`.
+   `sendDailyDigest`'s result — it logs `{ usersProcessed, emailsSent, skipped }`.
    Revert the schedule afterward.
 3. If `emailsSent` is 0 but `usersProcessed` is 1: check the logged error —
    almost always an unverified SendGrid sender.
@@ -118,9 +124,10 @@ This is the step nothing here has done for you.
   time is UTC-relative. There's no per-user timezone field anywhere yet.
   Fine for one person who knows that going in.
 - **One send time for everyone**, hardcoded in `functions/index.js`.
-- **No unsubscribe link in the email itself** — the only way off the digest
-  is the Settings checkbox. Fine for a personal tool one person opted
-  themselves into; would need one before this could serve a stranger.
+- **Unsubscribing is SendGrid's.** Every digest carries SendGrid's own
+  unsubscribe link and List-Unsubscribe header (subscription tracking, set in
+  `functions/index.js`); an address that uses it is suppressed by SendGrid even
+  if the Settings checkbox is still on.
 
 ## Turning it back off
 

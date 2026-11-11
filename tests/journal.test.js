@@ -24,6 +24,7 @@ import {
   noteToBackup,
   plainTextOf,
   sortNotes,
+  stripRemoteImages,
   summarizeDoc,
 } from '@cadence/shared/journal.js'
 
@@ -444,5 +445,65 @@ describe('journal backup', () => {
 
   it('caps how many notes one file may bring', () => {
     assert.equal(MAX_IMPORT_NOTES, 500)
+  })
+})
+
+describe('stripRemoteImages — a note never loads a picture from someone else’s server', () => {
+  const DATA = 'data:image/png;base64,iVBORw0KGgo='
+  const image = (src) => ({ type: 'image', attrs: { src } })
+  const docOf = (...content) => ({ type: 'doc', content })
+
+  it('keeps data-URI images and drops remote, protocol-relative and script ones', () => {
+    const doc = docOf(
+      para(text('a')),
+      image(DATA),
+      image('https://tracker.example/pixel.png'),
+      image('//tracker.example/p.gif'),
+      image('javascript:alert(1)'),
+      { type: 'blockquote', content: [image('http://x.example/y.jpg'), para(text('b'))] },
+    )
+    const { doc: safe, stripped } = stripRemoteImages(doc)
+    assert.equal(stripped, 4)
+    assert.deepEqual(safe, docOf(para(text('a')), image(DATA), { type: 'blockquote', content: [para(text('b'))] }))
+  })
+
+  it('returns the very same object when there is nothing to strip, and never mutates its input', () => {
+    const doc = docOf(para(text('a')), image(DATA))
+    const before = JSON.stringify(doc)
+    assert.equal(stripRemoteImages(doc).doc, doc)
+    stripRemoteImages(docOf(image('https://x.example/a.png')))
+    assert.equal(JSON.stringify(doc), before)
+  })
+
+  it('drops whatever sits deeper than any real note nests', () => {
+    let deep = image('https://x.example/deep.png')
+    for (let i = 0; i < 100; i += 1) deep = { type: 'blockquote', content: [deep] }
+    const { doc: safe, stripped } = stripRemoteImages(docOf(deep))
+    assert.ok(stripped >= 1)
+    assert.ok(!JSON.stringify(safe).includes('deep.png'))
+  })
+
+  it('applies when a stored body is loaded', () => {
+    const json = JSON.stringify(docOf(para(text('hi')), image('https://x.example/a.png')))
+    const body = normalizeNoteBody({ json, schemaVersion: SCHEMA_VERSION })
+    assert.equal(body.valid, true)
+    assert.ok(!body.json.includes('x.example'))
+    assert.deepEqual(body.doc, docOf(para(text('hi'))))
+  })
+
+  it('leaves an ordinary stored body’s string exactly as it was', () => {
+    const json = JSON.stringify(docOf(para(text('hi')), image(DATA)))
+    assert.equal(normalizeNoteBody({ json, schemaVersion: SCHEMA_VERSION }).json, json)
+  })
+
+  it('applies to a note imported from a backup file', () => {
+    const raw = {
+      title: 'Imported',
+      body: JSON.stringify(docOf(para(text('x')), image('https://tracker.example/p.png'))),
+      schemaVersion: SCHEMA_VERSION,
+    }
+    const result = noteFromBackup(raw, 1)
+    assert.ok(!result.error)
+    assert.ok(!result.json.includes('tracker.example'))
   })
 })

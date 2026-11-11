@@ -1,4 +1,5 @@
 import Image from '@tiptap/extension-image'
+import { isDataImage } from '@cadence/shared/journal.js'
 
 /* Images in a note are stored inside the note, as data URIs, and nowhere else.
  *
@@ -12,11 +13,11 @@ import Image from '@tiptap/extension-image'
  * document that saves atomically and works offline. The price is that every
  * image counts toward the note's size limit — see lib/image.js, which shrinks an
  * image before it is ever inserted.)
+ *
+ * This guards pasted HTML. A body that arrives as JSON — loaded from Firestore
+ * or a backup file — gets the same rule from stripRemoteImages in
+ * @cadence/shared/journal.js, which owns the one definition of isDataImage.
  */
-
-const DATA_IMAGE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/
-
-export const isDataImage = (src) => typeof src === 'string' && DATA_IMAGE.test(src)
 
 export const JournalImage = Image.extend({
   parseHTML() {

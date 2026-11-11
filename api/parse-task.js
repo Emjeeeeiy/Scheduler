@@ -12,8 +12,11 @@
  * confidently found — so the client can treat both sources identically.
  */
 
-import { verifyRequest, AuthError } from './_lib/auth.js'
-import { generateJson, GeminiError } from './_lib/gemini.js'
+import { verifyRequest } from './_lib/auth.js'
+import { generateJson } from './_lib/gemini.js'
+import { ApiError, readJsonBody, route } from './_lib/pushRoute.js'
+import { enforceAiLimits } from './_lib/rateLimit.js'
+import { CAPS, readText } from './_lib/aiInput.js'
 
 const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 
@@ -61,40 +64,32 @@ function sanitize(result) {
   return { title, date, startMin: date ? startMin : null, durationMin }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed.' })
+export default route('parse-task', ['POST'], async (req, res) => {
+  const uid = await verifyRequest(req)
+  const body = readJsonBody(req)
 
-  try {
-    await verifyRequest(req)
-
-    const { text, today } = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})
-    if (typeof text !== 'string' || !text.trim()) {
-      return res.status(400).json({ error: 'text is required.' })
-    }
-    if (typeof today !== 'string' || !ISO_DATE.test(today)) {
-      return res.status(400).json({ error: 'today must be a YYYY-MM-DD date key.' })
-    }
-
-    const prompt = `today: ${today}\nsentence: ${JSON.stringify(text.trim())}`
-
-    const result = await generateJson({
-      model: MODEL,
-      systemInstruction: SYSTEM_INSTRUCTION,
-      prompt,
-      schema: SCHEMA,
-      // Matches (with a little margin) parseTaskAi's own 12000ms client
-      // budget — generateJson's 8000ms default was never actually enough
-      // room for that, a latent mismatch that happened not to matter until
-      // a slow response actually occurred. See enrich-task.js's identical
-      // fix for the full reasoning.
-      timeoutMs: 11000,
-    })
-
-    return res.status(200).json(sanitize(result))
-  } catch (caught) {
-    if (caught instanceof AuthError) return res.status(caught.status).json({ error: caught.message })
-    if (caught instanceof GeminiError) return res.status(caught.status).json({ error: caught.message })
-    console.error('parse-task failed', caught)
-    return res.status(500).json({ error: 'Internal error.' })
+  const text = readText(body.text, CAPS.quickAddText)
+  if (!text) throw new ApiError(400, 'text is required.')
+  if (typeof body.today !== 'string' || !ISO_DATE.test(body.today)) {
+    throw new ApiError(400, 'today must be a YYYY-MM-DD date key.')
   }
-}
+
+  await enforceAiLimits('parseTask', uid)
+
+  const prompt = `today: ${body.today}\nsentence: ${JSON.stringify(text)}`
+
+  const result = await generateJson({
+    model: MODEL,
+    systemInstruction: SYSTEM_INSTRUCTION,
+    prompt,
+    schema: SCHEMA,
+    // Matches (with a little margin) parseTaskAi's own 12000ms client
+    // budget — generateJson's 8000ms default was never actually enough
+    // room for that, a latent mismatch that happened not to matter until
+    // a slow response actually occurred. See enrich-task.js's identical
+    // fix for the full reasoning.
+    timeoutMs: 11000,
+  })
+
+  return res.status(200).json(sanitize(result))
+})

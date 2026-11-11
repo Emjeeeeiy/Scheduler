@@ -16,10 +16,14 @@ vi.mock('../src/firebase.js', () => ({
   deleteAccount: vi.fn(),
   logout: vi.fn(),
   reauthenticate: vi.fn(),
-  registerWithUsername: vi.fn(),
+  registerAccount: vi.fn(),
+  refreshVerification: vi.fn(),
+  resendVerification: vi.fn(),
+  clearLocalData: vi.fn(),
+  DISPLAY_NAME_MAX: 60,
   requestPasswordReset: vi.fn(),
   signInWithGoogle: vi.fn(),
-  signInWithUsernameOrEmail: vi.fn(),
+  signInWithEmail: vi.fn(),
 }))
 
 let mockAuthState = { user: null, loading: true }

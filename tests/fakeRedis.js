@@ -89,6 +89,19 @@ export class FakeRedis {
     })
   }
 
+  async incr(key) {
+    return this.#run('incr', [key], (k) => {
+      const next = Number(this.#get(k, 'string') ?? 0) + 1
+      this.data.set(k, { type: 'string', value: String(next) })
+      return next
+    })
+  }
+
+  /** The TTL last set on a key, in seconds, or null. */
+  ttl(key) {
+    return this.ttls.get(key) ?? null
+  }
+
   async expire(key, seconds) {
     return this.#run('expire', [key, seconds], (k, s) => {
       if (!this.data.has(k)) return 0
@@ -244,7 +257,7 @@ class Batch {
   constructor(redis) {
     this.#redis = redis
     for (const name of [
-      'get', 'set', 'del', 'expire', 'sadd', 'srem', 'smembers', 'scard',
+      'get', 'set', 'del', 'incr', 'expire', 'sadd', 'srem', 'smembers', 'scard',
       'hset', 'hget', 'hdel', 'hkeys', 'hgetall', 'zadd', 'zrem', 'zrange',
     ]) {
       this[name] = (...args) => {

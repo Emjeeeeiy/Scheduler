@@ -40,8 +40,11 @@ export function ensureConfigured() {
     webpush.setVapidDetails(settings.VAPID_SUBJECT, settings.VAPID_PUBLIC_KEY, settings.VAPID_PRIVATE_KEY)
   } catch (caught) {
     // web-push's own message names the offending value (a subject that is not
-    // an https: or mailto: URL, a key that is not URL-safe base64, …).
-    throw new ApiError(500, `VAPID configuration is invalid: ${caught?.message ?? caught}`)
+    // an https: or mailto: URL, a key that is not URL-safe base64, …) — useful
+    // in the server log, but not something to hand to any signed-in caller of
+    // /api/push/diagnose.
+    console.error('VAPID configuration is invalid:', caught?.message ?? caught)
+    throw new ApiError(500, 'VAPID configuration is invalid — see the server logs.')
   }
   configured = true
 }

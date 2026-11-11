@@ -3,40 +3,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Resolves a username to its email + uid so login-by-username can call
-    // signInWithEmailAndPassword before the user is authenticated — the read
-    // has to be public since there's no session yet at that point.
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // The only fields the profile doc holds. Anything else is refused, so the
+    // doc can't be used as a free-form dumping ground.
+    function profileKeys() {
+      return ['username', 'email', 'displayName', 'createdAt', 'photoBase64', 'dailyDigestEnabled'];
+    }
+
+    // Checks only the fields this write actually sets (`keys`). A removed field
+    // (deleteField) is absent from `data` and passes. Checking only what
+    // changed means a legacy value already on an older doc can never block an
+    // unrelated update, like changing the photo.
+    function fieldOk(data, keys, field, valid) {
+      return !keys.hasAny([field]) || !(field in data) || valid;
+    }
+
+    function profileFieldsOk(data, keys) {
+      return fieldOk(data, keys, 'username', data.get('username', '') is string && data.get('username', '').size() <= 60)
+        && fieldOk(data, keys, 'displayName', data.get('displayName', null) == null
+             || (data.get('displayName', '') is string && data.get('displayName', '').size() <= 200))
+        // The account's own address or nothing. (The digest no longer reads
+        // this field at all; this keeps the profile honest anyway.)
+        && fieldOk(data, keys, 'email', data.get('email', '') == request.auth.token.get('email', null))
+        && fieldOk(data, keys, 'createdAt', data.get('createdAt', 0) is number)
+        // A small avatar written by lib/image.js — a JPEG data URI of a
+        // few tens of KB. Never a remote URL.
+        && fieldOk(data, keys, 'photoBase64', data.get('photoBase64', '') is string
+             && data.get('photoBase64', '').size() <= 200000
+             && data.get('photoBase64', '').matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))
+        && fieldOk(data, keys, 'dailyDigestEnabled', data.get('dailyDigestEnabled', false) is bool);
+    }
+
+    // The profile doc. Written by registration, Google sign-in, the photo
+    // picker and the digest toggle.
+    match /users/{uid} {
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid)
+                    && request.resource.data.keys().hasOnly(profileKeys())
+                    && profileFieldsOk(request.resource.data, request.resource.data.keys());
+      allow update: if isOwner(uid)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileKeys())
+                    && profileFieldsOk(request.resource.data, request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    // Everything else this app writes — tasks, events, tags, templates, the
+    // journal and its bodies and assets — lives in subcollections under the
+    // owner's uid. A signed-in user can reach their own subtree and nothing
+    // else; there is no cross-user read path.
     //
-    // GET only: a client always looks up one known username, and `list`
-    // stays denied by omission so the whole namespace can never be
-    // enumerated. `create` is a one-shot claim — !exists() makes concurrent
-    // registrations for the same name race safely (the second write is
-    // rejected once the first has landed) — and only the account that just
-    // signed up may claim its own uid. Usernames are immutable once taken:
-    // no update, no delete.
-    match /usernames/{username} {
-      allow get: if true;
-      allow create: if request.auth != null
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.uid is string
-                    && request.resource.data.email is string
-                    && request.resource.data.createdAt is number
-                    && request.resource.data.keys().hasOnly(['uid', 'email', 'createdAt'])
-                    && !exists(/databases/$(database)/documents/usernames/$(username));
-      allow update, delete: if false;
+    // Deliberately `{collection}/{document=**}` and not `{document=**}` on its
+    // own: the latter also matches the profile doc above, and since rules are
+    // OR'd it would quietly override every check made there.
+    match /users/{uid}/{collection}/{document=**} {
+      allow read, write: if isOwner(uid);
     }
 
-    // Everything else this app writes — the profile doc, tasks, tags — lives
-    // under the owner's uid, so one rule covers all of it. A signed-in user
-    // can reach their own subtree and nothing else; there is no cross-user
-    // read path.
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-
-    // Anything outside those two collections is not part of this app. Deny
-    // by default rather than leaving a hole for a future collection to fall
-    // through.
+    // Anything outside the owner's tree is not part of this app — including
+    // the retired `usernames` collection, which used to map a username to an
+    // email address for anyone who asked. Deny by default rather than leaving
+    // a hole for a future collection to fall through.
     match /{document=**} {
       allow read, write: if false;
     }

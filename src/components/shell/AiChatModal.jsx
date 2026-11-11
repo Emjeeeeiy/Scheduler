@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
@@ -6,6 +7,7 @@ import { useNow } from '../../lib/useNow.js'
 import { addDays, MINUTES_PER_DAY } from '@cadence/shared/date.js'
 import { freeSlots } from '@cadence/shared/slots.js'
 import { aiScheduleAi } from '../../lib/aiClient.js'
+import { AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
 import { ArrowUpIcon, ClockIcon, CloseIcon } from '../icons.jsx'
 
 // How far ahead real free time is offered to the model, and how many
@@ -29,6 +31,9 @@ const MAX_HISTORY = 15
 const MAX_EXISTING = 40
 
 const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
+
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
 // What the empty state offers. They are examples to start from, not actions: they
 // fill the composer and wait, because "cancel the groceries task" is a real
@@ -58,6 +63,8 @@ function Mark({ large = false }) {
 export function AiChatModal({ onClose }) {
   const { addTask, updateTask, removeTask, restoreItem, tags, tasks, tasksOn, eventsOn } = useSchedule()
   const { pushError } = useToast()
+  // The AI route only serves confirmed addresses (api/_lib/auth.js).
+  const { emailVerified } = useAuth()
   const now = useNow()
 
   const panelRef = useRef(null)
@@ -84,8 +91,9 @@ export function AiChatModal({ onClose }) {
     if (el.scrollHeight) el.style.height = `${Math.min(el.scrollHeight, 160)}px`
   }, [draft])
 
-  /** `extra` carries what a message can offer beyond its words — today only
-      `undo`, on the line that reports a batch of changes. */
+  /** `extra` carries what a message can offer beyond its words: `undo`, on
+      the line that reports a batch of changes, and `pending`, on the line
+      that asks before a batch that deletes anything. */
   function say(role, content, extra) {
     setMessages((prev) => [...prev, { role, content, ...extra }])
   }
@@ -103,6 +111,23 @@ export function AiChatModal({ onClose }) {
     patchMessage(index, { undoing: true })
     const ok = await target.undo()
     patchMessage(index, ok ? { undone: true, undoing: false } : { undoing: false })
+  }
+
+  /** The answer to "Remove these?" — once, from whichever button is pressed. */
+  async function resolvePending(index, confirmed) {
+    const target = messages[index]
+    if (!target?.pending || target.resolved) return
+    patchMessage(index, { resolved: confirmed ? 'confirmed' : 'kept' })
+    if (!confirmed) {
+      say('assistant', 'Okay — nothing changed.')
+      return
+    }
+    setBusy(true)
+    try {
+      await applyAndReport(target.pending)
+    } finally {
+      setBusy(false)
+    }
   }
 
   function startOver() {
@@ -220,10 +245,54 @@ export function AiChatModal({ onClose }) {
     return { created, removed, updated }
   }
 
+  /** Applies a batch and reports it in one line, with one Undo for all of it. */
+  async function applyAndReport(items) {
+    let outcome = { created: [], removed: [], updated: [] }
+    try {
+      outcome = await applyItems(items)
+    } catch (caught) {
+      console.error('Could not apply everything AI proposed.', caught)
+      pushError('Could not finish all of those. Some may have gone through.')
+    }
+
+    const { created, removed, updated } = outcome
+    const total = created.length + removed.length + updated.length
+
+    // Whatever landed (even a partial batch from the catch above) is
+    // worth one confirmation line in the transcript — there's a record
+    // of it even though the modal now stays open; closing used to BE that
+    // confirmation — and one undo for the whole batch, never one per item,
+    // offered on that same line.
+    if (total > 0) {
+      const bits = []
+      if (created.length) bits.push(`created ${created.length}`)
+      if (updated.length) bits.push(`updated ${updated.length}`)
+      if (removed.length) bits.push(`removed ${removed.length}`)
+      const summary = `Done — ${bits.join(', ')}.`
+
+      say('assistant', summary, {
+        // Resolves to whether it worked, so the message can say "Undone" (or
+        // keep its button) honestly.
+        undo: async () => {
+          try {
+            for (const id of created) await removeTask(id)
+            for (const id of removed) await restoreItem('task', id)
+            for (const { id, reverse } of updated) await updateTask(id, reverse)
+            return true
+          } catch (caught) {
+            console.error('Could not undo the AI-applied changes.', caught)
+            pushError('Could not undo all of those.')
+            return false
+          }
+        },
+      })
+    }
+  }
+
   async function send(event) {
     event.preventDefault()
     const text = draft.trim()
-    if (!text || busy) return
+    if (!text || busy || !emailVerified) return
 
     const nextMessages = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
@@ -251,52 +320,31 @@ export function AiChatModal({ onClose }) {
         return
       }
 
-      let outcome = { created: [], removed: [], updated: [] }
-      try {
-        outcome = await applyItems(result.items)
-      } catch (caught) {
-        console.error('Could not apply everything AI proposed.', caught)
-        pushError('Could not finish all of those. Some may have gone through.')
+      /* Deleting is the one thing a misread request (or a task title that
+         reads like an instruction) can do that matters, so a batch with any
+         removal waits for a yes. Everything else applies straight away, with
+         Undo. */
+      const removals = result.items.filter((item) => item.action === 'remove')
+      if (removals.length > 0) {
+        const names = removals.map((item) => `“${tasks.find((t) => t.id === item.taskId)?.title ?? 'a task'}”`)
+        const others = result.items.length - removals.length
+        say(
+          'assistant',
+          `Remove ${plural(removals.length, 'task')}: ${names.join(', ')}?${
+            others > 0 ? ` I’ll also make the ${plural(others, 'other change')} you asked for.` : ''
+          }`,
+          { pending: result.items },
+        )
+        return
       }
 
-      const { created, removed, updated } = outcome
-      const total = created.length + removed.length + updated.length
-
-      // Whatever landed (even a partial batch from the catch above) is
-      // worth one confirmation line in the transcript — there's a record
-      // of it even though the modal now stays open; closing used to BE that
-      // confirmation — and one undo for the whole batch, never one per item,
-      // offered on that same line.
-      if (total > 0) {
-        const bits = []
-        if (created.length) bits.push(`created ${created.length}`)
-        if (updated.length) bits.push(`updated ${updated.length}`)
-        if (removed.length) bits.push(`removed ${removed.length}`)
-        const summary = `Done — ${bits.join(', ')}.`
-
-        say('assistant', summary, {
-          // Resolves to whether it worked, so the message can say "Undone" (or
-          // keep its button) honestly.
-          undo: async () => {
-            try {
-              for (const id of created) await removeTask(id)
-              for (const id of removed) await restoreItem('task', id)
-              for (const { id, reverse } of updated) await updateTask(id, reverse)
-              return true
-            } catch (caught) {
-              console.error('Could not undo the AI-applied changes.', caught)
-              pushError('Could not undo all of those.')
-              return false
-            }
-          },
-        })
-      }
+      await applyAndReport(result.items)
     } finally {
       setBusy(false)
     }
   }
 
-  const canSend = !busy && draft.trim().length > 0
+  const canSend = emailVerified && !busy && draft.trim().length > 0
 
   return (
     <div
@@ -324,7 +372,11 @@ export function AiChatModal({ onClose }) {
             <div className="ai-chat__empty">
               <Mark large />
               <h3 className="ai-chat__greeting">What should I schedule?</h3>
-              <p className="ai-chat__sub">Tasks only. If something is vague, I'll ask before doing anything.</p>
+              <p className="ai-chat__sub">
+                {emailVerified
+                  ? "Tasks only. If something is vague, I'll ask before doing anything, and I'll check before deleting."
+                  : 'Confirm your email address to use AI — the link is in the email we sent when you signed up.'}
+              </p>
               <ul className="ai-chat__suggestions" aria-label="Examples">
                 {SUGGESTIONS.map((text) => (
                   <li key={text}>
@@ -334,6 +386,7 @@ export function AiChatModal({ onClose }) {
                   </li>
                 ))}
               </ul>
+              <p className="field__hint ai-chat__disclosure">{AI_DISCLOSURE}</p>
             </div>
           )}
 
@@ -355,6 +408,27 @@ export function AiChatModal({ onClose }) {
                   <Mark />
                   <div className="ai-chat__body">
                     <p className="ai-chat__text">{m.content}</p>
+                    {m.pending &&
+                      (m.resolved ? null : (
+                        <span className="ai-chat__confirm">
+                          <button
+                            type="button"
+                            className="danger-button danger-button--sm"
+                            onClick={() => resolvePending(i, true)}
+                            disabled={busy}
+                          >
+                            Remove
+                          </button>
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--sm"
+                            onClick={() => resolvePending(i, false)}
+                            disabled={busy}
+                          >
+                            Keep
+                          </button>
+                        </span>
+                      ))}
                     {m.undo &&
                       (m.undone ? (
                         <p className="ai-chat__undone">Undone.</p>

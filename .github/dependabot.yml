@@ -1,0 +1,29 @@
+# Keeps dependencies — and the pinned GitHub Actions in ci.yml — from quietly
+# ageing. Weekly, and grouped so a normal week is one PR per ecosystem rather
+# than a dozen. Security advisories are raised separately by GitHub, at once,
+# whatever this schedule says.
+version: 2
+updates:
+  # The web app, the API routes, and the workspaces (packages/shared,
+  # apps/mobile) all share the root lockfile.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # The Cloud Functions have their own lockfile.
+  - package-ecosystem: npm
+    directory: /functions
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

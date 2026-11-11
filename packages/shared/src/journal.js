@@ -29,6 +29,17 @@ export const EXCERPT_MAX = 1000
 export const BODY_SOFT_LIMIT = 750_000
 export const BODY_HARD_LIMIT = 950_000
 
+/* Images in a note are stored inside the note, as raster data URIs, and never
+   as a remote URL: honouring `<img src="https://…">` would make opening a note
+   fetch from someone else's server — a tracking pixel, or a picture that
+   changes after it was saved. The editor refuses anything else when HTML is
+   pasted (src/components/journal/extensions/image.js); stripRemoteImages
+   below applies the same rule to a body loaded from storage or a backup file,
+   which reaches the editor as JSON and never passes through that check. */
+const DATA_IMAGE = /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/
+
+export const isDataImage = (src) => typeof src === 'string' && DATA_IMAGE.test(src)
+
 /** A fresh object every call — a shared constant would let one note's editor
     mutate the starting point of the next. */
 export function emptyDoc() {
@@ -205,7 +216,7 @@ function isDocShape(value) {
     does not exist yet is valid and empty. */
 export function normalizeNoteBody(raw) {
   const schemaVersion = Number.isInteger(raw?.schemaVersion) ? raw.schemaVersion : SCHEMA_VERSION
-  const json = typeof raw?.json === 'string' ? raw.json : ''
+  let json = typeof raw?.json === 'string' ? raw.json : ''
   let doc = null
   if (json) {
     try {
@@ -213,6 +224,15 @@ export function normalizeNoteBody(raw) {
       if (isDocShape(parsed)) doc = parsed
     } catch {
       /* falls through to valid: false */
+    }
+  }
+  if (doc) {
+    // Only re-serialized when something was actually removed, so an ordinary
+    // note's stored string is passed through untouched.
+    const safe = stripRemoteImages(doc)
+    if (safe.stripped > 0) {
+      doc = safe.doc
+      json = JSON.stringify(doc)
     }
   }
   return {
@@ -240,6 +260,34 @@ const BLOCK_NODES = new Set([
   'horizontalRule',
 ])
 const MAX_DEPTH = 64
+
+/** The document without any image whose `src` is not a raster data URI (see
+    isDataImage). Never mutates its input. `stripped` counts what was removed;
+    a subtree deeper than MAX_DEPTH is dropped too (no real note nests that
+    deep), so nothing below it goes unchecked. */
+export function stripRemoteImages(doc) {
+  let stripped = 0
+
+  function clean(node, depth) {
+    if (!node || typeof node !== 'object' || !Array.isArray(node.content)) return node
+    if (depth >= MAX_DEPTH) {
+      stripped += 1
+      return { ...node, content: [] }
+    }
+    const content = []
+    for (const child of node.content) {
+      if (child?.type === 'image' && !isDataImage(child?.attrs?.src)) {
+        stripped += 1
+        continue
+      }
+      content.push(clean(child, depth + 1))
+    }
+    return { ...node, content }
+  }
+
+  const cleaned = clean(doc, 0)
+  return { doc: stripped > 0 ? cleaned : doc, stripped }
+}
 
 /** One pass over the document: the plain-text excerpt the list shows and
     searches, and whether it holds a drawing or an image. Drawings and images

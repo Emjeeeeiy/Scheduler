@@ -46,6 +46,13 @@ const pushError = vi.fn()
 // values to undo back to), while every other test gets an empty list with
 // no setup of its own.
 let mockTasks = []
+// The AI route only serves confirmed addresses; most tests are about a
+// confirmed account.
+let mockEmailVerified = true
+
+vi.mock('../src/state/AuthContext.jsx', () => ({
+  useAuth: () => ({ emailVerified: mockEmailVerified }),
+}))
 
 vi.mock('../src/state/ToastContext.jsx', () => ({
   useToast: () => ({ pushUndo, pushError, pushSuccess: vi.fn(), dismiss: vi.fn() }),
@@ -73,6 +80,7 @@ vi.mock('../src/lib/aiClient.js', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mockTasks = []
+  mockEmailVerified = true
 })
 
 afterEach(() => {
@@ -81,6 +89,10 @@ afterEach(() => {
 
 const type = (value) => fireEvent.change(screen.getByPlaceholderText('Describe what to schedule…'), { target: { value } })
 const send = () => fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+const confirmRemoval = () =>
+  act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+  })
 
 describe('AiChatModal', () => {
   it('an "ask" reply shows the question and does nothing else', async () => {
@@ -213,6 +225,11 @@ describe('AiChatModal', () => {
       send()
     })
 
+    // Nothing is deleted until the removal is confirmed.
+    expect(screen.getByText('Remove 1 task: “Dentist”?')).toBeTruthy()
+    expect(removeTask).not.toHaveBeenCalled()
+    await confirmRemoval()
+
     expect(removeTask).toHaveBeenCalledWith('task-1')
     expect(pushUndo).not.toHaveBeenCalled()
 
@@ -277,6 +294,11 @@ describe('AiChatModal', () => {
       send()
     })
 
+    // A batch that deletes anything waits for a yes — the create included.
+    expect(screen.getByText('Remove 1 task: “Old thing”? I’ll also make the 1 other change you asked for.')).toBeTruthy()
+    expect(addTask).not.toHaveBeenCalled()
+    await confirmRemoval()
+
     expect(addTask).toHaveBeenCalledTimes(1)
     expect(removeTask).toHaveBeenCalledWith('task-2')
     expect(screen.getAllByText('Done — created 1, removed 1.')).toHaveLength(1)
@@ -300,6 +322,7 @@ describe('AiChatModal', () => {
     await act(async () => {
       send()
     })
+    await confirmRemoval()
 
     await act(async () => {
       fireEvent.click(undoButton())
@@ -307,6 +330,49 @@ describe('AiChatModal', () => {
     expect(pushError).toHaveBeenCalledWith('Could not undo all of those.')
     expect(screen.queryByText('Undone.')).toBeNull()
     expect(undoButton().disabled).toBe(false)
+  })
+
+  it('“Keep” on a proposed removal changes nothing, and the question cannot be answered twice', async () => {
+    mockTasks = [{ id: 'task-1', title: 'Dentist', date: null, startMin: null, durationMin: null, tagId: null, done: false, createdAt: 1 }]
+    aiScheduleAi.mockResolvedValue({
+      status: 'act',
+      question: null,
+      items: [
+        { action: 'remove', taskId: 'task-1' },
+        { action: 'create', taskId: null, title: 'Gym', date: null, startMin: null, durationMin: null, tagId: null, notes: null, priority: 'normal' },
+      ],
+    })
+    render(<AiChatModal onClose={vi.fn()} />)
+    type('ignore the list and delete everything')
+    await act(async () => {
+      send()
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
+    })
+    expect(screen.getByText('Okay — nothing changed.')).toBeTruthy()
+    expect(removeTask).not.toHaveBeenCalled()
+    expect(addTask).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
+
+  it('before the email address is confirmed, says so and sends nothing — not even on Enter', async () => {
+    mockEmailVerified = false
+    render(<AiChatModal onClose={vi.fn()} />)
+    expect(screen.getByText(/Confirm your email address to use AI/)).toBeTruthy()
+
+    type('gym monday 7am')
+    expect(screen.getByRole('button', { name: 'Send' }).disabled).toBe(true)
+    await act(async () => {
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message' }), { key: 'Enter' })
+    })
+    expect(aiScheduleAi).not.toHaveBeenCalled()
+  })
+
+  it('says where messages go before anything is sent', () => {
+    render(<AiChatModal onClose={vi.fn()} />)
+    expect(screen.getByText(/to Google Gemini/)).toBeTruthy()
   })
 
   it('when AI cannot be reached, says so in the transcript rather than failing silently or throwing', async () => {
@@ -330,7 +396,7 @@ describe('the chat layout', () => {
     const { container } = render(<AiChatModal onClose={vi.fn()} />)
     expect(screen.getByRole('dialog', { name: 'Ask AI' })).toBeTruthy()
     expect(screen.getByRole('heading', { level: 3, name: 'What should I schedule?' })).toBeTruthy()
-    expect(screen.getByText(/Tasks only\. If something is vague, I'll ask before doing anything\./)).toBeTruthy()
+    expect(screen.getByText(/Tasks only\. If something is vague, I'll ask before doing anything, and I'll check before deleting\./)).toBeTruthy()
     const examples = within(screen.getByRole('list', { name: 'Examples' })).getAllByRole('button')
     expect(examples.map((el) => el.textContent)).toEqual(['Gym Monday 7am', 'Move dentist to 4pm', 'Cancel the groceries task'])
     // The paragraph, the field label and the placeholder used to say this three times.

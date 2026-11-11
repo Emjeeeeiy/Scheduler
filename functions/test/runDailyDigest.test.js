@@ -19,13 +19,24 @@ function fakeSendEmail({ ok = true } = {}) {
 
 const silent = { warn() {}, error() {} }
 
+/** A stand-in for Firebase Auth: uid -> verified address. Anyone not listed
+    is unverified or gone, and gets no email. */
+const verified = (addresses) => async (uid) => addresses[uid] ?? null
+
 describe('runDailyDigest', () => {
   it('does nothing when nobody has opted in', async () => {
     const db = new FakeFirestore()
     seedUser(db, 'u1', { profile: { email: 'a@example.com' }, tasks: [] })
     const sender = fakeSendEmail()
 
-    const result = await runDailyDigest({ db, sendEmail: sender.send, todayKey: DAY, nowMin: NOW_MIN, logger: silent })
+    const result = await runDailyDigest({
+      db,
+      sendEmail: sender.send,
+      resolveRecipient: verified({ u1: 'a@example.com' }),
+      todayKey: DAY,
+      nowMin: NOW_MIN,
+      logger: silent,
+    })
 
     assert.deepEqual(result, { usersProcessed: 0, emailsSent: 0 })
     assert.equal(sender.calls.length, 0)
@@ -43,7 +54,14 @@ describe('runDailyDigest', () => {
     })
     const sender = fakeSendEmail()
 
-    const result = await runDailyDigest({ db, sendEmail: sender.send, todayKey: DAY, nowMin: NOW_MIN, logger: silent })
+    const result = await runDailyDigest({
+      db,
+      sendEmail: sender.send,
+      resolveRecipient: verified({ in: 'in@example.com', out: 'out@example.com' }),
+      todayKey: DAY,
+      nowMin: NOW_MIN,
+      logger: silent,
+    })
 
     assert.equal(result.usersProcessed, 1)
     assert.equal(sender.calls.length, 1)
@@ -51,15 +69,50 @@ describe('runDailyDigest', () => {
     assert.match(sender.calls[0].text, /Standup/)
   })
 
-  it('skips a Google account with no email on the profile doc yet', async () => {
+  it('sends to the verified Auth address, never to an email written on the profile doc', async () => {
     const db = new FakeFirestore()
-    seedUser(db, 'u1', { profile: { dailyDigestEnabled: true }, tasks: [] }) // no email field
+    // The profile doc is client-written: an account can put anything here.
+    seedUser(db, 'u1', { profile: { email: 'victim@example.com', dailyDigestEnabled: true }, tasks: [] })
     const sender = fakeSendEmail()
 
-    const result = await runDailyDigest({ db, sendEmail: sender.send, todayKey: DAY, nowMin: NOW_MIN, logger: silent })
+    await runDailyDigest({
+      db,
+      sendEmail: sender.send,
+      resolveRecipient: verified({ u1: 'owner@example.com' }),
+      todayKey: DAY,
+      nowMin: NOW_MIN,
+      logger: silent,
+    })
+
+    assert.equal(sender.calls.length, 1)
+    assert.equal(sender.calls[0].to, 'owner@example.com')
+  })
+
+  it('skips an account whose address is unverified or that no longer exists', async () => {
+    const db = new FakeFirestore()
+    seedUser(db, 'unverified', { profile: { email: 'x@example.com', dailyDigestEnabled: true }, tasks: [] })
+    seedUser(db, 'deleted', { profile: { email: 'y@example.com', dailyDigestEnabled: true }, tasks: [] })
+    const sender = fakeSendEmail()
+
+    const result = await runDailyDigest({
+      db,
+      sendEmail: sender.send,
+      resolveRecipient: verified({}),
+      todayKey: DAY,
+      nowMin: NOW_MIN,
+      logger: silent,
+    })
 
     assert.equal(sender.calls.length, 0)
-    assert.equal(result.emailsSent, 0)
+    assert.deepEqual(result, { usersProcessed: 2, emailsSent: 0, skipped: 2 })
+  })
+
+  it('refuses to run without a way to look up verified addresses', async () => {
+    const db = new FakeFirestore()
+    await assert.rejects(
+      runDailyDigest({ db, sendEmail: fakeSendEmail().send, todayKey: DAY, nowMin: NOW_MIN, logger: silent }),
+      /resolveRecipient/,
+    )
   })
 
   it("one user's send failure is logged and does not stop the next user's email", async () => {
@@ -79,6 +132,7 @@ describe('runDailyDigest', () => {
     const result = await runDailyDigest({
       db,
       sendEmail: send,
+      resolveRecipient: verified({ fails: 'fails@example.com', ok: 'ok@example.com' }),
       todayKey: DAY,
       nowMin: NOW_MIN,
       logger: { warn() {}, error: (msg) => errors.push(msg) },
@@ -100,6 +154,7 @@ describe('runDailyDigest', () => {
     const result = await runDailyDigest({
       db,
       sendEmail: sender.send,
+      resolveRecipient: verified({ broken: 'broken@example.com', ok: 'ok@example.com' }),
       todayKey: DAY,
       nowMin: NOW_MIN,
       logger: { warn() {}, error: (msg) => errors.push(msg) },
@@ -128,7 +183,14 @@ describe('runDailyDigest', () => {
     })
     const sender = fakeSendEmail()
 
-    await runDailyDigest({ db, sendEmail: sender.send, todayKey: DAY, nowMin: NOW_MIN, logger: silent })
+    await runDailyDigest({
+      db,
+      sendEmail: sender.send,
+      resolveRecipient: verified({ u1: 'a@example.com' }),
+      todayKey: DAY,
+      nowMin: NOW_MIN,
+      logger: silent,
+    })
 
     assert.match(sender.calls[0].text, /Morning routine/)
   })
