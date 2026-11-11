@@ -8,9 +8,11 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { pushStub, diagStub, authStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
+const { pushStub, diagStub, authStub, scheduleStub, mockPushSuccess, mockPushError } = vi.hoisted(() => ({
   // Push only serves confirmed addresses (api/_lib/auth.js).
-  authStub: { emailVerified: true },
+  authStub: { emailVerified: true, resendVerification: () => Promise.resolve(true) },
+  // The account's profile doc: what the digest checkbox reads.
+  scheduleStub: { profile: {} },
   pushStub: {
     supported: true,
     permission: 'default',
@@ -56,7 +58,9 @@ vi.mock('../src/state/ScheduleContext.jsx', () => ({
     templates: [],
     importData: vi.fn(),
     removeTemplate: vi.fn(),
-    profile: {},
+    get profile() {
+      return scheduleStub.profile
+    },
     updateDigestPreference: vi.fn(),
   }),
 }))
@@ -101,6 +105,8 @@ beforeEach(() => {
   pushStub.enable.mockReset()
   pushStub.disable.mockReset()
   authStub.emailVerified = true
+  authStub.resendVerification = vi.fn(async () => true)
+  scheduleStub.profile = {}
   Object.assign(diagStub, { diagnosis: null, checking: false, testing: false })
   diagStub.refresh.mockReset()
   diagStub.test.mockReset()
@@ -351,23 +357,124 @@ describe('the server status and the test notification', () => {
 })
 
 describe('before the email address is confirmed', () => {
-  it('will not turn push on, and says why', () => {
+  const LINK = 'the link is in the email we sent when you signed up.'
+  const PUSH_OFF = `Confirm your email address to turn on push notifications — ${LINK}`
+  const PUSH_PAUSED = `Push notifications are paused until you confirm your email address — ${LINK}`
+  const DIGEST_OFF = `Confirm your email address to turn on the daily digest — ${LINK}`
+  const DIGEST_PAUSED = `The daily digest is paused until you confirm your email address — ${LINK}`
+
+  beforeEach(() => {
     authStub.emailVerified = false
-    render(<SettingsView section="notifications" />)
-    expect(screen.getByRole('button', { name: 'Turn on' }).disabled).toBe(true)
-    expect(screen.getByText('Confirm your email address to turn this on.')).toBeTruthy()
   })
 
-  it('still lets a device that already has push turn it off', () => {
-    authStub.emailVerified = false
+  /** The text of the warning with this id, or null when there isn't one. */
+  const warning = (container, id) => container.querySelector(`#${id}`)?.textContent ?? null
+
+  describe('push notifications', () => {
+    it('carries its own warning in its own row, and the control is visibly unavailable', () => {
+      const { container } = render(<SettingsView section="notifications" />)
+
+      const row = container.querySelector('#verify-push').closest('.settings-row')
+      expect(row.querySelector('.settings-row__title').textContent).toBe('Push notifications')
+      expect(warning(container, 'verify-push')).toContain(PUSH_OFF)
+      // A warning icon, not just words.
+      expect(container.querySelector('#verify-push svg')).toBeTruthy()
+
+      const button = screen.getByRole('button', { name: 'Turn on' })
+      expect(button.disabled).toBe(true)
+      // A screen reader reaching the disabled button hears why.
+      expect(button.getAttribute('aria-describedby')).toBe('verify-push')
+    })
+
+    it('says "paused" rather than "turn on" when push is already on, and still lets it be turned off', () => {
+      pushStub.subscribed = true
+      const { container } = render(<SettingsView section="notifications" />)
+      expect(warning(container, 'verify-push')).toContain(PUSH_PAUSED)
+      expect(screen.getByRole('button', { name: 'Turn off' }).disabled).toBe(false)
+    })
+
+    it('does not show the server check when already on — it would only fail, and read as "could not reach the server"', () => {
+      pushStub.subscribed = true
+      diagStub.diagnosis = false // what a refused request comes back as
+      render(<SettingsView section="notifications" />)
+      expect(screen.queryByText(/Could not reach the server/)).toBeNull()
+      expect(screen.queryByText('Checking with the server…')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Send test notification' })).toBeNull()
+    })
+
+    it('does not lead with an email warning in a browser that could not do push anyway', () => {
+      pushStub.supported = false
+      const { container } = render(<SettingsView section="notifications" />)
+      expect(container.querySelector('#verify-push')).toBeNull()
+    })
+  })
+
+  describe('the daily digest', () => {
+    it('carries its own warning in its own row, and the checkbox is visibly unavailable', () => {
+      const { container } = render(<SettingsView section="notifications" />)
+
+      const row = container.querySelector('#verify-digest').closest('.settings-row')
+      expect(row.querySelector('.settings-row__title').textContent).toBe('Daily digest email')
+      expect(warning(container, 'verify-digest')).toContain(DIGEST_OFF)
+      expect(container.querySelector('#verify-digest svg')).toBeTruthy()
+
+      const box = screen.getByRole('checkbox', { name: 'Email me a daily digest' })
+      expect(box.disabled).toBe(true)
+      expect(box.getAttribute('aria-describedby')).toBe('verify-digest')
+    })
+
+    it('says "paused" when it is already on, which stays checked and can be switched off', () => {
+      scheduleStub.profile = { dailyDigestEnabled: true }
+      const { container } = render(<SettingsView section="notifications" />)
+      expect(warning(container, 'verify-digest')).toContain(DIGEST_PAUSED)
+      const box = screen.getByRole('checkbox', { name: 'Email me a daily digest' })
+      expect(box.checked).toBe(true)
+      expect(box.disabled).toBe(false)
+    })
+  })
+
+  it('has a Resend email in each warning, and says it went', async () => {
+    render(<SettingsView section="notifications" />)
+    const buttons = screen.getAllByRole('button', { name: 'Resend email' })
+    expect(buttons).toHaveLength(2)
+
+    await act(async () => {
+      fireEvent.click(buttons[0])
+    })
+    expect(authStub.resendVerification).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Sent — check your inbox, and your spam folder.')).toBeTruthy()
+  })
+
+  it('says so when the email could not be sent, and offers the button again', async () => {
+    authStub.resendVerification = vi.fn(async () => false)
+    render(<SettingsView section="notifications" />)
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: 'Resend email' })[0])
+    })
+    expect(screen.getByText('Couldn’t send it. Try again in a minute.')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Resend email' })).toHaveLength(2)
+  })
+})
+
+describe('once the email address is confirmed', () => {
+  it('shows none of it — no warning, no Resend, and the controls are back to normal', () => {
     pushStub.subscribed = true
-    render(<SettingsView section="notifications" />)
+    scheduleStub.profile = { dailyDigestEnabled: true }
+    const { container } = render(<SettingsView section="notifications" />)
+
+    expect(container.querySelector('.banner--verify')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Turn off' }).disabled).toBe(false)
+    const box = screen.getByRole('checkbox', { name: 'Email me a daily digest' })
+    expect(box.disabled).toBe(false)
+    expect(box.getAttribute('aria-describedby')).toBeNull()
   })
 
-  it('will not switch the daily digest on', () => {
-    authStub.emailVerified = false
+  it('leaves the digest row exactly as it was: no empty "below" slot adding a gap', () => {
     render(<SettingsView section="notifications" />)
-    expect(screen.getByRole('checkbox', { name: 'Email me a daily digest' }).disabled).toBe(true)
+    const box = screen.getByRole('checkbox', { name: 'Email me a daily digest' })
+    expect(box.closest('.settings-row').querySelector('.settings-row__below')).toBeNull()
+    expect(box.getAttribute('aria-describedby')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Turn on' }).getAttribute('aria-describedby')).toBeNull()
   })
 })

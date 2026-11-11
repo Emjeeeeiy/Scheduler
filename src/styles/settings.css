@@ -209,6 +209,14 @@
   max-width: 64ch;
 }
 
+/* A feature switched off for want of a confirmed email carries its own warning
+   (VerifyNotice.jsx), first thing under its row and the full width of it — the
+   row's grid otherwise shrinks a child to its content. */
+.settings-row__below .banner--verify {
+  justify-self: stretch;
+  margin: 0;
+}
+
 .settings-row__control > .input {
   width: 220px;
   max-width: 100%;

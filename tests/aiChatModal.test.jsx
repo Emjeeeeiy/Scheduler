@@ -49,9 +49,10 @@ let mockTasks = []
 // The AI route only serves confirmed addresses; most tests are about a
 // confirmed account.
 let mockEmailVerified = true
+const resendVerification = vi.fn(async () => true)
 
 vi.mock('../src/state/AuthContext.jsx', () => ({
-  useAuth: () => ({ emailVerified: mockEmailVerified }),
+  useAuth: () => ({ emailVerified: mockEmailVerified, resendVerification }),
 }))
 
 vi.mock('../src/state/ToastContext.jsx', () => ({
@@ -357,17 +358,85 @@ describe('AiChatModal', () => {
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
   })
 
-  it('before the email address is confirmed, says so and sends nothing — not even on Enter', async () => {
-    mockEmailVerified = false
-    render(<AiChatModal onClose={vi.fn()} />)
-    expect(screen.getByText(/Confirm your email address to use AI/)).toBeTruthy()
+  describe('before the email address is confirmed', () => {
+    const WARNING =
+      'Confirm your email address to use AI — the link is in the email we sent when you signed up.'
 
-    type('gym monday 7am')
-    expect(screen.getByRole('button', { name: 'Send' }).disabled).toBe(true)
-    await act(async () => {
-      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message' }), { key: 'Enter' })
+    beforeEach(() => {
+      mockEmailVerified = false
+      resendVerification.mockReset()
+      resendVerification.mockResolvedValue(true)
     })
-    expect(aiScheduleAi).not.toHaveBeenCalled()
+
+    it('shows a warning under the greeting, in place of the usual line', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      const warning = document.getElementById('verify-ai-chat')
+      expect(warning.textContent).toContain(WARNING)
+      expect(warning.querySelector('svg')).toBeTruthy() // an icon, not only words
+      // In place of the usual sentence, not on top of it.
+      expect(screen.queryByText(/Tasks only\./)).toBeNull()
+    })
+
+    it('draws the box as unavailable, and points it at the warning', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      const box = screen.getByRole('textbox', { name: 'Message' })
+      expect(box.disabled).toBe(true)
+      expect(box.getAttribute('placeholder')).toBe('Confirm your email address first')
+      expect(box.getAttribute('aria-describedby')).toBe('verify-ai-chat')
+      expect(screen.getByRole('button', { name: 'Send' }).disabled).toBe(true)
+    })
+
+    it('turns the example chips off too, since there is nowhere to send what they fill in', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      const chips = within(screen.getByRole('list', { name: 'Examples' })).getAllByRole('button')
+      expect(chips).toHaveLength(3)
+      for (const chip of chips) expect(chip.disabled).toBe(true)
+    })
+
+    it('sends nothing, not even on Enter', async () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      await act(async () => {
+        fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message' }), { key: 'Enter' })
+      })
+      expect(aiScheduleAi).not.toHaveBeenCalled()
+    })
+
+    it('opens with focus inside the dialog even though the box cannot take it', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      const panel = screen.getByRole('dialog', { name: 'Ask AI' })
+      expect(panel.contains(document.activeElement)).toBe(true)
+      expect(document.activeElement).not.toBe(screen.getByRole('textbox', { name: 'Message' }))
+    })
+
+    it('offers the fix right there, and says it went', async () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Resend email' }))
+      })
+      expect(resendVerification).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Sent — check your inbox, and your spam folder.')).toBeTruthy()
+    })
+
+    it('says so when it could not be sent, and offers the button again', async () => {
+      resendVerification.mockResolvedValueOnce(false)
+      render(<AiChatModal onClose={vi.fn()} />)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Resend email' }))
+      })
+      expect(screen.getByText('Couldn’t send it. Try again in a minute.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Resend email' }).disabled).toBe(false)
+    })
+  })
+
+  it('once the address is confirmed: no warning, the usual line, and a usable box with focus', () => {
+    render(<AiChatModal onClose={vi.fn()} />)
+    expect(document.getElementById('verify-ai-chat')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull()
+    expect(screen.getByText(/Tasks only\./)).toBeTruthy()
+    const box = screen.getByRole('textbox', { name: 'Message' })
+    expect(box.disabled).toBe(false)
+    expect(box.getAttribute('aria-describedby')).toBeNull()
+    expect(document.activeElement).toBe(box)
   })
 
   it('says where messages go before anything is sent', () => {

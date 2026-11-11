@@ -161,6 +161,18 @@
   cursor: pointer;
 }
 
+/* The browser's own disabled checkbox is barely different from an unchecked one
+   against the dark theme. The system's disabled state (55%, not-allowed) makes
+   an unavailable one read as unavailable — and so does the row it sits in. */
+.checkbox-row input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.checkbox-row:has(input:disabled) {
+  cursor: not-allowed;
+}
+
 .field__label {
   font-size: var(--text-label);
   color: var(--color-text-secondary);
@@ -1431,6 +1443,28 @@
 
 .ai-chat__box:has(.ai-chat__input:focus-visible) {
   border-color: var(--color-text-secondary);
+}
+
+/* Until the email address is confirmed, the box is drawn as what it is: there to
+   look at, not to type in. The warning above it (in the empty state — nothing
+   can be sent to start a conversation) says why. */
+.ai-chat__empty .banner--verify {
+  justify-self: stretch;
+  margin: 10px 0 0;
+  text-align: left;
+}
+
+.ai-chat__box:has(.ai-chat__input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ai-chat__box:has(.ai-chat__input:disabled):hover {
+  border-color: var(--color-border);
+}
+
+.ai-chat__input:disabled {
+  cursor: not-allowed;
 }
 
 .ai-chat__input {
