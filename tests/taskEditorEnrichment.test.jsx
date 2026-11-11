@@ -47,6 +47,13 @@ vi.mock('../src/lib/aiClient.js', () => ({
   enrichTaskAi: vi.fn(),
 }))
 
+// AI answers a confirmed email address only. Most of this file is about a
+// confirmed account; the last describe is about one that is not.
+const mockAuth = { emailVerified: true, resendVerification: vi.fn(async () => true) }
+vi.mock('../src/state/AuthContext.jsx', () => ({
+  useAuth: () => mockAuth,
+}))
+
 const AI_RESULT = {
   tagId: null,
   durationMin: 45,
@@ -64,6 +71,9 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date('2026-01-15T09:00:00'))
   enrichTaskAi.mockResolvedValue(AI_RESULT)
+  mockAuth.emailVerified = true
+  mockAuth.resendVerification.mockReset()
+  mockAuth.resendVerification.mockResolvedValue(true)
 })
 
 afterEach(() => {
@@ -140,5 +150,74 @@ describe('TaskEditor — AI enrichment', () => {
     })
 
     expect(screen.queryByText('AI suggestions')).toBeNull()
+  })
+})
+
+describe('TaskEditor — before the email address is confirmed', () => {
+  const OFF =
+    'Confirm your email address to get AI suggestions — the link is in the email we sent when you signed up.'
+
+  async function typeTitle(value) {
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+  }
+
+  it('says AI suggestions are off, in the place they would have appeared, and asks the server nothing', async () => {
+    mockAuth.emailVerified = false
+    render(<TaskEditor editor={{ mode: 'create', draft: {} }} onClose={vi.fn()} />)
+
+    await typeTitle('Deep clean kitchen')
+
+    expect(screen.getByText(OFF, { exact: false })).toBeTruthy()
+    expect(enrichTaskAi).not.toHaveBeenCalled()
+    expect(screen.queryByText('Checking for AI suggestions…')).toBeNull()
+    expect(screen.queryByText('AI suggestions')).toBeNull()
+  })
+
+  it('says nothing about AI until there is a title it could have suggested for', async () => {
+    mockAuth.emailVerified = false
+    render(<TaskEditor editor={{ mode: 'create', draft: {} }} onClose={vi.fn()} />)
+
+    await typeTitle('Hi') // under three characters: nothing for AI to work from yet
+
+    expect(screen.queryByText(OFF, { exact: false })).toBeNull()
+  })
+
+  it('offers the fix right there, and says what happened to it', async () => {
+    mockAuth.emailVerified = false
+    render(<TaskEditor editor={{ mode: 'create', draft: {} }} onClose={vi.fn()} />)
+    await typeTitle('Deep clean kitchen')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Resend email' }))
+    })
+
+    expect(mockAuth.resendVerification).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Sent — check your inbox, and your spam folder.')).toBeTruthy()
+    // Sent, so the button is gone rather than inviting a second, throttled click.
+    expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull()
+  })
+
+  it('says so when the email could not be sent, and lets the person try again', async () => {
+    mockAuth.emailVerified = false
+    mockAuth.resendVerification.mockResolvedValue(false)
+    render(<TaskEditor editor={{ mode: 'create', draft: {} }} onClose={vi.fn()} />)
+    await typeTitle('Deep clean kitchen')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Resend email' }))
+    })
+
+    expect(screen.getByText('Couldn’t send it. Try again in a minute.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Resend email' }).disabled).toBe(false)
+  })
+
+  it('shows no such line to a confirmed account', async () => {
+    render(<TaskEditor editor={{ mode: 'create', draft: {} }} onClose={vi.fn()} />)
+    await typeTitle('Deep clean kitchen')
+    expect(screen.queryByText(OFF, { exact: false })).toBeNull()
+    expect(enrichTaskAi).toHaveBeenCalledTimes(1)
   })
 })

@@ -9,6 +9,7 @@ import { freeSlots } from '@cadence/shared/slots.js'
 import { aiScheduleAi } from '../../lib/aiClient.js'
 import { AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
 import { ArrowUpIcon, ClockIcon, CloseIcon } from '../icons.jsx'
+import { VerifyNotice } from './VerifyNotice.jsx'
 
 // How far ahead real free time is offered to the model, and how many
 // windows per day are worth sending — a week is enough for "this week" /
@@ -34,6 +35,10 @@ const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
 
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+// What the composer's disabled controls point at, so a screen reader that reaches
+// one hears why it is disabled.
+const VERIFY_NOTICE_ID = 'verify-ai-chat'
 
 // What the empty state offers. They are examples to start from, not actions: they
 // fill the composer and wait, because "cancel the groceries task" is a real
@@ -69,7 +74,10 @@ export function AiChatModal({ onClose }) {
 
   const panelRef = useRef(null)
   const inputRef = useRef(null)
-  useModalA11y(panelRef, { onClose, initialFocusRef: inputRef })
+  // A disabled box can't take focus, so until the email address is confirmed
+  // the dialog opens on its first focusable control instead of leaving focus
+  // behind in the page underneath.
+  useModalA11y(panelRef, { onClose, initialFocusRef: emailVerified ? inputRef : undefined })
 
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState('')
@@ -372,15 +380,28 @@ export function AiChatModal({ onClose }) {
             <div className="ai-chat__empty">
               <Mark large />
               <h3 className="ai-chat__greeting">What should I schedule?</h3>
-              <p className="ai-chat__sub">
-                {emailVerified
-                  ? "Tasks only. If something is vague, I'll ask before doing anything, and I'll check before deleting."
-                  : 'Confirm your email address to use AI — the link is in the email we sent when you signed up.'}
-              </p>
+              {emailVerified ? (
+                <p className="ai-chat__sub">
+                  Tasks only. If something is vague, I'll ask before doing anything, and I'll check before deleting.
+                </p>
+              ) : (
+                /* In place of the sentence above, and in a warning's clothes
+                   rather than the same faint grey: nothing can be sent until
+                   the address is confirmed, so this empty state is all there is
+                   to see — the greyed box below is what it explains. */
+                <VerifyNotice id={VERIFY_NOTICE_ID}>
+                  Confirm your email address to use AI — the link is in the email we sent when you signed up.
+                </VerifyNotice>
+              )}
               <ul className="ai-chat__suggestions" aria-label="Examples">
                 {SUGGESTIONS.map((text) => (
                   <li key={text}>
-                    <button type="button" className="filter-chip" onClick={() => pickSuggestion(text)}>
+                    <button
+                      type="button"
+                      className="filter-chip"
+                      onClick={() => pickSuggestion(text)}
+                      disabled={!emailVerified}
+                    >
                       {text}
                     </button>
                   </li>
@@ -470,6 +491,8 @@ export function AiChatModal({ onClose }) {
               className="ai-chat__input"
               rows={1}
               value={draft}
+              disabled={!emailVerified}
+              aria-describedby={emailVerified ? undefined : VERIFY_NOTICE_ID}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 // Enter sends, Shift+Enter still writes a newline — the
@@ -481,7 +504,13 @@ export function AiChatModal({ onClose }) {
                   send(e)
                 }
               }}
-              placeholder={messages.length === 0 ? 'Describe what to schedule…' : 'Reply…'}
+              placeholder={
+                !emailVerified
+                  ? 'Confirm your email address first'
+                  : messages.length === 0
+                    ? 'Describe what to schedule…'
+                    : 'Reply…'
+              }
               aria-label="Message"
             />
             <button type="submit" className="ai-chat__send" aria-label="Send" disabled={!canSend}>

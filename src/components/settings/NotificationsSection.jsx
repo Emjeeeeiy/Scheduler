@@ -8,7 +8,17 @@ import { usePushDiagnostics } from '../../lib/usePushDiagnostics.js'
 import { explainTest, summarizeDiagnostics } from '../../lib/pushDiagnostics.js'
 import { isBrave } from '../../lib/pushSubscription.js'
 import { WarningIcon } from '../icons.jsx'
+import { VerifyNotice } from '../shell/VerifyNotice.jsx'
 import { Row } from './SettingsParts.jsx'
+
+// What each feature's warning is called, so a screen reader that reaches its
+// disabled control hears why it is disabled.
+const VERIFY_PUSH_ID = 'verify-push'
+const VERIFY_DIGEST_ID = 'verify-digest'
+
+// The same closing clause every one of these warnings uses (Ask AI's included),
+// so the state reads as one thing wherever it appears.
+const LINK_HINT = 'the link is in the email we sent when you signed up.'
 
 const LEAD_TIME_OPTIONS = [15, 30, 60, 120]
 
@@ -25,9 +35,17 @@ export function NotificationsSection() {
   const push = usePushNotifications()
   // What the server knows (devices, queued reminders, its VAPID setup) — only
   // asked for once push is on, so people who never use it cost nothing.
-  const diagnostics = usePushDiagnostics(push.subscribed)
-  const pushStatus = push.subscribed && diagnostics.diagnosis !== null ? summarizeDiagnostics(diagnostics.diagnosis) : null
+  // Not for an unconfirmed account either: the server would answer 403, which
+  // would show up here as "could not reach the server" — the wrong thing to say.
+  const diagnostics = usePushDiagnostics(push.subscribed && emailVerified)
+  const pushStatus =
+    push.subscribed && emailVerified && diagnostics.diagnosis !== null
+      ? summarizeDiagnostics(diagnostics.diagnosis)
+      : null
   const [digestBusy, setDigestBusy] = useState(false)
+  // Switched on but inert: the control's own state says "on" while the server
+  // sends nothing, so the warning says paused rather than "turn on".
+  const digestEnabled = profile?.dailyDigestEnabled === true
 
   async function onTogglePush() {
     if (push.subscribed) {
@@ -106,6 +124,17 @@ export function NotificationsSection() {
         hint="Reminders that reach you even when Cadence is closed: ahead of a task or event, when it starts, and a morning heads-up if anything is overdue."
         below={
           <>
+            {/* First, so it is the first thing read: this feature is off, and
+                why. Only where push could otherwise be turned on — in a browser
+                that can't or won't, an email warning would be the wrong thing
+                to lead with. Renders nothing once the address is confirmed. */}
+            {!push.checking && push.supported && !push.denied && (
+              <VerifyNotice id={VERIFY_PUSH_ID}>
+                {push.subscribed
+                  ? `Push notifications are paused until you confirm your email address — ${LINK_HINT}`
+                  : `Confirm your email address to turn on push notifications — ${LINK_HINT}`}
+              </VerifyNotice>
+            )}
             {push.checking ? (
               <p className="field__hint">Checking whether this browser can receive push…</p>
             ) : !push.supported ? (
@@ -119,10 +148,8 @@ export function NotificationsSection() {
                 Blocked at the browser level. Allow notifications for this site in your browser's
                 site settings, then reload.
               </p>
-            ) : !emailVerified && !push.subscribed ? (
-              <p className="field__hint">Confirm your email address to turn this on.</p>
             ) : null}
-            {push.subscribed && (
+            {push.subscribed && emailVerified && (
               <>
                 {diagnostics.diagnosis === null ? (
                   <p className="field__hint">Checking with the server…</p>
@@ -179,6 +206,7 @@ export function NotificationsSection() {
             className="ghost-button ghost-button--sm"
             onClick={onTogglePush}
             disabled={push.busy || (!push.subscribed && !emailVerified)}
+            aria-describedby={!emailVerified ? VERIFY_PUSH_ID : undefined}
           >
             {push.busy ? 'Working…' : push.subscribed ? 'Turn off' : 'Turn on'}
           </button>
@@ -190,18 +218,26 @@ export function NotificationsSection() {
           functions/ deployed; README-functions.md says how.) */}
       <Row
         title="Daily digest email"
-        hint={
-          emailVerified
-            ? "One email each morning with today's plan, anything overdue, and what's coming up."
-            : "One email each morning with today's plan — confirm your email address to turn it on."
+        hint="One email each morning with today's plan, anything overdue, and what's coming up."
+        // Nothing at all for a confirmed account: an empty `below` would still
+        // add a grid row, and the row must be exactly what it was.
+        below={
+          emailVerified ? null : (
+            <VerifyNotice id={VERIFY_DIGEST_ID}>
+              {digestEnabled
+                ? `The daily digest is paused until you confirm your email address — ${LINK_HINT}`
+                : `Confirm your email address to turn on the daily digest — ${LINK_HINT}`}
+            </VerifyNotice>
+          )
         }
       >
         <label className="checkbox-row settings-check">
           <input
             type="checkbox"
             aria-label="Email me a daily digest"
-            checked={profile?.dailyDigestEnabled === true}
-            disabled={digestBusy || (!emailVerified && profile?.dailyDigestEnabled !== true)}
+            checked={digestEnabled}
+            disabled={digestBusy || (!emailVerified && !digestEnabled)}
+            aria-describedby={!emailVerified ? VERIFY_DIGEST_ID : undefined}
             onChange={(e) => onToggleDigest(e.target.checked)}
           />
         </label>

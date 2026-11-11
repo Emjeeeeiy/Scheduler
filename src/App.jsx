@@ -198,6 +198,9 @@ function AppShell() {
   const { loading, error, templates, tasks, events } = useSchedule()
   const { settings } = useSettings()
   const { push, pushError, dismiss } = useToast()
+  // AI runs on our servers, which only serve a confirmed email address. The
+  // palette says so on the entries that use it, instead of letting them fail.
+  const { emailVerified } = useAuth()
   const shortcuts = settings.shortcuts
   // Keeps the server's reminder schedule current so push still arrives with the
   // app closed or signed out. A no-op until this device turns push on.
@@ -511,7 +514,9 @@ function AppShell() {
       {
         id: 'ai-chat',
         label: 'AI',
-        hint: 'Describe it, AI schedules it',
+        // Still opens the chat when unconfirmed: that is where the explanation
+        // and the "Resend email" button are.
+        hint: emailVerified ? 'Describe it, AI schedules it' : 'Confirm your email to use',
         Icon: BulbIcon,
         onRun: () => setAiOpen(true),
       },
@@ -593,7 +598,7 @@ function AppShell() {
           }),
       })),
     ],
-    [view, focusKey, templates, shortcuts, openCreate, openCreateEvent, openSettings, setFocusKey, setView],
+    [view, focusKey, templates, shortcuts, emailVerified, openCreate, openCreateEvent, openSettings, setFocusKey, setView],
   )
 
   /* Typing "lunch with Ana tomorrow 1pm" into the palette offers to create
@@ -695,9 +700,16 @@ function AppShell() {
         offers.push({
           id: 'quick-add-ai',
           label: `Parse "${text}" with AI`,
-          hint: 'AI',
+          hint: emailVerified ? 'AI' : 'Confirm your email to use',
           Icon: PlusIcon,
           onRun: async () => {
+            // Same "never a dead end" fallback as a failed call, but saying the
+            // real reason, and without a request the server will only refuse.
+            if (!emailVerified) {
+              openCreate({ title: text })
+              pushError('AI needs a confirmed email address — opened with your text as the title.')
+              return
+            }
             const waitingToastId = push('Asking AI…', { tone: 'success', durationMs: 15000 })
             const result = await parseTaskAi({ text, today: todayKey() })
             dismiss(waitingToastId)
@@ -725,7 +737,7 @@ function AppShell() {
 
       return offers
     },
-    [openCreate, push, pushError, dismiss, paletteActions],
+    [openCreate, push, pushError, dismiss, paletteActions, emailVerified],
   )
 
   /* Global search, folded into the palette rather than given a surface of

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSchedule, DEFAULT_DURATION_MIN } from '../../state/ScheduleContext.jsx'
+import { useAuth } from '../../state/AuthContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useNow } from '../../lib/useNow.js'
@@ -18,6 +19,7 @@ import { EditorKindToggle } from './EditorKindToggle.jsx'
 import { RepeatPicker } from './RepeatPicker.jsx'
 import { SubtaskList } from './SubtaskList.jsx'
 import { TagSelect } from './TagSelect.jsx'
+import { VerifyNotice } from '../shell/VerifyNotice.jsx'
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240, 480]
 
@@ -35,6 +37,9 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   const { addTask, updateTask, removeTask, restoreItem, addTemplate, tags, tasks, getSeries, tasksOn, eventsOn } =
     useSchedule()
   const { settings } = useSettings()
+  // AI suggestions run on our servers, which only answer a confirmed email
+  // address. Asking anyway would just be refused, and say nothing.
+  const { emailVerified } = useAuth()
   const { pushError, pushSuccess, pushUndo } = useToast()
   const now = useNow()
   const isEdit = editor.mode === 'edit'
@@ -112,7 +117,11 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
   // problem, and a wait with no feedback reads as broken well before a
   // wait with a visible "thinking" state does.
   const [pendingTitle, setPendingTitle] = useState(null)
-  const shouldEnrich = title.trim().length >= 3 && Object.values(filled).some((v) => !v)
+  // Whether there is anything left for AI to suggest, and whether it may be
+  // asked: the first is why the "off until you confirm" line below shows, the
+  // second is whether a request is made at all.
+  const wantsEnrichment = title.trim().length >= 3 && Object.values(filled).some((v) => !v)
+  const shouldEnrich = wantsEnrichment && emailVerified
   const normalizedTitle = title.trim().toLowerCase()
   const cachedEnrichment = shouldEnrich ? enrichCache.get(normalizedTitle) : undefined
   const isEnriching = shouldEnrich && pendingTitle === normalizedTitle
@@ -398,6 +407,14 @@ export function TaskEditor({ editor, onClose, onEditTask, onChangeKind }) {
               </label>
 
               {isEnriching && !showAiPanel && <p className="ai-suggest__thinking">Checking for AI suggestions…</p>}
+
+              {/* Where the suggestions would have appeared — so their absence
+                  is explained, not mistaken for "AI had nothing to say". */}
+              {wantsEnrichment && !emailVerified && (
+                <VerifyNotice compact>
+                  Confirm your email address to get AI suggestions — the link is in the email we sent when you signed up.
+                </VerifyNotice>
+              )}
 
               {showAiPanel && (
                 <AiSuggestionPanel
