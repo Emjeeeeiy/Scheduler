@@ -16,6 +16,20 @@ export const fieldPath = (...segments) => ({ segments })
 
 const clone = (value) => (value === undefined ? value : structuredClone(value))
 
+/** The real Admin SDK refuses an `undefined` field value (unless the app opts in
+    to ignoreUndefinedProperties, which this code does not). A fake that quietly
+    stored it would let a bug pass every test and fail only against Firestore, so
+    this refuses it the same way, anywhere in the data. */
+function assertDefined(value, where) {
+  if (value === undefined) {
+    throw new Error(`Cannot use "undefined" as a Firestore value (found at ${where}).`)
+  }
+  if (Array.isArray(value)) value.forEach((item, i) => assertDefined(item, `${where}[${i}]`))
+  else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) assertDefined(item, `${where}.${key}`)
+  }
+}
+
 function setAtPath(target, segments, value) {
   let node = target
   for (const key of segments.slice(0, -1)) {
@@ -44,6 +58,13 @@ class DocRef {
     return { exists: data !== undefined, id: this.id, data: () => clone(data), ref: this }
   }
 
+  async set(data) {
+    const key = this.path.join('/')
+    assertDefined(data, key)
+    this.db.docs.set(key, clone(data))
+    this.db.writes.push({ op: 'set', path: key })
+  }
+
   async update(...args) {
     const key = this.path.join('/')
     const current = this.db.docs.get(key)
@@ -51,10 +72,12 @@ class DocRef {
 
     const next = clone(current)
     if (args.length === 1 && typeof args[0] === 'object' && !args[0].segments) {
+      assertDefined(args[0], key)
       for (const [field, value] of Object.entries(args[0])) setAtPath(next, [field], value)
     } else {
       for (let i = 0; i < args.length; i += 2) {
         const field = args[i]
+        assertDefined(args[i + 1], `${key}#${typeof field === 'string' ? field : field.segments.join('.')}`)
         setAtPath(next, typeof field === 'string' ? field.split('.') : field.segments, args[i + 1])
       }
     }
@@ -83,6 +106,12 @@ class CollectionRef {
   }
 
   doc(id) {
+    // With no argument the real SDK generates an id, as the app's own
+    // doc(collection) does.
+    if (id === undefined) {
+      this.db.nextId += 1
+      id = `auto${String(this.db.nextId).padStart(4, '0')}`
+    }
     // Every id the code under test asks for, so a test can prove an
     // attacker-shaped id never reached the database layer at all.
     this.db.requestedIds.push(id)
@@ -95,6 +124,7 @@ class CollectionRef {
   }
 
   async add(data) {
+    assertDefined(data, this.path.join('/'))
     this.db.nextId += 1
     const id = `auto${String(this.db.nextId).padStart(4, '0')}`
     const ref = this.doc(id)
@@ -124,6 +154,33 @@ export class FakeAdminFirestore {
 
   collection(name) {
     return new CollectionRef(this, [name])
+  }
+
+  /** Writes are staged and applied together on commit(), like the real batch. */
+  batch() {
+    const staged = []
+    const batch = {
+      set: (ref, data) => (staged.push(() => ref.set(data)), batch),
+      update: (ref, ...args) => (staged.push(() => ref.update(...args)), batch),
+      async commit() {
+        for (const apply of staged) await apply()
+      },
+    }
+    return batch
+  }
+
+  /** The callback's reads run live; its writes apply only if it resolves, so a
+      thrown refusal inside a transaction leaves nothing behind, as in Firestore. */
+  async runTransaction(fn) {
+    const staged = []
+    const tx = {
+      get: (ref) => ref.get(),
+      set: (ref, data) => (staged.push(() => ref.set(data)), tx),
+      update: (ref, ...args) => (staged.push(() => ref.update(...args)), tx),
+    }
+    const result = await fn(tx)
+    for (const apply of staged) await apply()
+    return result
   }
 
   /** Put a document in place, by its full path ('users/u1/tasks/t1'). */

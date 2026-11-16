@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { authenticate } from '../mcp/auth.js'
-import { ID_PATTERN, MIN_KEY_LENGTH, readMcpConfig } from '../mcp/config.js'
+import { ACCESS_LEVELS, ID_PATTERN, MIN_KEY_LENGTH, allows, readMcpConfig } from '../mcp/config.js'
 import { applyCors } from '../mcp/cors.js'
 import { parseServiceAccount } from '../mcp/firestore.js'
 
@@ -62,6 +62,39 @@ describe('readMcpConfig', () => {
     assert.equal(config.timeZone, 'UTC')
     assert.ok(config.problems.some((p) => p.includes('MCP_TIMEZONE')))
     assert.equal(readMcpConfig(env({ MCP_TIMEZONE: 'Asia/Manila' })).timeZone, 'Asia/Manila')
+  })
+
+  it('defaults MCP_ACCESS to write, and reads read / write / full in any case', () => {
+    assert.equal(readMcpConfig(env()).access, 'write')
+    assert.equal(readMcpConfig(env({ MCP_ACCESS: '' })).access, 'write')
+    for (const level of ACCESS_LEVELS) {
+      assert.equal(readMcpConfig(env({ MCP_ACCESS: level })).access, level)
+      assert.equal(readMcpConfig(env({ MCP_ACCESS: `  ${level.toUpperCase()} ` })).access, level)
+    }
+  })
+
+  it('treats an unknown MCP_ACCESS as read — never as something more generous — and says so', () => {
+    for (const bad of ['admin', 'delete', 'true', '1', 'full access', 'ful']) {
+      const config = readMcpConfig(env({ MCP_ACCESS: bad }))
+      assert.equal(config.access, 'read', bad)
+      assert.ok(config.problems.some((p) => p.includes('MCP_ACCESS')), bad)
+      // A typo narrows what the endpoint may do; it never switches it off.
+      assert.equal(config.ready, true, bad)
+    }
+  })
+
+  it('each access level includes the ones below it', () => {
+    assert.deepEqual(ACCESS_LEVELS, ['read', 'write', 'full'])
+    assert.equal(allows('read', 'read'), true)
+    assert.equal(allows('read', 'write'), false)
+    assert.equal(allows('read', 'full'), false)
+    assert.equal(allows('write', 'read'), true)
+    assert.equal(allows('write', 'write'), true)
+    assert.equal(allows('write', 'full'), false)
+    assert.equal(allows('full', 'full'), true)
+    // An unrecognised level allows nothing at all.
+    assert.equal(allows('root', 'read'), false)
+    assert.equal(allows(undefined, 'read'), false)
   })
 
   it('parses a comma-separated origin list', () => {

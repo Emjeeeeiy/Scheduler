@@ -7,7 +7,6 @@
 
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js'
-import { OUTLINE_MAX } from '@cadence/shared/journal.js'
 import { addDays } from '@cadence/shared/date.js'
 import { agendaForDays, isRealDay, tagPaths, todayIn } from './schedule.js'
 
@@ -44,7 +43,7 @@ export function renderDaySheet({ day, timeZone, note, window }) {
     lines.push('', `## Journal note: ${note.title || 'Untitled'}`)
     if (!note.readable) lines.push('(This note could not be read.)')
     else if (!note.text) lines.push('(empty)')
-    else lines.push(note.text.length >= OUTLINE_MAX ? `${note.text} …(truncated)` : note.text)
+    else lines.push(note.truncated ? `${note.text}\n…(truncated)` : note.text)
   }
   return `${lines.join('\n')}\n`
 }

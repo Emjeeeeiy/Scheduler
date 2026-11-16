@@ -393,9 +393,19 @@ What the app relies on, and where it's enforced:
   `api/_lib/rateLimit.js` (Upstash; per-IP for the two session-less push calls),
   then input size caps (`api/_lib/aiInput.js`) before anything reaches Gemini.
   What Gemini says about its own errors is logged, never shown.
+- **The MCP endpoint is a second boundary, and it does not use `firestore.rules`.**
+  `/mcp` (optional; see [README-mcp.md](README-mcp.md)) reads and writes through the
+  Admin SDK, which bypasses the rules entirely. It is held shut instead by a
+  constant-time check of a static secret, one configured uid that no request can
+  change, a check of every id against `^[A-Za-z0-9_-]{1,128}$`, and an access level
+  (`MCP_ACCESS`: read / write / full) that decides which tools are even offered.
+  Deletes are the app's soft deletes. Whoever holds the key reaches that one
+  account's tasks, events and Journal, so it is off until configured.
 - **What reaches Gemini.** Task titles, and the messages typed into Ask AI. The one
-  place the text someone *wrote* can leave the device is the Journal's **Plan it**
-  (`/api/note-tasks`) — and only when it is pressed, never in the background: the
+  place the text someone *wrote* leaves the device on the app's own initiative is
+  the Journal's **Plan it** (`/api/note-tasks`; the MCP connector above is the
+  owner's separate, opt-in route) — and only when it is pressed, never in the
+  background: the
   note (or the selection) as plain lines, capped at 8,000 characters, with no
   image, no drawing and no ticked item. It is said where the button is (its
   tooltip, and a line in the proposal) and in `src/lib/aiDisclosure.js`. A

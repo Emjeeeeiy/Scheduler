@@ -8,18 +8,48 @@ thin Vercel entry.
 
 ## What it exposes
 
-| Kind | Name | What it does |
-| --- | --- | --- |
-| Tool (read) | `get_schedule` | One day or a range: events, tasks (with done state), free time. Repeating tasks appear as that day's occurrence. |
-| Tool (read) | `find_tasks` | List or search: `upcoming` (14 days), `overdue`, `inbox`, `all`; filter by text and tag. |
-| Tool (write) | `create_task` | Add a task — inbox, or dated, optionally timed, tagged, with a priority. |
-| Tool (write) | `set_task_done` | Tick a task (or one day of a repeating task) done, or reopen it. Idempotent. |
-| Resource | `cadence://tags` | Every tag with its full path, so `create_task` never guesses a tag name. |
-| Resource | `cadence://day/{date}` | A readable sheet for one day: events, tasks, free time and that day's Journal note. |
+What a client may do depends on **`MCP_ACCESS`** (default `write`). Each level
+includes the one before it, and a tool above the level is **not offered at all** —
+the client's model never sees it, and calling it fails.
 
-**Nothing can be deleted** through it, and `create_task` never creates a tag.
-Writes go through the same normalisers the app uses, so what lands in Firestore
-is what the app would have written itself.
+| `MCP_ACCESS` | Tool | What it does |
+| --- | --- | --- |
+| `read` | `get_schedule` | One day or a range: events, tasks (with done state), free time. Repeating items appear as that day's occurrence. |
+| `read` | `find_tasks` | List or search: `upcoming` (14 days), `overdue`, `inbox`, `all`; filter by text and tag. |
+| `read` | `find_journal_notes` | List or search Journal notes by words and by the day they belong to. |
+| `read` | `read_journal_note` | One note's text, by id or by day. Ticked checklist items are shown. |
+| `write` | `create_task` | Add a task — inbox, or dated, optionally timed, tagged, with a priority. |
+| `write` | `set_task_done` | Tick a task (or one day of a repeating task) done, or reopen it. Idempotent. |
+| `write` | `create_event` | Add a one-off event: timed or all-day, one day or several. |
+| `write` | `create_journal_note` | Start a new note, optionally as a given day's note. A day that already has one is refused. |
+| `write` | `append_to_journal_note` | Add text to the **end** of an existing note. What is already there is kept exactly as it was. |
+| `full` | `delete_task` | Move a task to the Trash; for one day of a repeating task, skip just that day. |
+| `full` | `delete_event` | The same for an event. |
+| `full` | `delete_journal_note` | Move a whole note to the Journal's Trash. |
+
+Counts: `read` = 4 tools, `write` = 9, `full` = 12. Two resources are always
+available: `cadence://tags` (every tag with its full path, so `create_task` never
+guesses a name) and `cadence://day/{date}` (a readable sheet for one day: events,
+tasks, free time and that day's Journal note).
+
+**Deletes are the app's own deletes.** An item gets the same `deletedAt` stamp the
+app writes, so it moves to the **Trash** and can be restored there; deleting one
+day of a repeating item records a skipped day instead (the rest of the series is
+untouched). Nothing is ever permanently erased through this server, and the tool
+descriptions tell the client to confirm with you before deleting.
+
+**Journal text** is plain text with a small markdown subset — `# heading`
+(levels 1–3), `- bullet`, `- [ ] checklist item`, `- [x] ticked item`, and
+paragraphs. Nothing else is formatted: a `**` stays a `**`. The documents it writes
+are validated in the tests against the Journal editor's own schema. The tools can
+create a note or add to the end of one; they cannot rewrite or remove text inside a
+note, and a note the app cannot read (written by a newer version) is refused rather
+than risked. If you have that note open and are typing, the app's usual "changed on
+another device" choice appears.
+
+`create_task` and `create_event` never create a tag. Writes go through the same
+normalisers the app uses, so what lands in Firestore is what the app would have
+written itself.
 
 ## 1. Environment variables
 
@@ -35,6 +65,7 @@ FIREBASE_SERVICE_ACCOUNT=   # service-account key JSON, preferably base64 (see b
 
 # RECOMMENDED
 MCP_TIMEZONE=Asia/Manila    # IANA zone that defines "today" for you; default UTC
+MCP_ACCESS=write            # read | write | full — see above. Default write; deleting needs full
 
 # OPTIONAL
 MCP_URL_KEY=            # enables /mcp/k/<key> for ChatGPT / claude.ai web — see "Security"
@@ -205,9 +236,18 @@ Not possible: the consumer Gemini app has no custom MCP support. Use Gemini CLI.
 
 ## Security
 
-- **The key is the whole boundary.** Anyone with `MCP_API_KEY` can read your tasks,
-  events and today's Journal note, and add or tick tasks. Treat it like a password;
-  rotate it by changing the env var and redeploying.
+- **The key is the whole boundary.** Anyone with `MCP_API_KEY` (or the secret URL)
+  can do whatever `MCP_ACCESS` allows: at the default `write`, read your tasks,
+  events and **all your Journal notes** and add to them; at `full`, also delete.
+  Treat it like a password; rotate it by changing the env var and redeploying.
+- **Pick the lowest level you need.** `read` is enough to ask "what's on this
+  week?"; only set `full` if you want an assistant to delete. A mistyped value
+  falls back to `read`, never to something more generous.
+- **Your Journal is private writing, and this server can read all of it.** It is
+  the one place the app otherwise only sends text to an AI when you press Plan it
+  yourself. Connecting an assistant means its provider sees whatever notes it
+  reads. The server tells the assistant to read notes only when you ask, but that
+  is an instruction, not a lock — use `read` and a narrow trust if that matters.
 - **The Admin SDK ignores `firestore.rules`.** The server therefore never trusts a
   request for the account: the uid comes only from `MCP_USER_UID`, every path is
   built from it, and every id a tool receives is checked against
@@ -223,9 +263,11 @@ Not possible: the consumer Gemini app has no custom MCP support. Use Gemini CLI.
 - **Wildcard CORS is deliberate.** Auth is a bearer secret, never a cookie, so a
   foreign page cannot ride a signed-in session. Set `MCP_ALLOWED_ORIGINS` to
   narrow it.
-- **Prompt injection.** Task titles, notes and the day's Journal note are read
-  into the assistant's context. If you paste untrusted text into a task, a
-  connected assistant will see it — and it can create or tick tasks.
+- **Prompt injection.** Task titles, notes and Journal notes are read into the
+  assistant's context. If you paste untrusted text into one (an email, a web
+  page), a connected assistant will see it — and it can act on what it says,
+  within `MCP_ACCESS`. Deletes are restorable from the Trash, but a note appended
+  to by mistake has to be edited back by hand.
 - **Failures are generic.** A database error is logged server-side and the client
   only sees "Something went wrong…"; project ids and paths are never sent.
 
@@ -237,6 +279,7 @@ Not possible: the consumer Gemini app has no custom MCP support. Use Gemini CLI.
 | `500 The MCP server is not configured` | One of the three required variables is missing or invalid. The reason is in the function log (Vercel → Logs), not in the response. |
 | Tools fail with "Something went wrong…" | Usually the service account (wrong project, or the key was revoked). Check the log line `mcp tool … failed`. |
 | "Today" is off by hours | Set `MCP_TIMEZONE`; the server runs in UTC. |
+| A tool is missing from the client's list | By design: it is above `MCP_ACCESS`. Delete tools need `full`; adding needs `write` (the default). Change the variable and redeploy, then reconnect the client. A mistyped value means `read` — check the function log for the line starting `MCP configuration:`. |
 | `GET /mcp` returns 405 | Expected. The server is stateless and has no SSE stream; clients fall back to POST. |
 | Client says "could not connect" with a 401 | The client is trying OAuth discovery. This server uses a static key, not OAuth — use a header-capable client or the secret URL. |
 | `429` | The hourly budget (600) is spent; it resets at the next hour. |
@@ -247,5 +290,9 @@ Not possible: the consumer Gemini app has no custom MCP support. Use Gemini CLI.
   per-person revocation, would need a real OAuth flow.
 - **SSE transport.** Long-lived streams do not fit a serverless function, and every
   client above speaks Streamable HTTP.
-- **Deleting or editing tasks, events and notes.** Out of scope for now; the four
-  tools are deliberately the smallest useful set.
+- **Editing existing items.** There is no tool to change a task's or event's
+  fields, to reschedule, or to rewrite or remove text inside a note — only to add,
+  tick, and (at `full`) delete. Repeating *events* cannot be created from here,
+  only deleted (or skipped for a day).
+- **Restoring from the Trash.** Do that in the app; the server only moves items in.
+- **Permanent deletion.** Emptying the Trash is a deliberate act in the app.

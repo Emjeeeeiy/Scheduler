@@ -9,6 +9,9 @@
  *   MCP_USER_UID      the ONE Firebase account whose data this endpoint exposes
  *   MCP_TIMEZONE      IANA zone that defines "today" (the server runs in UTC)
  *   MCP_ALLOWED_ORIGINS  comma-separated browser origins; default "*"
+ *   MCP_ACCESS        what a connected client may do: read | write | full.
+ *                     Default write; deleting needs full. An unknown value
+ *                     falls back to read — the safe side, not the generous one.
  *   FIREBASE_SERVICE_ACCOUNT  read by firestore.js, only checked for presence here
  *
  * The uid comes from here and nowhere else — never from a request or a tool
@@ -21,6 +24,15 @@ export const MIN_KEY_LENGTH = 32
     the shape every id handed to a tool must match, which is what stops a
     crafted id from addressing a path outside the configured account. */
 export const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
+
+/** Each level includes everything below it. A tool above the configured level
+    is not registered at all, so a client's model never even sees it. */
+export const ACCESS_LEVELS = ['read', 'write', 'full']
+export const DEFAULT_ACCESS = 'write'
+
+/** Whether `access` allows a tool that needs `required`. */
+export const allows = (access, required) =>
+  ACCESS_LEVELS.indexOf(access) >= ACCESS_LEVELS.indexOf(required)
 
 const clean = (value) => (typeof value === 'string' ? value.trim() : '')
 
@@ -90,6 +102,16 @@ export function readMcpConfig(env = process.env) {
   const hasServiceAccount = clean(env.FIREBASE_SERVICE_ACCOUNT) !== ''
   if (!hasServiceAccount) problems.push('FIREBASE_SERVICE_ACCOUNT is not set.')
 
+  const wantedAccess = clean(env.MCP_ACCESS).toLowerCase()
+  let access = DEFAULT_ACCESS
+  if (wantedAccess) {
+    if (ACCESS_LEVELS.includes(wantedAccess)) access = wantedAccess
+    else {
+      access = 'read'
+      problems.push(`MCP_ACCESS "${wantedAccess}" is not one of ${ACCESS_LEVELS.join(', ')}; using read.`)
+    }
+  }
+
   return {
     ready: apiKey !== '' && ID_PATTERN.test(uid) && hasServiceAccount,
     problems,
@@ -97,6 +119,7 @@ export function readMcpConfig(env = process.env) {
     urlKey,
     uid: ID_PATTERN.test(uid) ? uid : '',
     timeZone,
+    access,
     allowedOrigins: allowedOrigins.length > 0 ? allowedOrigins : ['*'],
     hasServiceAccount,
   }

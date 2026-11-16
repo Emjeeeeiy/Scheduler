@@ -57,9 +57,13 @@ export function createMcpHandler({ env = process.env, createStore, limit = async
 
   return async function mcpHandler(req, res) {
     const config = readMcpConfig(env)
-    if (!config.ready && !warned) {
+    // Logged once per instance, whether or not it turns the endpoint off: a bad
+    // time zone, an unknown MCP_ACCESS or a weak URL key leave it running but
+    // not as configured, and the log is the only place that is ever said.
+    if (config.problems.length > 0 && !warned) {
       warned = true
-      console.warn(`MCP endpoint is not usable until configured: ${config.problems.join(' ')}`)
+      const off = config.ready ? '' : ' The endpoint stays off until this is fixed.'
+      console.warn(`MCP configuration: ${config.problems.join(' ')}${off}`)
     }
 
     applyCors(req, res, config.allowedOrigins)
@@ -101,7 +105,12 @@ export function createMcpHandler({ env = process.env, createStore, limit = async
     let server
     let transport
     try {
-      server = createCadenceMcpServer({ store: createStore(config), timeZone: config.timeZone, now })
+      server = createCadenceMcpServer({
+        store: createStore(config),
+        timeZone: config.timeZone,
+        access: config.access,
+        now,
+      })
       transport = new StreamableHTTPServerTransport({
         // Stateless: no session id, no state kept between calls.
         sessionIdGenerator: undefined,

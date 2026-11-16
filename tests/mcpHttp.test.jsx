@@ -28,6 +28,28 @@ const NOW = new Date('2026-08-24T02:00:00Z')
 const TODAY = '2026-08-24'
 const TOMORROW = '2026-08-25'
 
+/* The tool set at each MCP_ACCESS level; each includes the one before. */
+const READ_TOOLS = ['find_journal_notes', 'find_tasks', 'get_schedule', 'read_journal_note']
+const WRITE_TOOLS = [
+  ...READ_TOOLS,
+  'append_to_journal_note',
+  'create_event',
+  'create_journal_note',
+  'create_task',
+  'set_task_done',
+].sort()
+const DELETE_TOOLS = ['delete_event', 'delete_journal_note', 'delete_task']
+const FULL_TOOLS = [...WRITE_TOOLS, ...DELETE_TOOLS].sort()
+
+/* Note-body builders, in the document shapes the editor stores. */
+const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+const heading = (text) => ({ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text }] })
+const taskList = (...items) => ({
+  type: 'taskList',
+  content: items.map(([checked, text]) => ({ type: 'taskItem', attrs: { checked }, content: [para(text)] })),
+})
+const noteBody = (...blocks) => JSON.stringify({ type: 'doc', content: blocks })
+
 const baseEnv = (extra = {}) => ({
   MCP_API_KEY: API_KEY,
   MCP_USER_UID: UID,
@@ -76,6 +98,37 @@ function seededDb() {
       content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Remember the budget call' }] }],
     }),
   })
+  // A repeating event (Tuesdays), for skipping one day of a series.
+  db.seed(`${u}/events/ev2`, {
+    title: 'Weekly sync',
+    startDate: '2026-08-18',
+    endDate: '2026-08-18',
+    startMin: 16 * 60,
+    endMin: 16 * 60 + 30,
+    recurrence: { freq: 'weekly', days: [2], anchor: '2026-08-18' },
+    createdAt: 2,
+  })
+  // More notes: a pinned general note with a ticked item, a trashed one, one a
+  // newer build wrote (unreadable here), and one close to the size limit.
+  db.seed(`${u}/journal/n2`, {
+    title: 'Ideas',
+    excerpt: 'Plan done thing open thing',
+    dayKey: null,
+    pinned: true,
+    createdAt: 5,
+    updatedAt: 50,
+    deletedAt: null,
+  })
+  db.seed(`${u}/journal/n2/content/body`, {
+    schemaVersion: 1,
+    json: noteBody(heading('Plan'), taskList([true, 'done thing'], [false, 'open thing'])),
+  })
+  db.seed(`${u}/journal/n3`, { title: 'Old trashed note', dayKey: '2026-08-20', createdAt: 3, updatedAt: 3, deletedAt: 77 })
+  db.seed(`${u}/journal/n3/content/body`, { schemaVersion: 1, json: noteBody(para('in the trash')) })
+  db.seed(`${u}/journal/n4`, { title: 'From the future', dayKey: null, createdAt: 4, updatedAt: 4 })
+  db.seed(`${u}/journal/n4/content/body`, { schemaVersion: 99, json: noteBody(para('written by a newer build')) })
+  db.seed(`${u}/journal/n5`, { title: 'Huge', dayKey: null, createdAt: 6, updatedAt: 6 })
+  db.seed(`${u}/journal/n5/content/body`, { schemaVersion: 1, json: noteBody(para('x'.repeat(940_000))) })
   // Another account's data — must never surface, whatever the assistant asks.
   db.seed(`users/${OTHER}/tasks/secret`, { title: 'Other persons secret', date: TODAY, createdAt: 1 })
   db.seed(`users/${OTHER}/journal/n9`, { title: 'Private', dayKey: TODAY, createdAt: 1 })
@@ -281,7 +334,7 @@ describe('the secret-URL form', () => {
     const { base } = await start({ env: baseEnv({ MCP_URL_KEY: URL_KEY }) })
     const client = await connect(base, { path: `/mcp/k/${URL_KEY}`, headers: {} })
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(4)
+    expect(tools).toHaveLength(9) // the default access level, "write"
   })
 })
 
@@ -295,15 +348,15 @@ describe('an MCP session', () => {
     expect(client.getInstructions()).toMatch(/personal planner/)
   })
 
-  it('lists exactly four tools and two resources, with honest annotations', async () => {
+  it('by default lists nine tools and two resources, with honest annotations', async () => {
     const { base } = await start()
     const client = await connect(base)
     const { tools } = await client.listTools()
-    expect(tools.map((t) => t.name).sort()).toEqual(['create_task', 'find_tasks', 'get_schedule', 'set_task_done'])
+    expect(tools.map((t) => t.name).sort()).toEqual(WRITE_TOOLS)
 
     const by = Object.fromEntries(tools.map((t) => [t.name, t]))
-    for (const name of ['get_schedule', 'find_tasks']) expect(by[name].annotations.readOnlyHint, name).toBe(true)
-    for (const name of ['create_task', 'set_task_done']) {
+    for (const name of READ_TOOLS) expect(by[name].annotations.readOnlyHint, name).toBe(true)
+    for (const name of WRITE_TOOLS.filter((n) => !READ_TOOLS.includes(n))) {
       expect(by[name].annotations.readOnlyHint, name).toBe(false)
       expect(by[name].annotations.destructiveHint, name).toBe(false)
     }
@@ -573,7 +626,8 @@ describe('resources', () => {
   it('a day with no note has no note section', async () => {
     const { base } = await start()
     const client = await connect(base)
-    const { contents } = await client.readResource({ uri: `cadence://day/${TOMORROW}` })
+    // A Saturday: no weekday habit, no Tuesday sync, nothing scheduled at all.
+    const { contents } = await client.readResource({ uri: 'cadence://day/2026-08-29' })
     expect(contents[0].text).not.toContain('Journal note')
     expect(contents[0].text).toContain('(none)')
   })
@@ -598,5 +652,563 @@ describe('a failure inside the database', () => {
     expect(textOf(result)).not.toContain('real-project-id')
     expect(textOf(result)).toMatch(/Something went wrong/)
     expect(console.error.mock.calls.flat().join(' ')).toContain('get_schedule')
+  })
+})
+
+/* ------------------------------------------------- access levels, deletes -- */
+
+const startFull = (opts = {}) => start({ ...opts, env: baseEnv({ MCP_ACCESS: 'full' }) })
+
+const callOk = async (client, name, args = {}) => {
+  const result = await client.callTool({ name, arguments: args })
+  expect(result.isError, `${name} ${JSON.stringify(args)}`).toBeFalsy()
+  return result.structuredContent
+}
+
+/** One day of get_schedule. */
+const dayOf = async (client, startDate) => (await callOk(client, 'get_schedule', { startDate })).days[0]
+
+/** Ids no tool may ever pass to the database: they would address another path. */
+const UNSAFE_IDS = ['../x', 'a/b', `${OTHER}/tasks/secret`, 'a b', `../${OTHER}~${TODAY}`]
+const expectOnlySafeIds = (db) => {
+  for (const id of db.requestedIds) expect(id, 'requested document id').toMatch(/^[A-Za-z0-9_-]{1,128}$/)
+}
+
+describe('access levels (MCP_ACCESS)', () => {
+  const names = async (env) => {
+    const { base } = await start({ env })
+    const client = await connect(base)
+    return (await client.listTools()).tools.map((t) => t.name).sort()
+  }
+
+  it('read: looking only — four tools', async () => {
+    expect(await names(baseEnv({ MCP_ACCESS: 'read' }))).toEqual(READ_TOOLS)
+  })
+
+  it('write is the default: adds creating and ticking — nine tools', async () => {
+    expect(await names(baseEnv())).toEqual(WRITE_TOOLS)
+    expect(await names(baseEnv({ MCP_ACCESS: 'write' }))).toEqual(WRITE_TOOLS)
+  })
+
+  it('full: adds the three deletes — twelve tools', async () => {
+    expect(await names(baseEnv({ MCP_ACCESS: 'full' }))).toEqual(FULL_TOOLS)
+    expect(FULL_TOOLS).toHaveLength(12)
+  })
+
+  it('ignores the case of the setting', async () => {
+    expect(await names(baseEnv({ MCP_ACCESS: ' FULL ' }))).toEqual(FULL_TOOLS)
+  })
+
+  it('an unknown value falls back to read — the safe side — and says so in the log', async () => {
+    expect(await names(baseEnv({ MCP_ACCESS: 'admin' }))).toEqual(READ_TOOLS)
+    expect(console.warn.mock.calls.flat().join(' ')).toContain('MCP_ACCESS')
+  })
+
+  it('a tool above the level is not merely hidden: calling it fails and writes nothing', async () => {
+    const { base, db } = await start({ env: baseEnv({ MCP_ACCESS: 'read' }) })
+    const client = await connect(base)
+    for (const [name, args] of [
+      ['create_task', { title: 'x' }],
+      ['set_task_done', { taskId: 'task1' }],
+      ['create_event', { title: 'x', startDate: TODAY }],
+      ['create_journal_note', { title: 'x' }],
+      ['append_to_journal_note', { noteId: 'n2', text: 'x' }],
+      ['delete_task', { taskId: 'task1' }],
+      ['delete_event', { eventId: 'ev1' }],
+      ['delete_journal_note', { noteId: 'n2' }],
+    ]) {
+      await refused(client, name, args)
+    }
+    expect(db.writes).toEqual([])
+
+    const { base: writeBase, db: writeDb } = await start()
+    const writer = await connect(writeBase)
+    await refused(writer, 'delete_task', { taskId: 'task1' })
+    await refused(writer, 'delete_event', { eventId: 'ev1' })
+    await refused(writer, 'delete_journal_note', { noteId: 'n2' })
+    expect(writeDb.writes, 'the default level cannot delete').toEqual([])
+  })
+
+  it('marks every delete destructive, so a client asks the person first', async () => {
+    const { base } = await startFull()
+    const client = await connect(base)
+    const { tools } = await client.listTools()
+    for (const name of DELETE_TOOLS) {
+      const tool = tools.find((t) => t.name === name)
+      expect(tool.annotations, name).toMatchObject({ readOnlyHint: false, destructiveHint: true, idempotentHint: true })
+      expect(tool.description, name).toMatch(/Trash/)
+      expect(tool.description, name).toMatch(/Confirm with the user/)
+    }
+    for (const tool of tools.filter((t) => !DELETE_TOOLS.includes(t.name))) {
+      expect(tool.annotations.destructiveHint, tool.name).not.toBe(true)
+    }
+  })
+
+  it('tells the model only what it can actually do', async () => {
+    const said = async (env) => (await connect((await start({ env })).base)).getInstructions()
+    expect(await said(baseEnv({ MCP_ACCESS: 'read' }))).toMatch(/read-only/)
+    expect(await said(baseEnv())).toMatch(/Nothing can be deleted/)
+    const full = await said(baseEnv({ MCP_ACCESS: 'full' }))
+    expect(full).toMatch(/Confirm with the user before you delete/)
+    expect(full).not.toMatch(/Nothing can be deleted/)
+    for (const level of ['read', 'write', 'full']) {
+      expect(await said(baseEnv({ MCP_ACCESS: level }))).toMatch(/private writing/)
+    }
+  })
+})
+
+describe('delete_task', () => {
+  it('moves a task to the Trash, as the app does — the document is kept', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const result = await callOk(client, 'delete_task', { taskId: 'task1' })
+    expect(result).toMatchObject({ id: 'task1', title: 'Write report', changed: true, outcome: 'moved-to-trash' })
+    expect(result.message).toMatch(/restored from the Trash/)
+
+    const stored = db.read(`users/${UID}/tasks/task1`)
+    expect(stored).toMatchObject({ title: 'Write report', date: TODAY, deletedAt: NOW.getTime(), updatedAt: NOW.getTime() })
+    expect((await dayOf(client, TODAY)).tasks.map((t) => t.id)).not.toContain('task1')
+    expect(db.writes.every((w) => w.op === 'update')).toBe(true)
+  })
+
+  it('is a no-op the second time', async () => {
+    const { base, db, tick } = await startFull()
+    const client = await connect(base)
+    await callOk(client, 'delete_task', { taskId: 'task1' })
+    const writes = db.writes.length
+    tick(60_000)
+    const again = await callOk(client, 'delete_task', { taskId: 'task1' })
+    expect(again).toMatchObject({ changed: false, outcome: 'already-in-trash' })
+    expect(db.writes).toHaveLength(writes)
+    expect(db.read(`users/${UID}/tasks/task1`).updatedAt).toBe(NOW.getTime())
+    expect(await callOk(client, 'delete_task', { taskId: 'gone' })).toMatchObject({ changed: false })
+  })
+
+  it('skips one day of a repeating task, leaving the series and the other days alone', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const result = await callOk(client, 'delete_task', { taskId: `habit1~${TODAY}` })
+    expect(result).toMatchObject({ changed: true, outcome: 'skipped-day', date: TODAY })
+
+    const series = db.read(`users/${UID}/tasks/habit1`)
+    expect(series.overrides).toEqual({ [TODAY]: { detached: true } })
+    expect(series.deletedAt, 'the series itself is not deleted').toBeUndefined()
+    expect((await dayOf(client, TODAY)).tasks.map((t) => t.title)).not.toContain('Stretch')
+    expect((await dayOf(client, TOMORROW)).tasks.map((t) => t.id)).toContain(`habit1~${TOMORROW}`)
+
+    const writes = db.writes.length
+    expect(await callOk(client, 'delete_task', { taskId: `habit1~${TODAY}` })).toMatchObject({
+      changed: false,
+      outcome: 'already-gone',
+    })
+    expect(db.writes).toHaveLength(writes)
+  })
+
+  it('moves the WHOLE series to the Trash when given the series id, and says so', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const result = await callOk(client, 'delete_task', { taskId: 'habit1' })
+    expect(result.outcome).toBe('moved-to-trash')
+    expect(result.message).toMatch(/whole repeating series/)
+    expect(db.read(`users/${UID}/tasks/habit1`).deletedAt).toBe(NOW.getTime())
+    expect((await dayOf(client, TOMORROW)).tasks.map((t) => t.title)).not.toContain('Stretch')
+  })
+
+  it('refuses a missing task and a day the rule does not land on, writing nothing', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    expect(await refused(client, 'delete_task', { taskId: 'nope' })).toMatch(/No task with id/)
+    // 2026-08-29 is a Saturday; the habit is weekdays only.
+    expect(await refused(client, 'delete_task', { taskId: 'habit1~2026-08-29' })).toMatch(/not a live occurrence/)
+    await refused(client, 'delete_task', { taskId: '' })
+    expect(db.writes).toEqual([])
+  })
+
+  it('cannot reach another account, however the id is crafted', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const before = db.read(`users/${OTHER}/tasks/secret`)
+    for (const taskId of [...UNSAFE_IDS, 'secret']) await refused(client, 'delete_task', { taskId })
+    expect(db.writes).toEqual([])
+    expect(db.read(`users/${OTHER}/tasks/secret`)).toEqual(before)
+    expectOnlySafeIds(db)
+  })
+})
+
+describe('create_event', () => {
+  it('writes the same document the app would, and it shows up in the schedule', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const created = await callOk(client, 'create_event', {
+      title: '  Dentist  ',
+      startDate: TOMORROW,
+      startTime: '15:00',
+      endTime: '16:00',
+      tag: 'work',
+      notes: 'bring forms',
+    })
+    expect(created.event).toMatchObject({ title: 'Dentist', start: '15:00', end: '16:00', allDay: false, tag: 'Work' })
+
+    const stored = db.read(`users/${UID}/events/${created.id}`)
+    expect(stored).toMatchObject({
+      title: 'Dentist',
+      notes: 'bring forms',
+      startDate: TOMORROW,
+      endDate: TOMORROW,
+      startMin: 900,
+      endMin: 960,
+      tagId: 'work',
+      recurrence: null,
+      overrides: {},
+      createdAt: NOW.getTime(),
+      updatedAt: NOW.getTime(),
+    })
+    // As the app's own addEvent: no deletedAt field at all.
+    expect('deletedAt' in stored).toBe(false)
+
+    const day = await dayOf(client, TOMORROW)
+    expect(day.events.map((e) => e.title)).toContain('Dentist')
+    // 15:00-16:00 and the 16:00 weekly sync leave 08:00-15:00 and 16:30-20:00.
+    expect(day.freeWindows).toEqual([
+      { start: '08:00', end: '15:00', lengthMin: 420 },
+      { start: '16:30', end: '20:00', lengthMin: 210 },
+    ])
+  })
+
+  it('makes an all-day event across several days, which does not block time', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const { id } = await callOk(client, 'create_event', { title: 'Retreat', startDate: TODAY, endDate: '2026-08-27' })
+    expect(db.read(`users/${UID}/events/${id}`)).toMatchObject({ startDate: TODAY, endDate: '2026-08-27', startMin: null, endMin: null })
+
+    const middle = await dayOf(client, '2026-08-26')
+    expect(middle.events).toEqual([expect.objectContaining({ title: 'Retreat', allDay: true, startDate: TODAY, endDate: '2026-08-27' })])
+    expect(middle.freeWindows).toEqual([{ start: '08:00', end: '20:00', lengthMin: 720 }])
+  })
+
+  it('refuses every impossible combination, writing nothing', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    expect(await refused(client, 'create_event', { title: 'x', startDate: TOMORROW, endTime: '10:00' })).toMatch(/needs a startTime/)
+    expect(
+      await refused(client, 'create_event', { title: 'x', startDate: TODAY, endDate: TOMORROW, startTime: '09:00', endTime: '10:00' }),
+    ).toMatch(/single day/)
+    expect(await refused(client, 'create_event', { title: 'x', startDate: TOMORROW, endDate: TODAY })).toMatch(/before startDate/)
+    expect(
+      await refused(client, 'create_event', { title: 'x', startDate: TODAY, startTime: '10:00', endTime: '09:00' }),
+    ).toMatch(/later than/)
+    expect(await refused(client, 'create_event', { title: 'x', startDate: TODAY, endDate: '2028-01-01' })).toMatch(/at most 366/)
+    expect(await refused(client, 'create_event', { title: 'x', startDate: TODAY, tag: 'Errands' })).toMatch(/No tag called/)
+    await refused(client, 'create_event', { title: 'x', startDate: '2026-02-31' })
+    await refused(client, 'create_event', { title: '   ', startDate: TODAY })
+    await refused(client, 'create_event', { title: 'x', startDate: TODAY, startTime: '25:00' })
+    expect(db.writes).toEqual([])
+  })
+})
+
+describe('delete_event', () => {
+  it('moves an event to the Trash', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    expect(await callOk(client, 'delete_event', { eventId: 'ev1' })).toMatchObject({
+      title: 'Standup',
+      changed: true,
+      outcome: 'moved-to-trash',
+    })
+    expect(db.read(`users/${UID}/events/ev1`)).toMatchObject({ title: 'Standup', deletedAt: NOW.getTime(), updatedAt: NOW.getTime() })
+    expect((await dayOf(client, TODAY)).events.map((e) => e.title)).not.toContain('Standup')
+    expect(await callOk(client, 'delete_event', { eventId: 'ev1' })).toMatchObject({ changed: false, outcome: 'already-in-trash' })
+  })
+
+  it('skips one day of a repeating event, leaving the rest of the series', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const id = `ev2~${TOMORROW}`
+    expect((await dayOf(client, TOMORROW)).events.map((e) => e.id)).toContain(id)
+
+    expect(await callOk(client, 'delete_event', { eventId: id })).toMatchObject({ changed: true, outcome: 'skipped-day' })
+    expect(db.read(`users/${UID}/events/ev2`).overrides).toEqual({ [TOMORROW]: { detached: true } })
+    expect(db.read(`users/${UID}/events/ev2`).deletedAt).toBeUndefined()
+    expect((await dayOf(client, TOMORROW)).events.map((e) => e.title)).not.toContain('Weekly sync')
+    expect((await dayOf(client, '2026-09-01')).events.map((e) => e.title)).toContain('Weekly sync')
+    expect(await callOk(client, 'delete_event', { eventId: id })).toMatchObject({ changed: false, outcome: 'already-gone' })
+  })
+
+  it('moves the whole series to the Trash when given its id', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const result = await callOk(client, 'delete_event', { eventId: 'ev2' })
+    expect(result.message).toMatch(/whole repeating series/)
+    expect(db.read(`users/${UID}/events/ev2`).deletedAt).toBe(NOW.getTime())
+  })
+
+  it('refuses a missing event, a day the rule skips, and any crafted id — writing nothing', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    expect(await refused(client, 'delete_event', { eventId: 'nope' })).toMatch(/No event with id/)
+    // 2026-08-24 is a Monday; the sync is Tuesdays.
+    expect(await refused(client, 'delete_event', { eventId: `ev2~${TODAY}` })).toMatch(/not a live occurrence/)
+    for (const eventId of UNSAFE_IDS) await refused(client, 'delete_event', { eventId })
+    expect(db.writes).toEqual([])
+    expectOnlySafeIds(db)
+  })
+})
+
+/* ---------------------------------------------------------------- journal -- */
+
+describe('find_journal_notes', () => {
+  it('lists live notes, pinned first then most recently edited — never trashed or another account’s', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    const found = await callOk(client, 'find_journal_notes')
+    expect(found.notes.map((n) => n.id)).toEqual(['n2', 'n5', 'n4', 'n1'])
+    expect(found.total).toBe(4)
+    expect(found.notes[0]).toMatchObject({ title: 'Ideas', pinned: true, date: null })
+    expect(typeof found.notes[0].edited).toBe('string')
+    expect(JSON.stringify(found)).not.toContain('Old trashed note')
+    expect(JSON.stringify(found)).not.toContain('Private')
+  })
+
+  it('searches titles and excerpts, and filters by the day a note belongs to', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    const ids = async (args) => (await callOk(client, 'find_journal_notes', args)).notes.map((n) => n.id)
+    expect(await ids({ query: 'ideas' })).toEqual(['n2'])
+    expect(await ids({ query: 'open plan' })).toEqual(['n2'])
+    expect(await ids({ query: 'nothing matches this' })).toEqual([])
+    expect(await ids({ from: TODAY })).toEqual(['n1'])
+    expect(await ids({ to: '2026-08-23' }), 'the 20th is trashed; the rest have no day').toEqual([])
+    expect(await ids({ from: '2026-08-01', to: '2026-08-31' })).toEqual(['n1'])
+  })
+
+  it('limits the list and says it was cut short; refuses a backwards range', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    const two = await callOk(client, 'find_journal_notes', { limit: 2 })
+    expect(two.notes).toHaveLength(2)
+    expect(two).toMatchObject({ total: 4, truncated: true })
+    expect(await refused(client, 'find_journal_notes', { from: TOMORROW, to: TODAY })).toMatch(/later than/)
+  })
+})
+
+describe('read_journal_note', () => {
+  it('reads a note by id, keeping ticked checklist items', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    const note = await callOk(client, 'read_journal_note', { noteId: 'n2' })
+    expect(note).toMatchObject({ id: 'n2', title: 'Ideas', pinned: true, readable: true, truncated: false })
+    expect(note.text).toBe('# Plan\n- [x] done thing\n- [ ] open thing')
+  })
+
+  it('reads the note written for a day', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    expect(await callOk(client, 'read_journal_note', { date: TODAY })).toMatchObject({
+      id: 'n1',
+      title: 'Monday',
+      date: TODAY,
+      text: 'Remember the budget call',
+    })
+  })
+
+  it('says so, rather than showing an empty note, when the text is from a newer version', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    const note = await callOk(client, 'read_journal_note', { noteId: 'n4' })
+    expect(note).toMatchObject({ readable: false, text: '' })
+    expect(note.message).toMatch(/cannot read/)
+  })
+
+  it('refuses a trashed note, a missing one, another account’s, and an unclear request', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    expect(await refused(client, 'read_journal_note', { noteId: 'n3' })).toMatch(/trash/)
+    expect(await refused(client, 'read_journal_note', { noteId: 'nope' })).toMatch(/No note with id/)
+    expect(await refused(client, 'read_journal_note', { noteId: 'n9' }), 'n9 belongs to another account').toMatch(/No note with id/)
+    expect(await refused(client, 'read_journal_note', { date: '2030-01-01' })).toMatch(/There is no note for/)
+    expect(await refused(client, 'read_journal_note', {})).toMatch(/noteId .* or date/)
+    expect(await refused(client, 'read_journal_note', { noteId: 'n2', date: TODAY })).toMatch(/not both/)
+    for (const noteId of UNSAFE_IDS) await refused(client, 'read_journal_note', { noteId })
+    expectOnlySafeIds(db)
+  })
+})
+
+describe('create_journal_note', () => {
+  it('writes metadata and body together, as the editor would, and the text reads back unchanged', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const text = '# Books\n- 1984\n- Dune\n- [ ] buy a copy'
+    const created = await callOk(client, 'create_journal_note', { title: 'Reading list', text })
+    expect(created).toMatchObject({ title: 'Reading list', date: null })
+
+    const meta = db.read(`users/${UID}/journal/${created.id}`)
+    expect(meta).toMatchObject({
+      title: 'Reading list',
+      excerpt: 'Books 1984 Dune buy a copy',
+      dayKey: null,
+      pinned: false,
+      hasDrawing: false,
+      deletedAt: null,
+      createdAt: NOW.getTime(),
+      updatedAt: NOW.getTime(),
+    })
+    expect(typeof meta.paper).toBe('object')
+
+    const body = db.read(`users/${UID}/journal/${created.id}/content/body`)
+    expect(body).toMatchObject({ schemaVersion: 1, updatedAt: NOW.getTime() })
+    expect(meta.bytes).toBe(Buffer.byteLength(body.json))
+    expect(JSON.parse(body.json).content.map((b) => b.type)).toEqual(['heading', 'bulletList', 'taskList'])
+
+    expect((await callOk(client, 'read_journal_note', { noteId: created.id })).text).toBe(text)
+    const listed = await callOk(client, 'find_journal_notes', { query: 'reading list' })
+    expect(listed.notes.map((n) => n.id)).toEqual([created.id])
+  })
+
+  it('makes a day note titled with the day, and refuses a second one for the same day', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const created = await callOk(client, 'create_journal_note', { date: TOMORROW, text: 'plan' })
+    expect(created).toMatchObject({ title: 'Tuesday, August 25, 2026', date: TOMORROW })
+    expect(db.read(`users/${UID}/journal/${created.id}`)).toMatchObject({ dayKey: TOMORROW })
+    expect((await callOk(client, 'read_journal_note', { date: TOMORROW })).id).toBe(created.id)
+
+    const writes = db.writes.length
+    const message = await refused(client, 'create_journal_note', { date: TODAY, text: 'again' })
+    expect(message).toMatch(/already has a note/)
+    expect(message).toContain('n1')
+    expect(message).toMatch(/append_to_journal_note/)
+    expect(db.writes).toHaveLength(writes)
+  })
+
+  it('an untitled, empty note is the app’s own empty note', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const created = await callOk(client, 'create_journal_note', {})
+    expect(created.title).toBe('Untitled')
+    expect(db.read(`users/${UID}/journal/${created.id}`).title).toBe('')
+    const body = db.read(`users/${UID}/journal/${created.id}/content/body`)
+    expect(JSON.parse(body.json)).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] })
+  })
+
+  it('refuses text too large for a note, an over-long title and a bad date, writing nothing', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    await refused(client, 'create_journal_note', { text: 'x'.repeat(20_001) })
+    await refused(client, 'create_journal_note', { title: 'x'.repeat(201) })
+    await refused(client, 'create_journal_note', { date: '2026-02-31' })
+    expect(db.writes).toEqual([])
+  })
+})
+
+describe('append_to_journal_note', () => {
+  it('adds to the end, keeps everything already there, and updates the metadata the way a save does', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const before = db.read(`users/${UID}/journal/n2`)
+    const result = await callOk(client, 'append_to_journal_note', { noteId: 'n2', text: '## Later\n- [ ] call back' })
+    expect(result).toMatchObject({ id: 'n2', title: 'Ideas' })
+
+    const meta = db.read(`users/${UID}/journal/n2`)
+    expect(meta).toMatchObject({ title: 'Ideas', pinned: true, createdAt: 5, updatedAt: NOW.getTime() })
+    expect(meta.excerpt).toBe('Plan done thing open thing Later call back')
+    expect(meta.bytes).toBeGreaterThan(before.bytes ?? 0)
+    const body = db.read(`users/${UID}/journal/n2/content/body`)
+    expect(meta.bytes).toBe(Buffer.byteLength(body.json))
+    expect(body).toMatchObject({ schemaVersion: 1, updatedAt: NOW.getTime() })
+
+    expect((await callOk(client, 'read_journal_note', { noteId: 'n2' })).text).toBe(
+      '# Plan\n- [x] done thing\n- [ ] open thing\n## Later\n- [ ] call back',
+    )
+  })
+
+  it('finds the note by day', async () => {
+    const { base } = await start()
+    const client = await connect(base)
+    await callOk(client, 'append_to_journal_note', { date: TODAY, text: 'and also this' })
+    expect((await callOk(client, 'read_journal_note', { date: TODAY })).text).toBe('Remember the budget call\nand also this')
+  })
+
+  it('does not leave a blank first line when adding to a brand-new note', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const { id } = await callOk(client, 'create_journal_note', { title: 'Fresh' })
+    await callOk(client, 'append_to_journal_note', { noteId: id, text: 'first words' })
+    const doc = JSON.parse(db.read(`users/${UID}/journal/${id}/content/body`).json)
+    expect(doc.content).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'first words' }] }])
+  })
+
+  it('refuses a note it cannot safely edit — unreadable, trashed, too large — leaving it untouched', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    const snapshot = (id) => [db.read(`users/${UID}/journal/${id}`), db.read(`users/${UID}/journal/${id}/content/body`)]
+    for (const [noteId, pattern] of [
+      ['n4', /can't be edited/],
+      ['n3', /trash/],
+      ['n5', /too large/],
+    ]) {
+      const before = snapshot(noteId)
+      const writes = db.writes.length
+      expect(await refused(client, 'append_to_journal_note', { noteId, text: 'y'.repeat(20_000) }), noteId).toMatch(pattern)
+      expect(snapshot(noteId), `${noteId} unchanged`).toEqual(before)
+      expect(db.writes).toHaveLength(writes)
+    }
+  })
+
+  it('refuses text with nothing in it, a missing note, a day with no note, and an unclear request', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    expect(await refused(client, 'append_to_journal_note', { noteId: 'n2', text: '- \n#\n   ' })).toMatch(/no text to add/)
+    expect(await refused(client, 'append_to_journal_note', { noteId: 'nope', text: 'x' })).toMatch(/No note with id/)
+    expect(await refused(client, 'append_to_journal_note', { noteId: 'n9', text: 'x' })).toMatch(/No note with id/)
+    expect(await refused(client, 'append_to_journal_note', { date: '2030-01-01', text: 'x' })).toMatch(/There is no note for/)
+    expect(await refused(client, 'append_to_journal_note', { text: 'x' })).toMatch(/noteId .* or date/)
+    await refused(client, 'append_to_journal_note', { noteId: 'n2', text: '' })
+    expect(db.writes).toEqual([])
+  })
+
+  it('cannot be pointed at another account’s notes, however the id is crafted', async () => {
+    const { base, db } = await start()
+    const client = await connect(base)
+    for (const noteId of UNSAFE_IDS) await refused(client, 'append_to_journal_note', { noteId, text: 'x' })
+    expect(db.writes).toEqual([])
+    expect(db.read(`users/${OTHER}/journal/n9`)).toMatchObject({ title: 'Private' })
+    expectOnlySafeIds(db)
+  })
+})
+
+describe('delete_journal_note', () => {
+  it('moves a note to the Trash, changing only deletedAt — the text is kept', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    const before = db.read(`users/${UID}/journal/n2`)
+    const bodyBefore = db.read(`users/${UID}/journal/n2/content/body`)
+
+    const result = await callOk(client, 'delete_journal_note', { noteId: 'n2' })
+    expect(result).toMatchObject({ id: 'n2', title: 'Ideas', changed: true })
+    expect(result.message).toMatch(/restored/)
+    expect(db.read(`users/${UID}/journal/n2`)).toEqual({ ...before, deletedAt: NOW.getTime() })
+    expect(db.read(`users/${UID}/journal/n2/content/body`)).toEqual(bodyBefore)
+
+    const found = await callOk(client, 'find_journal_notes')
+    expect(found.notes.map((n) => n.id)).not.toContain('n2')
+    expect(await refused(client, 'read_journal_note', { noteId: 'n2' })).toMatch(/trash/)
+  })
+
+  it('is a no-op for a note already in the Trash', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    expect(await callOk(client, 'delete_journal_note', { noteId: 'n3' })).toMatchObject({ changed: false })
+    expect(db.writes).toEqual([])
+  })
+
+  it('refuses a missing note and any crafted id, never touching another account', async () => {
+    const { base, db } = await startFull()
+    const client = await connect(base)
+    expect(await refused(client, 'delete_journal_note', { noteId: 'nope' })).toMatch(/No note with id/)
+    expect(await refused(client, 'delete_journal_note', { noteId: 'n9' })).toMatch(/No note with id/)
+    for (const noteId of UNSAFE_IDS) await refused(client, 'delete_journal_note', { noteId })
+    expect(db.writes).toEqual([])
+    expect(db.read(`users/${OTHER}/journal/n9`).deletedAt).toBeUndefined()
+    expectOnlySafeIds(db)
   })
 })
