@@ -32,10 +32,16 @@ tests/smoke/.qa-screenshots
 *.sw?
 
 # Local AI-agent tooling (e.g. the "Impeccable" design-review skill) —
-# machine-local config/hooks, not part of the app
+# machine-local config/hooks, not part of the app.
+# Exception: the project's own cadence-* skills under .claude/skills/ are
+# versioned, so the conventions they encode travel with the repo. The third-party
+# skill copies and settings.local.json beside them stay ignored.
 .agent
 .agents
-.claude
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/cadence-*/
 .codex
 .cursor
 .gemini
