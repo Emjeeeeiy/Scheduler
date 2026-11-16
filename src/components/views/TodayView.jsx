@@ -18,6 +18,7 @@ import {
   minToShortLabel,
 } from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
+import { DayNoteButton } from '../calendar/DayNoteButton.jsx'
 import { TaskInbox } from '../calendar/TaskInbox.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { SpanIcon } from '../icons.jsx'
@@ -46,7 +47,7 @@ function taskHappeningNow(tasks, nowMin) {
   )
 }
 
-export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent, onCreateEvent }) {
+export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent, onCreateEvent, onOpenDayNote }) {
   const { tasksOn, eventsOn, getTag, inbox, scheduleTask } = useSchedule()
   const { settings } = useSettings()
   const { pushError, pushUndo } = useToast()
@@ -286,6 +287,9 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
                 </button>
               ))}
             </div>
+            {/* The day's page in the Journal — open it if there is one, start
+                it if there isn't. The note links back here (its day band). */}
+            <DayNoteButton dayKey={focusKey} onOpen={onOpenDayNote} />
           </div>
         </div>
 

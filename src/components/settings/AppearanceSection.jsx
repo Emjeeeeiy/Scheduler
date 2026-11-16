@@ -18,7 +18,7 @@ export function AppearanceSection() {
         {THEME_OPTIONS.map((option) => (
           <button
             key={option.value}
-            type="button"
+            type="button" 
             className={`filter-chip${theme === option.value ? ' filter-chip--on' : ''}`}
             aria-pressed={theme === option.value}
             onClick={() => setTheme(option.value)}

@@ -176,7 +176,7 @@ an account made for someone else's address could use all of it. See
 ## The Journal
 
 A page of notes — a list on one side, the open note on the other, and a **Today**
-button that opens (or creates) the note titled with today's date. The toolbar and
+button that opens (or creates) today's note. The toolbar and
 its keyboard shortcuts follow Docs: `Ctrl/⌘ + B / I / U`, `Ctrl/⌘ + Shift + 7 / 8 / 9`
 for lists, `Ctrl/⌘ + K` for a link, `Ctrl/⌘ + \` to clear formatting; **`Ctrl/⌘ + /`**
 inside a note lists them all, and `Esc` leaves the editor so `Tab` is never a trap. A note can
@@ -192,6 +192,45 @@ directly inside arrays and caps nesting at twenty levels, and a rich-text tree
 before a write — a warning at 750 KB, a refusal at 950 KB that keeps the text on
 screen. It never truncates. `packages/shared/src/journal.js` normalizes
 everything that crosses the boundary, the way `normalize.js` does for tasks.
+
+**A note can belong to a day, and that is how it meets the planner.** The link is
+the note's `dayKey` — the same `'YYYY-MM-DD'` a task's `date` is — and never an id,
+because a backup import gives every note, task and event a new one; a renamed day
+note is still found. `src/state/DayNotesContext.jsx` listens to the Journal's small
+metadata documents for the whole shell (the very query the Journal page uses, so
+no second read, and nothing from the editor leaves its chunk) and answers one
+question: which days have a live note (`notesByDay` in `packages/shared`, which
+agrees with `findNoteForDay` about which note a day means). From it, Day, a month
+day's peek, the palette's agendas and the Dashboard get an **Open journal** /
+**Write in journal** button, and Week, Month and the mini calendar mark the day.
+The button leaves an intent (`{ kind: 'day', dayKey }`) that `JournalView` runs
+once its list has loaded — so a day is never given a second note because the list
+was still arriving (Today used to do that if pressed in that moment). A day note
+shows its day back: a band under the header with that day's tasks and events, where
+ticking a task completes the real one. The `j` key and the palette's *Open the day's
+journal note* open the note of the day on screen.
+
+**A note can plan.** The toolbar's **Plan it** reads the note — or only the
+selection — and proposes where its to-dos would go on the calendar, in the Day
+view's *Plan my day* idiom: shown whole, nothing written until **Add N to
+schedule**, one **Undo** for the batch. Two passes. The note's unchecked
+checklist lines are shown at once and need no network (`uncheckedTaskLines`,
+read with `parseQuickAdd`). Then, if the account may use AI, `/api/note-tasks`
+reads the rest of the writing for what the writer means to do, and its list
+replaces the first. The model only *finds* things: every field it returns is
+rebuilt and range-checked on the server (a date must be a real day within a year),
+and `placeNoteTasks` in `packages/shared` does the placing — a stated time is
+kept, the rest is fitted around what is already there and around the other stated
+times with the same `planDay` that backs *Plan my day*, never into the past, and a
+task the day already has is shown but not ticked — so the model is never asked to
+do arithmetic. An answer that arrives after Dismiss, or after a second press, is
+discarded. Plan it is outside the toolbar's *More tools* so a phone has it too.
+The same tools, in `NoteScheduleTools.jsx` (the one Journal file that knows about
+the schedule): **Send to schedule** (only while the caret is in a checklist line),
+and, in the day band, a quick-add line (`parseQuickAdd`, with "tomorrow" read from
+the note's own day), **Move N unfinished to today / tomorrow** (not one day of a
+repeating task), and **Copy the day into the note** — a copy, so ticking it in the
+note does not change the schedule.
 
 **A note that did not load cleanly is never saved over.** A body that cannot be
 read, or was written by a newer build, opens read-only with the raw data
@@ -238,6 +277,7 @@ for a full backup.
 | Key | Does |
 | --- | --- |
 | `n` | new task |
+| `j` | open the Journal note of the day on screen (today, outside Day / Week / Month) |
 | `t` | jump to today |
 | `←` `→` | move the date cursor (day / week / month, by view) |
 | `Esc` | close a dialog |
@@ -268,6 +308,7 @@ src/
     ToastContext.jsx      transient "that write failed" surface
     useJournal.js        the Journal's list, open note and actions
     journalData.js       where notes live in Firestore; purge, backup export/import
+    DayNotesContext.jsx  which days have a Journal note — the calendars' marks and buttons
   components/
     icons.jsx            the one drawn icon set — shared by every group below
     auth/                SignIn, LoginForm, RegisterForm, PasswordField
@@ -347,6 +388,14 @@ What the app relies on, and where it's enforced:
   `api/_lib/rateLimit.js` (Upstash; per-IP for the two session-less push calls),
   then input size caps (`api/_lib/aiInput.js`) before anything reaches Gemini.
   What Gemini says about its own errors is logged, never shown.
+- **What reaches Gemini.** Task titles, and the messages typed into Ask AI. The one
+  place the text someone *wrote* can leave the device is the Journal's **Plan it**
+  (`/api/note-tasks`) — and only when it is pressed, never in the background: the
+  note (or the selection) as plain lines, capped at 8,000 characters, with no
+  image, no drawing and no ticked item. It is said where the button is (its
+  tooltip, and a line in the proposal) and in `src/lib/aiDisclosure.js`. A
+  verified email and a connection are required; without them Plan it still
+  proposes the note's checklist lines, and sends nothing.
 - **Push** accepts only real push-service endpoints, caps an account at ten
   devices, queues nothing for an account with no device, and drains the queue in
   batches so a burst can't starve real reminders.

@@ -43,7 +43,18 @@ export function NoteSkeleton() {
   )
 }
 
-export function NoteEditor({ note, actions, defaultPaper, onBack, onPin, onTrash, onUseForNew, listHidden, onToggleList }) {
+export function NoteEditor({
+  note,
+  actions,
+  defaultPaper,
+  onBack,
+  onPin,
+  onTrash,
+  onUseForNew,
+  listHidden,
+  onToggleList,
+  dayPanel = null,
+}) {
   const bodyState = useNoteBody(note.id)
 
   if (bodyState.loading) return <NoteSkeleton />
@@ -77,6 +88,7 @@ export function NoteEditor({ note, actions, defaultPaper, onBack, onPin, onTrash
       onUseForNew={onUseForNew}
       listHidden={listHidden}
       onToggleList={onToggleList}
+      dayPanel={dayPanel}
     />
   )
 }

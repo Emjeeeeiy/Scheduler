@@ -3,19 +3,18 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useModalA11y } from '../../lib/useModalA11y.js'
 import {
-  durationLabel,
   formatDayLabel,
   formatFullDayLabel,
   formatMonthLabel,
   formatWeekLabel,
-  minToLabel,
   monthGrid,
   monthOf,
   todayKey,
   weekKeys,
 } from '@cadence/shared/date.js'
 import { CloseIcon } from '../icons.jsx'
-import { TagGlyph } from '../editors/TagGlyph.jsx'
+import { DayAgendaList as AgendaList } from './DayAgendaList.jsx'
+import { DayNoteButton } from './DayNoteButton.jsx'
 
 /** One day's events then tasks, each already chronological — the same
     ordering DayPeek uses for its own single-day summary, reused here so a
@@ -23,75 +22,6 @@ import { TagGlyph } from '../editors/TagGlyph.jsx'
     of these palette commands. */
 function dayAgenda(tasksOn, eventsOn, key) {
   return { key, tasks: tasksOn(key), events: eventsOn(key) }
-}
-
-function AgendaList({ tasks, events, getTag, onEdit, onEditEvent, onClose, toggleDone }) {
-  if (tasks.length === 0 && events.length === 0) {
-    return <p className="empty empty--sm">Nothing scheduled.</p>
-  }
-  return (
-    <ul className="day-peek__list">
-      {events.map((event) => {
-        const tag = getTag(event.tagId)
-        return (
-          <li key={`event-${event.id}`}>
-            <button
-              type="button"
-              className="day-peek__item day-peek__item--event"
-              style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
-              onClick={() => {
-                onClose()
-                onEditEvent(event)
-              }}
-            >
-              <span className="day-peek__when">
-                {Number.isFinite(event.startMin) ? minToLabel(event.startMin) : 'All day'}
-              </span>
-              {tag?.icon && <TagGlyph tag={tag} variant="chip" className="day-peek__icon" />}
-              <span className="day-peek__label">{event.title}</span>
-            </button>
-          </li>
-        )
-      })}
-      {tasks.map((task) => {
-        const tag = getTag(task.tagId)
-        return (
-          <li key={`task-${task.id}`} className="day-peek__row">
-            {/* A sibling of the row button, not a child of it — same reason
-                every checkbox in this app sits beside its row rather than
-                inside it (see TaskRow): checking it off is a different
-                gesture from opening the editor, and it must not also fire
-                that click. */}
-            <input
-              type="checkbox"
-              className="task-row__check"
-              checked={task.done}
-              onChange={() => toggleDone(task.id)}
-              aria-label={`Mark "${task.title}" ${task.done ? 'not done' : 'done'}`}
-            />
-            <button
-              type="button"
-              className={`day-peek__item${task.done ? ' day-peek__item--done' : ''}`}
-              style={{ '--tag': tag?.color ?? 'var(--color-baseline)' }}
-              onClick={() => {
-                onClose()
-                onEdit(task)
-              }}
-            >
-              <span className="day-peek__when">
-                {Number.isFinite(task.startMin) ? minToLabel(task.startMin) : 'All day'}
-              </span>
-              {tag?.icon && <TagGlyph tag={tag} variant="chip" className="day-peek__icon" />}
-              <span className="day-peek__label">{task.title}</span>
-              {Number.isFinite(task.startMin) && (
-                <span className="day-peek__note">{durationLabel(task.durationMin)}</span>
-              )}
-            </button>
-          </li>
-        )
-      })}
-    </ul>
-  )
 }
 
 /**
@@ -107,7 +37,7 @@ function AgendaList({ tasks, events, getTag, onEdit, onEditEvent, onClose, toggl
  * nothing on it — a wall of "Nothing scheduled" rows for every empty day of
  * the month would bury the days that actually matter.
  */
-export function AgendaModal({ range, onClose, onEdit, onEditEvent, onFocusDay }) {
+export function AgendaModal({ range, onClose, onEdit, onEditEvent, onFocusDay, onOpenDayNote }) {
   const { tasksOn, eventsOn, getTag, toggleDone } = useSchedule()
   const { settings } = useSettings()
   const panelRef = useRef(null)
@@ -136,12 +66,21 @@ export function AgendaModal({ range, onClose, onEdit, onEditEvent, onFocusDay })
 
   const nonEmptyDays = days.filter((day) => day.tasks.length > 0 || day.events.length > 0)
 
+  // Leaving for the Journal closes this first, the same way "Open day" does.
+  const openDayNote = onOpenDayNote
+    ? (key) => {
+        onClose()
+        onOpenDayNote(key)
+      }
+    : undefined
+
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={panelRef} className="modal__panel" role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__head">
           <h2 className="modal__title">{title}</h2>
           <div className="modal__head-actions">
+            {range === 'today' && <DayNoteButton dayKey={today} onOpen={openDayNote} />}
             <button
               type="button"
               className="ghost-button ghost-button--sm"
@@ -176,16 +115,19 @@ export function AgendaModal({ range, onClose, onEdit, onEditEvent, onFocusDay })
               <div key={day.key}>
                 <div className="day-peek__head">
                   <span className="day-peek__title">{formatDayLabel(day.key)}</span>
-                  <button
-                    type="button"
-                    className="ghost-button ghost-button--sm"
-                    onClick={() => {
-                      onClose()
-                      onFocusDay(day.key)
-                    }}
-                  >
-                    Open day
-                  </button>
+                  <div className="day-peek__actions">
+                    <DayNoteButton dayKey={day.key} onOpen={openDayNote} />
+                    <button
+                      type="button"
+                      className="ghost-button ghost-button--sm"
+                      onClick={() => {
+                        onClose()
+                        onFocusDay(day.key)
+                      }}
+                    >
+                      Open day
+                    </button>
+                  </div>
                 </div>
                 <AgendaList
                   tasks={day.tasks}

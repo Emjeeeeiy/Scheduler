@@ -190,6 +190,15 @@
   font-weight: var(--font-weight-item);
 }
 
+/* The day's journal button beside "Open day" — DayPeek's icon-only one, or
+   AgendaModal's worded one. One group, so the title keeps the left edge. */
+.day-peek__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
 .day-peek__list {
   display: grid;
   gap: 2px;
@@ -583,6 +592,17 @@
   background: var(--color-critical);
 }
 
+/* A day with a Journal note: a corner glyph, so it stacks with the filled
+   numeral (an event) and the load dots (planned time) instead of replacing
+   either. Same mark, same colour, as the week and month (calendar.css). */
+.mini-cal__day .day-note-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+}
+
 .editor-kind__options {
   display: flex;
   gap: 6px;
@@ -714,6 +734,12 @@
     padding-block: 8px;
   }
 
+  /* The day's journal button wraps under the switcher; same 36px row height,
+     so it is a real touch target rather than a 24px desktop chip. */
+  .day-panel__controls > .ghost-button {
+    min-height: 36px;
+  }
+
   /* One line that scrolls sideways, not a block of buttons that wraps. It fades
      out at the edge it runs off, which is the only hint that there is more. */
   .free-slots__list {
@@ -783,6 +809,15 @@
     min-width: 24px;
     height: 24px;
     font-size: var(--text-label);
+  }
+
+  /* A column is about 45px here: the note's mark tucks into the corner, clear of
+     the centred weekday. */
+  .week__day .day-note-mark {
+    top: 3px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
   }
 
   /* Visually hidden, not removed: the button still carries its title and time as

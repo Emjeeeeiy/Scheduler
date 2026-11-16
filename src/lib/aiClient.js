@@ -48,6 +48,21 @@ export async function enrichTaskAi(payload) {
   return callApi('/api/enrich-task', payload, { timeoutMs: 12000 })
 }
 
+/** @return `[{ title, date, startMin, durationMin }]` — the things a journal
+    note says its writer means to do, every field but the title nullable —
+    already rebuilt and range-checked server-side (api/note-tasks.js), or null
+    if the call didn't complete. An EMPTY list is a real answer ("nothing to
+    plan in this note") and is deliberately not null: the caller tells "the AI
+    found nothing" from "couldn't reach AI". The caller (the Journal's Plan it)
+    places these into free time itself — see placeNoteTasks.
+
+    `text` is the note as plain lines (noteOutline in packages/shared), sent
+    only because someone pressed the button that says so. */
+export async function notePlanAi({ text, day, today }) {
+  const result = await callApi('/api/note-tasks', { text, day, today }, { timeoutMs: 16000 })
+  return Array.isArray(result?.tasks) ? result.tasks : null
+}
+
 /** @return `{ status: 'ask'|'create', question, items }`, already validated
     server-side per-item against the real tags/free-time this request sent —
     or null if the call didn't complete, which the caller (AiChatModal)

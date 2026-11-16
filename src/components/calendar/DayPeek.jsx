@@ -4,6 +4,7 @@ import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { formatDayLabel, durationLabel, minToLabel } from '@cadence/shared/date.js'
 import { eventSpanDays, isMultiDay } from '@cadence/shared/spans.js'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
+import { DayNoteButton } from './DayNoteButton.jsx'
 
 const PANEL_WIDTH = 260
 const PANEL_MAX_HEIGHT = 320
@@ -15,7 +16,7 @@ const PANEL_MAX_HEIGHT = 320
  * the only way to see what was on a crowded day was to leave the month. A peek
  * shows the day in place, and anything in it opens for editing directly.
  */
-export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
+export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay, onOpenDayNote }) {
   const { tasksOn, eventsOn, getTag } = useSchedule()
   const [open, setOpen] = useState(false)
   const dismiss = useCallback(() => setOpen(false), [])
@@ -51,16 +52,29 @@ export function DayPeek({ dateKey, count, onEdit, onEditEvent, onFocusDay }) {
         >
           <div className="day-peek__head">
             <span className="day-peek__title">{formatDayLabel(dateKey)}</span>
-            <button
-              type="button"
-              className="ghost-button ghost-button--sm"
-              onClick={() => {
-                setOpen(false)
-                onFocusDay?.(dateKey)
-              }}
-            >
-              Open day
-            </button>
+            <div className="day-peek__actions">
+              <DayNoteButton
+                compact
+                dayKey={dateKey}
+                onOpen={
+                  onOpenDayNote &&
+                  ((key) => {
+                    setOpen(false)
+                    onOpenDayNote(key)
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="ghost-button ghost-button--sm"
+                onClick={() => {
+                  setOpen(false)
+                  onFocusDay?.(dateKey)
+                }}
+              >
+                Open day
+              </button>
+            </div>
           </div>
 
           <ul className="day-peek__list">

@@ -36,6 +36,7 @@ import parseTaskHandler from '../api/parse-task.js'
 import planDayHandler from '../api/plan-day.js'
 import enrichTaskHandler from '../api/enrich-task.js'
 import aiScheduleHandler from '../api/ai-schedule.js'
+import noteTasksHandler from '../api/note-tasks.js'
 
 function fakeReq({ method = 'POST', body = {}, headers = { authorization: 'Bearer token' } } = {}) {
   return { method, body, headers }
@@ -71,6 +72,7 @@ const sentPrompt = () => generateJson.mock.calls.at(-1)[0].prompt
 describe('every route — shared request handling', () => {
   const enrichBody = { title: 'Deep clean kitchen', today: '2026-08-24' }
   const scheduleBody = { messages: [{ role: 'user', content: 'gym monday 7am' }], today: '2026-08-24' }
+  const noteBody = { text: 'call Ana tomorrow', day: '2026-08-24', today: '2026-08-24' }
 
   it.each([
     ['suggest-tag', suggestTagHandler, { title: 'Standup', tags: [{ id: 'work', name: 'Work' }] }],
@@ -78,6 +80,7 @@ describe('every route — shared request handling', () => {
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
     ['enrich-task', enrichTaskHandler, enrichBody],
     ['ai-schedule', aiScheduleHandler, scheduleBody],
+    ['note-tasks', noteTasksHandler, noteBody],
   ])('%s rejects a non-POST method with 405, before touching auth or Gemini', async (_name, handler, body) => {
     const res = fakeRes()
     await handler(fakeReq({ method: 'GET', body }), res)
@@ -92,6 +95,7 @@ describe('every route — shared request handling', () => {
     ['plan-day', planDayHandler, { tasks: [{ id: 't1' }], slots: [{ startMin: 0, endMin: 60 }] }],
     ['enrich-task', enrichTaskHandler, enrichBody],
     ['ai-schedule', aiScheduleHandler, scheduleBody],
+    ['note-tasks', noteTasksHandler, noteBody],
   ])('%s answers 401 and never calls Gemini when auth fails', async (_name, handler, body) => {
     verifyRequest.mockRejectedValue(new AuthError(401, 'Invalid or expired token.'))
     const res = fakeRes()
@@ -106,6 +110,7 @@ describe('every route — shared request handling', () => {
     ['plan-day', planDayHandler],
     ['enrich-task', enrichTaskHandler],
     ['ai-schedule', aiScheduleHandler],
+    ['note-tasks', noteTasksHandler],
   ])('%s propagates a GeminiError\'s real status (e.g. 429) rather than masking it as 500', async (_name, handler) => {
     generateJson.mockRejectedValue(new GeminiError(429, 'Rate limited.'))
     const body =
@@ -117,7 +122,9 @@ describe('every route — shared request handling', () => {
             ? { tasks: [{ id: 't1', title: 'x', durationMin: 30, priority: 'normal' }], slots: [{ startMin: 0, endMin: 60 }] }
             : handler === enrichTaskHandler
               ? enrichBody
-              : scheduleBody
+              : handler === noteTasksHandler
+                ? noteBody
+                : scheduleBody
     const res = fakeRes()
     await handler(fakeReq({ body }), res)
     expect(res.statusCode).toBe(429)
@@ -192,6 +199,148 @@ describe('parse-task', () => {
     const res = fakeRes()
     await parseTaskHandler(fakeReq({ body: { text: 'lunch tomorrow at 1pm', today: '2026-08-24' } }), res)
     expect(res.body).toEqual(shape)
+  })
+})
+
+describe('note-tasks', () => {
+  const body = (extra = {}) => ({ text: '[ ] call Ana tomorrow at 3pm', day: '2026-08-24', today: '2026-08-24', ...extra })
+  const call = async (requestBody) => {
+    const res = fakeRes()
+    await noteTasksHandler(fakeReq({ body: requestBody }), res)
+    return res
+  }
+
+  it('400s when day or today is not a real YYYY-MM-DD date', async () => {
+    for (const bad of [undefined, 'tomorrow', '2026/08/24', '2026-13-45', 20260824]) {
+      expect((await call(body({ day: bad }))).statusCode).toBe(400)
+      expect((await call(body({ today: bad }))).statusCode).toBe(400)
+    }
+    expect(generateJson).not.toHaveBeenCalled()
+  })
+
+  it('answers an empty list without calling Gemini or spending budget when there is nothing to read', async () => {
+    for (const text of [undefined, '', '   \n  ', 42]) {
+      const res = await call(body({ text }))
+      expect(res.statusCode).toBe(200)
+      expect(res.body).toEqual({ tasks: [] })
+    }
+    expect(generateJson).not.toHaveBeenCalled()
+    expect(holder.redis.keys('rl:')).toEqual([])
+  })
+
+  it('sends the note, quoted, with the note’s day and the real date', async () => {
+    generateJson.mockResolvedValue({ tasks: [] })
+    await call(body({ text: 'say "hi"\n[ ] call Ana', day: '2026-08-30' }))
+    const prompt = sentPrompt()
+    expect(prompt).toContain('day: 2026-08-30')
+    expect(prompt).toContain('today: 2026-08-24')
+    // JSON-quoted, so a quote or a newline in the writing cannot break out of it.
+    expect(prompt).toContain(JSON.stringify('say "hi"\n[ ] call Ana'))
+  })
+
+  it('returns the tasks it found, rebuilt field by field', async () => {
+    generateJson.mockResolvedValue({
+      tasks: [
+        { title: 'Call Ana', date: '2026-08-25', startMin: 900, durationMin: 30, deletedAt: 123, done: true },
+        { title: 'Workout', date: null, startMin: null, durationMin: 120 },
+      ],
+    })
+    const res = await call(body())
+    expect(res.statusCode).toBe(200)
+    // Only the four fields — nothing else the model added rides along.
+    expect(res.body).toEqual({
+      tasks: [
+        { title: 'Call Ana', date: '2026-08-25', startMin: 900, durationMin: 30 },
+        { title: 'Workout', date: null, startMin: null, durationMin: 120 },
+      ],
+    })
+  })
+
+  it('keeps a time with no date: in a note it means that time on the note’s day', async () => {
+    generateJson.mockResolvedValue({ tasks: [{ title: 'Call Ana', date: null, startMin: 900, durationMin: null }] })
+    expect((await call(body())).body.tasks[0]).toEqual({ title: 'Call Ana', date: null, startMin: 900, durationMin: null })
+  })
+
+  it('turns anything out of range into null instead of passing it on', async () => {
+    generateJson.mockResolvedValue({
+      tasks: [
+        { title: 'A', date: '2026-08-23', startMin: 9999, durationMin: 2 }, // yesterday, impossible time, too short
+        { title: 'B', date: '2026-13-45', startMin: -1, durationMin: 99999 }, // not a real day, negative, too long
+        { title: 'C', date: '2028-01-01', startMin: 1.5, durationMin: 30.5 }, // past the horizon, fractions
+        { title: 'D', date: '2026/08/25', startMin: '900', durationMin: '30' }, // wrong shape, wrong types
+      ],
+    })
+    const { tasks } = (await call(body())).body
+    expect(tasks).toHaveLength(4)
+    for (const task of tasks) {
+      expect(task.date).toBe(null)
+      expect(task.startMin).toBe(null)
+      expect(task.durationMin).toBe(null)
+    }
+  })
+
+  it('accepts today, a far-off-but-near-enough date, and the horizon’s last day', async () => {
+    generateJson.mockResolvedValue({
+      tasks: [
+        { title: 'A', date: '2026-08-24', startMin: 0, durationMin: 5 },
+        { title: 'B', date: '2027-08-24', startMin: 1439, durationMin: 720 },
+      ],
+    })
+    const { tasks } = (await call(body())).body
+    expect(tasks.map((t) => t.date)).toEqual(['2026-08-24', '2027-08-24'])
+    expect(tasks.map((t) => t.startMin)).toEqual([0, 1439])
+    expect(tasks.map((t) => t.durationMin)).toEqual([5, 720])
+  })
+
+  it('drops an empty title and a repeated one, trims, and clips a long one', async () => {
+    generateJson.mockResolvedValue({
+      tasks: [
+        { title: '   ', date: null, startMin: null, durationMin: null },
+        { title: '  Call Ana  ', date: null, startMin: null, durationMin: null },
+        { title: 'call ana', date: null, startMin: null, durationMin: null },
+        { title: 'x'.repeat(500), date: null, startMin: null, durationMin: null },
+        { title: 42, date: null, startMin: null, durationMin: null },
+      ],
+    })
+    const { tasks } = (await call(body())).body
+    expect(tasks.map((t) => t.title)).toEqual(['Call Ana', 'x'.repeat(120)])
+  })
+
+  it('returns at most ten tasks however many the model sends', async () => {
+    generateJson.mockResolvedValue({
+      tasks: Array.from({ length: 30 }, (_, i) => ({ title: `Task ${i}`, date: null, startMin: null, durationMin: null })),
+    })
+    expect((await call(body())).body.tasks).toHaveLength(10)
+  })
+
+  it('answers an empty list when the model sends nothing usable', async () => {
+    for (const result of [null, {}, { tasks: 'nope' }, { tasks: [null, 5, {}] }]) {
+      generateJson.mockResolvedValue(result)
+      expect((await call(body())).body).toEqual({ tasks: [] })
+    }
+  })
+
+  it('clips a long note to the cap before it is ever sent', async () => {
+    generateJson.mockResolvedValue({ tasks: [] })
+    await call(body({ text: 'n'.repeat(CAPS.noteText * 3) }))
+    expect(sentPrompt()).toContain('n'.repeat(CAPS.noteText))
+    expect(sentPrompt()).not.toContain('n'.repeat(CAPS.noteText + 1))
+  })
+
+  it('answers 429 once its own hourly budget is spent, without calling Gemini', async () => {
+    generateJson.mockResolvedValue({ tasks: [] })
+    for (let i = 0; i < LIMITS.noteTasks.limit; i += 1) expect((await call(body())).statusCode).toBe(200)
+    generateJson.mockClear()
+    expect((await call(body())).statusCode).toBe(429)
+    expect(generateJson).not.toHaveBeenCalled()
+  })
+
+  it('never passes Gemini’s own error text through', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    generateJson.mockRejectedValue(new GeminiError(400, 'API key not valid. Please pass a valid API key.'))
+    const res = await call(body())
+    expect(res.statusCode).toBe(502)
+    expect(res.body).toEqual({ error: 'AI request failed.' })
   })
 })
 

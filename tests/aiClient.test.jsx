@@ -10,7 +10,7 @@
  * renders a component; `fetch` and firebase.js's `auth` are mocked instead.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { aiScheduleAi, enrichTaskAi, parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
+import { aiScheduleAi, enrichTaskAi, notePlanAi, parseTaskAi, planDayAi, suggestTagAi } from '../src/lib/aiClient.js'
 
 // A mutable binding inside the mock factory, the same pattern used
 // elsewhere in this suite (see itemDetail.test.jsx) for a module whose
@@ -184,6 +184,60 @@ describe('aiClient — the shared fall-back-to-null contract', () => {
     stubFetch(async () => new Response(JSON.stringify({ error: 'rate limited' }), { status: 429 }))
     const result = await aiScheduleAi({ messages: [{ role: 'user', content: 'gym monday' }], today: '2026-08-24' })
     expect(result).toBe(null)
+  })
+
+  it('notePlanAi posts the note, its day and today to /api/note-tasks and returns the tasks', async () => {
+    const tasks = [{ title: 'Call Ana', date: '2026-08-25', startMin: 900, durationMin: null }]
+    const fetch = stubFetch(async () => new Response(JSON.stringify({ tasks }), { status: 200 }))
+    const payload = { text: '[ ] call Ana tomorrow at 3pm', day: '2026-08-24', today: '2026-08-24' }
+
+    const result = await notePlanAi(payload)
+
+    expect(result).toEqual(tasks)
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('/api/note-tasks')
+    expect(init.headers.Authorization).toBe('Bearer a-fake-token')
+    expect(JSON.parse(init.body)).toEqual(payload)
+  })
+
+  it('notePlanAi tells "found nothing" ([]) apart from "could not reach AI" (null)', async () => {
+    // The Journal says a different thing for each, so this is the one AI call
+    // where an empty answer must not be collapsed into null.
+    stubFetch(async () => new Response(JSON.stringify({ tasks: [] }), { status: 200 }))
+    expect(await notePlanAi({ text: 'just prose', day: '2026-08-24', today: '2026-08-24' })).toEqual([])
+  })
+
+  it.each([
+    ['a 429', () => new Response(JSON.stringify({ error: 'busy' }), { status: 429 })],
+    ['a 403 (email not confirmed)', () => new Response(JSON.stringify({ error: 'verify' }), { status: 403 })],
+    ['a body that is not JSON', () => new Response('<html>no</html>', { status: 200 })],
+    ['a body with no tasks field', () => new Response(JSON.stringify({}), { status: 200 })],
+    ['a tasks field that is not a list', () => new Response(JSON.stringify({ tasks: 'x' }), { status: 200 })],
+  ])('notePlanAi falls back to null on %s', async (_label, respond) => {
+    stubFetch(async () => respond())
+    expect(await notePlanAi({ text: 'x', day: '2026-08-24', today: '2026-08-24' })).toBe(null)
+  })
+
+  it('notePlanAi falls back to null, without a request, when nobody is signed in', async () => {
+    mockCurrentUser = null
+    const fetch = stubFetch(async () => new Response('{}', { status: 200 }))
+    expect(await notePlanAi({ text: 'x', day: '2026-08-24', today: '2026-08-24' })).toBe(null)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('notePlanAi aborts and falls back to null when the server never responds in time', async () => {
+    vi.useFakeTimers()
+    stubFetch(
+      (url, init) =>
+        new Promise((resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+        }),
+    )
+
+    const pending = notePlanAi({ text: 'x', day: '2026-08-24', today: '2026-08-24' })
+    await vi.advanceTimersByTimeAsync(16000)
+    expect(await pending).toBe(null)
+    vi.useRealTimers()
   })
 
   it('aiScheduleAi aborts and falls back to null when the server never responds in time', async () => {

@@ -52,6 +52,9 @@ vi.mock('../src/lib/aiClient.js', () => ({
   aiScheduleAi: vi.fn(),
 }))
 
+// The shell listens to which days have a Journal note; the `db` above is not a real one.
+vi.mock('../src/state/useJournal.js', async () => import('./smoke/mockJournal.js'))
+
 vi.mock('../src/state/ScheduleContext.jsx', () => ({
   ScheduleProvider: ({ children }) => <>{children}</>,
   DEFAULT_DURATION_MIN: 30,

@@ -51,7 +51,8 @@ import {
   UnderlineIcon,
   UndoIcon,
 } from './journalIcons.jsx'
-import { DayIcon } from '../icons.jsx'
+import { NOTE_AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
+import { BulbIcon, DayIcon, WeekIcon } from '../icons.jsx'
 import { MenuItem, ToolButton, ToolPopover, ToolSeparator, TriggerButton } from './ToolbarParts.jsx'
 import { useRovingFocus } from './toolbarUtils.js'
 
@@ -105,6 +106,7 @@ function readState(editor) {
     lineHeight:
       editor.getAttributes('paragraph').lineHeight ?? editor.getAttributes('heading').lineHeight ?? null,
     inTable: editor.isActive('table'),
+    inTaskItem: editor.isActive('taskItem'),
     canUndo: editor.can().undo(),
     canRedo: editor.can().redo(),
   }
@@ -665,6 +667,8 @@ function ActiveToolbar({
   onInsertImage,
   onPrint,
   onExport,
+  onPlan,
+  onSendLine,
 }) {
   const ref = useRef(null)
   useRovingFocus(ref)
@@ -733,6 +737,40 @@ function ActiveToolbar({
           <MoreMenu editor={editor} state={s} onHelp={onHelp} onPrint={onPrint} onExport={onExport} disabled={off} />
         </div>
       </OverflowMenu>
+
+      {/* The schedule's two controls sit OUTSIDE the overflow menu on purpose: this
+          is what the page is for, and on a phone it would otherwise be one more
+          thing behind "More tools". Send to schedule is about the line the caret
+          is in, so it is only here while the caret is in a checklist item — the
+          way Table is only here inside a table. Neither exists on a note shown
+          without the schedule (no handler). */}
+      {onSendLine && s.inTaskItem ? (
+        <>
+          <ToolSeparator />
+          <ToolButton
+            icon={WeekIcon}
+            label="Send to schedule"
+            title="Send to schedule — makes this checklist line a task on the note's day (a date or time in it is used)."
+            disabled={off}
+            onClick={onSendLine}
+          />
+        </>
+      ) : null}
+      {onPlan ? (
+        <>
+          <ToolSeparator />
+          <ToolButton
+            icon={BulbIcon}
+            label="Plan it"
+            className="tb-btn--plan"
+            title={`Plan it — reads this note (or your selection) and proposes where its to-dos would go on your schedule. ${NOTE_AI_DISCLOSURE}`}
+            disabled={off}
+            onClick={onPlan}
+          >
+            Plan it
+          </ToolButton>
+        </>
+      ) : null}
     </div>
   )
 }

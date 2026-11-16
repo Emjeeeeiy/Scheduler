@@ -366,6 +366,144 @@
   color: var(--color-text-muted);
 }
 
+/* A day note's day (NoteDayPanel), under the header: chrome, not content — the
+   neutral row and hairline the rest of the page uses, never the paper's or the
+   ink's colours. One quiet line until it is opened. */
+.note-day {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.note-day__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.note-day__toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--text-label);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.note-day__toggle:hover {
+  background: var(--color-surface-2);
+}
+
+.note-day__chevron {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.note-day__toggle[aria-expanded='true'] .note-day__chevron {
+  transform: rotate(90deg);
+}
+
+.note-day__date {
+  flex: none;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-item);
+}
+
+.note-day__summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.note-day__list {
+  max-width: 560px;
+  padding-top: 6px;
+}
+
+/* What the band can DO, below the day it lists: a line to add a task, then the
+   two buttons that carry the day on or copy it into the note. */
+.note-day__add {
+  margin: 10px 0 8px;
+}
+
+.note-day__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+/* ===================================================== plan it (the proposal) == */
+
+/* "Plan it" is the last thing on the toolbar and the one with a word on it:
+   everything else there is an icon, and this is what the page is for. */
+.tb-btn--plan {
+  padding: 0 10px;
+  margin-left: 2px;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-item);
+}
+
+/* The Day view's `.day-plan` (calendar.css) is the look; this only sets it into
+   the note's column and gives a row its tick. It is chrome — neutral, no paper
+   or ink colours — and it is not printed. */
+.note-plan {
+  margin: 0;
+}
+
+.note-plan .day-plan__row {
+  grid-template-columns: auto 64px minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+/* A row that will not be added reads as set aside, without disappearing: it is
+   still the writer's line, and might be ticked on purpose. */
+.note-plan .day-plan__row--off .day-plan__title,
+.note-plan .day-plan__row--off .day-plan__time,
+.note-plan .day-plan__row--off .day-plan__length {
+  color: var(--color-text-muted);
+}
+
+.note-plan__flag,
+.note-plan__message,
+.note-plan__privacy {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+.note-plan__message {
+  margin: 0 0 10px;
+}
+
+.note-plan__privacy {
+  margin: 10px 0 0;
+}
+
+.note-plan .banner {
+  margin-bottom: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-day__toggle,
+  .note-day__chevron {
+    transition: none;
+  }
+}
+
 /* The note's details — when it was edited, how long it is — under the note. */
 .note-foot {
   display: flex;
@@ -1362,6 +1500,8 @@ a.ghost-button {
   .app__header,
   .note-list,
   .note-head,
+  .note-day,
+  .note-plan,
   .note-foot,
   .journal-toolbar,
   .note-surface .banner,
@@ -1544,6 +1684,7 @@ a.ghost-button {
   .note-list > .banner,
   .note-list__label,
   .note-head,
+  .note-day,
   .note-foot,
   .journal__empty,
   .note-surface--loading {
@@ -1568,6 +1709,15 @@ a.ghost-button {
 
   .note-surface .banner {
     margin-inline: var(--gutter);
+  }
+
+  /* Filled, unlike the band, so it is inset with a margin and keeps its edges. */
+  .note-plan {
+    margin-inline: var(--gutter);
+  }
+
+  .note-plan .banner {
+    margin-inline: 0;
   }
 
   .note-skeleton__sheet {
@@ -1719,5 +1869,18 @@ a.ghost-button {
 
   .note-title {
     font-size: var(--text-title);
+  }
+
+  /* The day's band: the date on its line, the summary under it, instead of the
+     summary cut to "3 t…" beside a long date. A thumb-sized row. */
+  .note-day__toggle {
+    flex-wrap: wrap;
+    row-gap: 0;
+    min-height: 40px;
+  }
+
+  .note-day__summary {
+    flex-basis: 100%;
+    padding-left: 22px;
   }
 }

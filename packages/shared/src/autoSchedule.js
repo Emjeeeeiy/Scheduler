@@ -8,10 +8,10 @@
  * than this module reaching into ScheduleContext itself.
  */
 
-import { addDays } from './date.js'
+import { addDays, isValidKey } from './date.js'
 import { visibleWindow } from './layout.js'
 import { freeSlots } from './slots.js'
-import { TASK_PRIORITIES } from './normalize.js'
+import { DEFAULT_DURATION_MIN, TASK_PRIORITIES } from './normalize.js'
 
 const DEFAULT_LOOKAHEAD_DAYS = 14
 const DEFAULT_LIMIT = 3
@@ -149,6 +149,141 @@ export function planDay({
   }
 
   return placements
+}
+
+/** The most rows one note's plan ever proposes — what the AI route returns at
+    most, and a screenful to read before accepting. */
+export const NOTE_PLAN_LIMIT = 10
+
+/** Two titles are "the same task" ignoring case, runs of spaces and trailing
+    punctuation — what someone typing it twice would call the same. */
+const titleKey = (title) =>
+  String(title ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[\s.!?,;:]+$/, '')
+    .trim()
+
+const isMinute = (value) => Number.isInteger(value) && value >= 0 && value <= 1439
+const isLength = (value) => Number.isInteger(value) && value >= 5 && value <= 24 * 60
+
+/**
+ * A note's to-dos, as a proposal: where each would go on the calendar.
+ * Nothing here writes — like planDay, this is for the caller to show and have
+ * someone accept or discard.
+ *
+ * A time the writer stated is kept as stated. Everything else is fitted into the
+ * day's real free time with planDay itself (the same free-slot machinery and
+ * breathing room as "Plan my day", so a plan from a note agrees with one from the
+ * Day view), in the order it was written, around what is already there AND around
+ * the stated times. A past day is never planned onto: a stated date before today
+ * means today.
+ *
+ * Each row is `{ title, date, startMin, durationMin, kind, duplicate, include }`:
+ *   kind 'stated'  — the time came from the writer
+ *   kind 'fitted'  — placed into free time
+ *   kind 'untimed' — the writer's day, but nothing fit: no time yet
+ *   kind 'inbox'   — no day stated and nothing fit: undated, like any inbox task
+ * `duplicate` is a task already on that day with the same title — held back
+ * (`include: false`) rather than dropped, so it can still be ticked on purpose.
+ *
+ * @param items    [{ title, date, startMin, durationMin }], each field but
+ *                 `title` possibly null — parseQuickAdd's shape, or the AI
+ *                 route's
+ * @param planningDay the day an item with no date of its own is planned on
+ * @param today    "today" — nothing is placed before it
+ * @param nowMin   the minute of the day it is, for fitting into today
+ * @param dayItems (key) => what is already on that day (tasks, and timed events)
+ */
+export function placeNoteTasks(
+  items,
+  { planningDay, today, nowMin = 0, dayItems, workingHours = null, limit = NOTE_PLAN_LIMIT },
+) {
+  // 1. Normalised, and the same task written twice proposed once.
+  const seen = new Set()
+  const rows = []
+  for (const item of Array.isArray(items) ? items : []) {
+    if (rows.length >= limit) break
+    const title = String(item?.title ?? '').trim()
+    if (!title) continue
+
+    const statedDate = isValidKey(item.date) ? (item.date < today ? today : item.date) : null
+    const day = statedDate ?? planningDay
+    const key = `${day}|${titleKey(title)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    rows.push({
+      index: rows.length,
+      title,
+      statedDate,
+      day,
+      startMin: isMinute(item.startMin) ? item.startMin : null,
+      durationMin: isLength(item.durationMin) ? item.durationMin : DEFAULT_DURATION_MIN,
+    })
+  }
+
+  // 2. Fitted one day at a time. The stated times on that day count as busy, or
+  //    a fitted task could be dropped on top of one the writer chose.
+  const byDay = new Map()
+  for (const row of rows) byDay.set(row.day, [...(byDay.get(row.day) ?? []), row])
+
+  const fitted = new Map()
+  for (const [day, group] of byDay) {
+    const stated = group.filter((row) => row.startMin !== null)
+    const loose = group.filter((row) => row.startMin === null)
+    if (loose.length === 0) continue
+
+    const proposals = planDay({
+      inbox: loose.map((row) => ({
+        id: String(row.index),
+        done: false,
+        priority: 'normal',
+        createdAt: row.index, // note order is the order to place in
+        durationMin: row.durationMin,
+      })),
+      dayItems: (key) => [
+        ...dayItems(key),
+        ...(key === day ? stated.map(({ startMin, durationMin }) => ({ startMin, durationMin })) : []),
+      ],
+      key: day,
+      workingHours,
+      fromMin: day === today ? nowMin : 0,
+      limit: loose.length,
+    })
+    for (const placement of proposals) fitted.set(Number(placement.task.id), placement.startMin)
+  }
+
+  // 3. Each row says where it ended up, and whether the day already has it.
+  return rows.map((row) => {
+    const duplicate = dayItems(row.day).some((existing) => titleKey(existing.title) === titleKey(row.title))
+    let kind
+    let date = row.day
+    let startMin = null
+    if (row.startMin !== null) {
+      kind = 'stated'
+      startMin = row.startMin
+    } else if (fitted.has(row.index)) {
+      kind = 'fitted'
+      startMin = fitted.get(row.index)
+    } else if (row.statedDate !== null) {
+      kind = 'untimed'
+    } else {
+      kind = 'inbox'
+      date = null
+    }
+    return { title: row.title, date, startMin, durationMin: row.durationMin, kind, duplicate, include: !duplicate }
+  })
+}
+
+/**
+ * Where a day's unfinished tasks go when someone says "carry them over": today
+ * when the day is past, tomorrow when it is today, and nowhere when it is still
+ * ahead — there is nothing left behind on a day that has not happened yet.
+ */
+export function carryOverTarget(dayKey, today) {
+  if (!isValidKey(dayKey) || !isValidKey(today) || dayKey > today) return null
+  return dayKey < today ? today : addDays(today, 1)
 }
 
 /**

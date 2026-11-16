@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { isValidAiPlan, planDay, suggestSlots } from '@cadence/shared/autoSchedule.js'
+import {
+  NOTE_PLAN_LIMIT,
+  carryOverTarget,
+  isValidAiPlan,
+  placeNoteTasks,
+  planDay,
+  suggestSlots,
+} from '@cadence/shared/autoSchedule.js'
 import { addDays } from '@cadence/shared/date.js'
 
 const START = '2026-08-24'
@@ -282,5 +289,155 @@ describe('isValidAiPlan', () => {
       { taskId: 'ghost', startMin: 14 * 60 }, // invalid
     ]
     assert.equal(isValidAiPlan(plan, { tasks, slots }), false)
+  })
+})
+
+describe('placeNoteTasks', () => {
+  // 7 AM to 10 PM is the default window of an empty day (see visibleWindow).
+  const item = (title, extra = {}) => ({ title, date: null, startMin: null, durationMin: null, ...extra })
+  const place = (items, options = {}) =>
+    placeNoteTasks(items, {
+      planningDay: START,
+      today: START,
+      nowMin: 0,
+      dayItems: () => [],
+      ...options,
+    })
+  const overlaps = (a, b) => a.startMin < b.startMin + b.durationMin && b.startMin < a.startMin + a.durationMin
+
+  it('keeps a time the writer stated, on the planning day when no day was stated', () => {
+    const [row] = place([item('Call Ana', { startMin: 15 * 60, durationMin: 45 })])
+    assert.deepEqual(
+      { kind: row.kind, date: row.date, startMin: row.startMin, durationMin: row.durationMin },
+      { kind: 'stated', date: START, startMin: 15 * 60, durationMin: 45 },
+    )
+  })
+
+  it('fits the rest into free time in the order they were written, with room between', () => {
+    const rows = place([item('First'), item('Second')])
+    assert.deepEqual(rows.map((r) => r.kind), ['fitted', 'fitted'])
+    assert.equal(rows[0].startMin, 7 * 60)
+    // 30 minutes (the default length) plus the 10 minutes of breathing room.
+    assert.equal(rows[1].startMin, 7 * 60 + 40)
+    assert.deepEqual(rows.map((r) => r.date), [START, START])
+  })
+
+  it('fits around what is already on the day', () => {
+    const rows = place([item('Fit me')], { dayItems: () => [timed(7 * 60, 120)] })
+    assert.equal(rows[0].startMin, 9 * 60)
+  })
+
+  it('fits around the writer’s own stated times too, never on top of one', () => {
+    const rows = place([
+      item('Gym', { startMin: 8 * 60, durationMin: 60 }),
+      item('One'),
+      item('Two'),
+      item('Three'),
+    ])
+    const [gym, ...loose] = rows
+    assert.equal(gym.kind, 'stated')
+    for (const row of loose) {
+      assert.equal(row.kind, 'fitted')
+      assert.equal(overlaps(row, gym), false)
+    }
+    for (let i = 0; i < loose.length; i += 1) {
+      for (let j = i + 1; j < loose.length; j += 1) assert.equal(overlaps(loose[i], loose[j]), false)
+    }
+  })
+
+  it('never fits into the part of today that has already gone', () => {
+    const rows = place([item('Soon')], { nowMin: 10 * 60 })
+    assert.ok(rows[0].startMin >= 10 * 60)
+  })
+
+  it('does not hold a future day to "now"', () => {
+    const later = addDays(START, 3)
+    const rows = place([item('Later', { date: later })], { nowMin: 20 * 60 })
+    assert.equal(rows[0].date, later)
+    assert.equal(rows[0].kind, 'fitted')
+    assert.equal(rows[0].startMin, 7 * 60)
+  })
+
+  it('moves a stated day that is already past onto today', () => {
+    const rows = place([item('Old news', { date: '2026-08-01' })])
+    assert.equal(rows[0].date, START)
+  })
+
+  it('keeps the day the writer named when nothing fits there, with no time', () => {
+    const later = addDays(START, 2)
+    const rows = place([item('Squeezed', { date: later })], {
+      dayItems: (key) => (key === later ? [timed(7 * 60, 15 * 60)] : []),
+    })
+    assert.deepEqual(
+      { kind: rows[0].kind, date: rows[0].date, startMin: rows[0].startMin },
+      { kind: 'untimed', date: later, startMin: null },
+    )
+  })
+
+  it('sends a task with no day to the inbox when nothing fits', () => {
+    const rows = place([item('Nowhere')], { dayItems: () => [timed(7 * 60, 15 * 60)] })
+    assert.deepEqual(
+      { kind: rows[0].kind, date: rows[0].date, startMin: rows[0].startMin },
+      { kind: 'inbox', date: null, startMin: null },
+    )
+  })
+
+  it('holds back a task the day already has, ignoring case, spacing and trailing punctuation', () => {
+    const rows = place([item('  call   ANA! '), item('Something new')], {
+      dayItems: () => [{ title: 'Call Ana', startMin: null, durationMin: 30 }],
+    })
+    assert.deepEqual(rows.map((r) => [r.duplicate, r.include]), [[true, false], [false, true]])
+  })
+
+  it('proposes the same task written twice once, and skips lines with no title', () => {
+    const rows = place([item('Buy milk'), item('buy milk.'), item('   '), item(''), item('Buy eggs')])
+    assert.deepEqual(rows.map((r) => r.title), ['Buy milk', 'Buy eggs'])
+  })
+
+  it('takes a default length when the length is missing or out of range', () => {
+    const rows = place([
+      item('None'),
+      item('Tiny', { durationMin: 2 }),
+      item('Huge', { durationMin: 99999 }),
+      item('Fine', { durationMin: 45 }),
+    ])
+    assert.deepEqual(rows.map((r) => r.durationMin), [30, 30, 30, 45])
+  })
+
+  it('ignores a start time that is not a minute of the day', () => {
+    const rows = place([item('Odd', { startMin: 2000 }), item('Odder', { startMin: -5 })])
+    assert.ok(rows.every((r) => r.kind === 'fitted'))
+  })
+
+  it('proposes at most the limit', () => {
+    const many = Array.from({ length: 40 }, (_, i) => item(`Task ${i}`))
+    assert.equal(place(many).length, NOTE_PLAN_LIMIT)
+    assert.equal(place(many, { limit: 3 }).length, 3)
+  })
+
+  it('is empty for nothing at all', () => {
+    assert.deepEqual(place([]), [])
+    assert.deepEqual(place(null), [])
+    assert.deepEqual(place(undefined), [])
+  })
+})
+
+describe('carryOverTarget', () => {
+  it('carries a past day’s leftovers to today', () => {
+    assert.equal(carryOverTarget('2026-08-20', START), START)
+  })
+
+  it('carries today’s leftovers to tomorrow', () => {
+    assert.equal(carryOverTarget(START, START), addDays(START, 1))
+  })
+
+  it('has nowhere to carry from a day that has not happened yet', () => {
+    assert.equal(carryOverTarget(addDays(START, 1), START), null)
+  })
+
+  it('has nowhere to carry from something that is not a day', () => {
+    assert.equal(carryOverTarget(null, START), null)
+    assert.equal(carryOverTarget('someday', START), null)
+    assert.equal(carryOverTarget(START, 'whenever'), null)
   })
 })

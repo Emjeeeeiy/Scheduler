@@ -11,14 +11,62 @@
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { formatFullDayLabel, todayKey } from '@cadence/shared/date.js'
 import { JournalView } from '../src/components/views/JournalView.jsx'
 import { ThemeProvider } from '../src/state/ThemeContext.jsx'
-import { resetMockJournal } from './smoke/mockJournal.js'
+import { addMockDayNote, resetMockJournal } from './smoke/mockJournal.js'
 import { installProseMirrorDom } from './helpers/prosemirrorDom.js'
 
-const toast = vi.hoisted(() => ({ pushError: vi.fn(), pushSuccess: vi.fn(), pushUndo: vi.fn() }))
+const toast = vi.hoisted(() => ({
+  pushError: vi.fn(),
+  pushSuccess: vi.fn(),
+  pushWarning: vi.fn(),
+  pushUndo: vi.fn(),
+}))
+// What the schedule holds for the days under test, and whether the Journal's
+// list is still waiting for its first snapshot.
+const schedule = vi.hoisted(() => ({
+  tasks: {},
+  events: {},
+  toggleDone: vi.fn(),
+  addTask: vi.fn(),
+  removeTask: vi.fn(),
+  scheduleTask: vi.fn(),
+}))
+const journalState = vi.hoisted(() => ({ loading: false }))
 
-vi.mock('../src/state/useJournal.js', async () => import('./smoke/mockJournal.js'))
+vi.mock('../src/state/useJournal.js', async () => {
+  const store = await import('./smoke/mockJournal.js')
+  return {
+    ...store,
+    // The store answers at once; this holds the list in "first snapshot not here yet".
+    useJournalNotes: () => {
+      const result = store.useJournalNotes()
+      return journalState.loading ? { ...result, loading: true, notes: [], trashed: [] } : result
+    },
+  }
+})
+vi.mock('../src/state/ScheduleContext.jsx', () => ({
+  useSchedule: () => ({
+    tasksOn: (key) => schedule.tasks[key] ?? [],
+    eventsOn: (key) => schedule.events[key] ?? [],
+    getTag: () => null,
+    toggleDone: schedule.toggleDone,
+    addTask: schedule.addTask,
+    removeTask: schedule.removeTask,
+    scheduleTask: schedule.scheduleTask,
+  }),
+}))
+// The open note's schedule tools (Plan it) read the account and may ask the AI;
+// neither is what this file is about.
+vi.mock('../src/state/AuthContext.jsx', () => ({
+  useAuth: () => ({
+    emailVerified: true,
+    resendVerification: vi.fn(async () => true),
+    checkVerification: vi.fn(async () => false),
+  }),
+}))
+vi.mock('../src/lib/aiClient.js', () => ({ notePlanAi: vi.fn(async () => null) }))
 vi.mock('../src/state/ToastContext.jsx', () => ({ useToast: () => toast }))
 vi.mock('../src/state/SettingsContext.jsx', () => ({
   useSettings: () => ({ settings: { journalPaper: null }, updateSetting: vi.fn() }),
@@ -34,19 +82,27 @@ beforeEach(() => {
   localStorage.clear()
   toast.pushError.mockReset()
   toast.pushSuccess.mockReset()
+  toast.pushWarning.mockReset()
   toast.pushUndo.mockReset()
+  schedule.tasks = {}
+  schedule.events = {}
+  schedule.toggleDone.mockReset()
+  schedule.addTask.mockReset()
+  schedule.removeTask.mockReset()
+  schedule.scheduleTask.mockReset()
+  journalState.loading = false
 })
 afterEach(() => {
   cleanup()
   document.body.innerHTML = ''
 })
 
-const page = () =>
-  render(
-    <ThemeProvider>
-      <JournalView />
-    </ThemeProvider>,
-  )
+const view = (props) => (
+  <ThemeProvider>
+    <JournalView {...props} />
+  </ThemeProvider>
+)
+const page = (props) => render(view(props))
 
 const rowTitles = (container) => [...container.querySelectorAll('.note-row__name')].map((el) => el.textContent)
 
@@ -146,5 +202,178 @@ describe('an open note', () => {
     expect(toast.pushUndo.mock.calls[0][0]).toContain('Reading list')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Trash · 2' })).toBeTruthy())
     expect(rowTitles(container)).not.toContain('Reading list')
+  })
+})
+
+/* A note belongs to a day by its dayKey — the Journal's link to the schedule.
+   The calendar's "Open journal" buttons arrive as an intent naming a day; a day
+   note shows that day back, with the way to it. */
+describe('day notes', () => {
+  const DAY = '2026-03-02'
+  const openRows = (container) => rowTitles(container).filter((title) => title === formatFullDayLabel(DAY))
+
+  it('Today opens the note the day already has, and starts no second one', async () => {
+    const key = todayKey()
+    addMockDayNote(key, { title: 'My Monday' })
+    const { container } = page()
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    await waitFor(() => expect(container.querySelector('input.note-title').value).toBe('My Monday'))
+    expect(rowTitles(container).filter((title) => title === formatFullDayLabel(key))).toEqual([])
+  })
+
+  it('Today starts a note titled with the date when the day has none', async () => {
+    const { container } = page()
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    await waitFor(() => expect(container.querySelector('input.note-title').value).toBe(formatFullDayLabel(todayKey())))
+  })
+
+  it('Today pressed before the list has loaded waits, and starts exactly one note', async () => {
+    journalState.loading = true
+    const { container, rerender } = page()
+    fireEvent.click(screen.getByRole('button', { name: 'Today' }))
+    // Nothing is made while the list is unknown: an empty list would say "no note
+    // for today" and start a second one beside the one that is about to arrive.
+    expect(container.querySelector('.note-head')).toBeNull()
+
+    addMockDayNote(todayKey(), { title: 'Already there' })
+    journalState.loading = false
+    rerender(view())
+    await waitFor(() => expect(container.querySelector('input.note-title').value).toBe('Already there'))
+    expect(rowTitles(container).filter((title) => title === formatFullDayLabel(todayKey()))).toEqual([])
+  })
+
+  describe('asked for from the schedule', () => {
+    it('opens the note a day has', async () => {
+      addMockDayNote(DAY, { title: 'Moving day' })
+      const onIntentHandled = vi.fn()
+      const { container } = page({ intent: { kind: 'day', dayKey: DAY }, onIntentHandled })
+      await waitFor(() => expect(container.querySelector('input.note-title').value).toBe('Moving day'))
+      expect(onIntentHandled).toHaveBeenCalledTimes(1)
+      expect(openRows(container)).toEqual([])
+    })
+
+    it('starts one, titled with the date and linked to it, when the day has none', async () => {
+      const onIntentHandled = vi.fn()
+      const { container } = page({ intent: { kind: 'day', dayKey: DAY }, onIntentHandled })
+      await waitFor(() => expect(container.querySelector('input.note-title').value).toBe(formatFullDayLabel(DAY)))
+      expect(onIntentHandled).toHaveBeenCalledTimes(1)
+      // Linked by day, so it is the one the next ask finds — and it has its band.
+      expect(container.querySelector('.note-day')).toBeTruthy()
+      expect(openRows(container)).toHaveLength(1)
+    })
+
+    it('waits for the list to load before deciding', async () => {
+      journalState.loading = true
+      addMockDayNote(DAY, { title: 'Moving day' })
+      const onIntentHandled = vi.fn()
+      const { container, rerender } = page({ intent: { kind: 'day', dayKey: DAY }, onIntentHandled })
+      expect(container.querySelector('.note-head')).toBeNull()
+      expect(onIntentHandled).not.toHaveBeenCalled()
+
+      journalState.loading = false
+      rerender(view({ intent: { kind: 'day', dayKey: DAY }, onIntentHandled }))
+      await waitFor(() => expect(container.querySelector('input.note-title').value).toBe('Moving day'))
+      expect(openRows(container)).toEqual([])
+    })
+
+    it('ignores a day that is not a date, and still clears the intent', async () => {
+      const onIntentHandled = vi.fn()
+      const { container } = page({ intent: { kind: 'day', dayKey: 'someday' }, onIntentHandled })
+      await waitFor(() => expect(onIntentHandled).toHaveBeenCalledTimes(1))
+      expect(container.querySelector('.note-head')).toBeNull()
+      expect(rowTitles(container)).toEqual(['Trip to Cebu', 'Untitled', 'Reading list'])
+    })
+  })
+
+  describe('the band under a day note’s header', () => {
+    const water = { id: 't1', title: 'Water the plants', startMin: 540, durationMin: 30, done: false, tagId: null }
+    const standup = { id: 't2', title: 'Stand-up', startMin: 600, durationMin: 15, done: true, tagId: null }
+    const dentist = { id: 'e1', title: 'Dentist', startMin: 900, tagId: null }
+
+    async function openDayNote(props = {}) {
+      addMockDayNote(DAY, { title: 'Moving day' })
+      const view = page({ intent: { kind: 'day', dayKey: DAY }, onIntentHandled: vi.fn(), ...props })
+      await waitFor(() => expect(view.container.querySelector('input.note-title').value).toBe('Moving day'))
+      return view
+    }
+
+    it('is not there on a note that belongs to no day', async () => {
+      const { container } = page()
+      await open(container, 'Trip to Cebu')
+      expect(container.querySelector('.note-day')).toBeNull()
+    })
+
+    it('sits right under the header, above the toolbar, with the day and a summary', async () => {
+      schedule.tasks[DAY] = [water, standup]
+      schedule.events[DAY] = [dentist]
+      const { container } = await openDayNote()
+      const band = container.querySelector('.note-day')
+      const order = [...container.querySelector('.note-surface').children].map((el) => el.className.split(' ')[0])
+      expect(order.indexOf('note-day')).toBe(order.indexOf('note-head') + 1)
+      expect(order.indexOf('note-day')).toBeLessThan(order.indexOf('journal-toolbar'))
+      expect(band.textContent).toContain(formatFullDayLabel(DAY))
+      expect(band.textContent).toContain('2 tasks, 1 done · 1 event')
+    })
+
+    it('says so when the day is empty', async () => {
+      const { container } = await openDayNote()
+      expect(container.querySelector('.note-day').textContent).toContain('Nothing scheduled')
+    })
+
+    it('is one quiet line until it is opened, and remembers that it was', async () => {
+      schedule.tasks[DAY] = [water]
+      const first = await openDayNote()
+      const toggle = first.container.querySelector('.note-day__toggle')
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      expect(first.container.querySelector('.note-day__list').hidden).toBe(true)
+      expect(screen.queryByText('Water the plants')).toBeNull()
+
+      fireEvent.click(toggle)
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      expect(first.container.querySelector('.note-day__list').hidden).toBe(false)
+      expect(screen.getByText('Water the plants')).toBeTruthy()
+      first.unmount()
+
+      // Opened on the next visit too, as the list's own toggle is.
+      const again = await openDayNote()
+      expect(again.container.querySelector('.note-day__toggle').getAttribute('aria-expanded')).toBe('true')
+    })
+
+    it('ticks the real task when its box is ticked', async () => {
+      schedule.tasks[DAY] = [water]
+      const { container } = await openDayNote()
+      fireEvent.click(container.querySelector('.note-day__toggle'))
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Mark "Water the plants" done' }))
+      await waitFor(() => expect(schedule.toggleDone).toHaveBeenCalledExactlyOnceWith('t1'))
+      expect(toast.pushError).not.toHaveBeenCalled()
+    })
+
+    it('says so when ticking a task does not work', async () => {
+      schedule.toggleDone.mockRejectedValue(new Error('permission-denied'))
+      schedule.tasks[DAY] = [water]
+      const { container } = await openDayNote()
+      fireEvent.click(container.querySelector('.note-day__toggle'))
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Mark "Water the plants" done' }))
+      await waitFor(() => expect(toast.pushError).toHaveBeenCalledWith('Could not update the task.'))
+    })
+
+    it('opens a task or an event over the note, and goes back to the day', async () => {
+      schedule.tasks[DAY] = [water]
+      schedule.events[DAY] = [dentist]
+      const onEdit = vi.fn()
+      const onEditEvent = vi.fn()
+      const onFocusDay = vi.fn()
+      const { container } = await openDayNote({ onEdit, onEditEvent, onFocusDay })
+      const band = within(container.querySelector('.note-day'))
+      fireEvent.click(container.querySelector('.note-day__toggle'))
+
+      fireEvent.click(band.getByRole('button', { name: /Water the plants/ }))
+      expect(onEdit).toHaveBeenCalledExactlyOnceWith(water)
+      fireEvent.click(band.getByRole('button', { name: /Dentist/ }))
+      expect(onEditEvent).toHaveBeenCalledExactlyOnceWith(dentist)
+
+      fireEvent.click(band.getByRole('button', { name: 'Open day' }))
+      expect(onFocusDay).toHaveBeenCalledExactlyOnceWith(DAY)
+    })
   })
 })

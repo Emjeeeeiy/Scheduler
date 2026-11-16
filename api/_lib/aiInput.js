@@ -28,6 +28,11 @@ export const CAPS = {
   existingTasks: 40,
   messages: 12,
   messageChars: 2000,
+  // A journal note's lines, as the Journal's "Plan it" sends them. The largest
+  // thing any route reads by a long way, and the one place an AI route is sent
+  // what someone WROTE — so it is capped here and cut at a line by the client
+  // before it is ever sent (OUTLINE_MAX in packages/shared/src/journal.js).
+  noteText: 8000,
 }
 
 const PRIORITIES = new Set(['low', 'normal', 'high'])

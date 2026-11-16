@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
+import { useDayNotes } from '../../state/DayNotesContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { FULL_DAY_END, FULL_DAY_START, hourMarks, visibleWindow } from '@cadence/shared/layout.js'
 import { HEAVY_DAY_MIN, dayStats } from '@cadence/shared/stats.js'
@@ -19,6 +20,7 @@ import {
   weekdayHeaders,
 } from '@cadence/shared/date.js'
 import { DayColumn } from '../calendar/DayColumn.jsx'
+import { DAY_NOTE_WORDS, DayNoteMark } from '../calendar/DayNoteMark.jsx'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 
@@ -36,6 +38,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
   const { tasksOn, eventsInRange, eventsOn, getTag, scheduleTask, moveEvent } = useSchedule()
   const { pushError } = useToast()
   const { settings } = useSettings()
+  const { byDay: dayNotes } = useDayNotes()
   const now = useNow()
   const coarse = useCoarsePointer()
   const [dropKey, setDropKey] = useState(null)
@@ -167,6 +170,7 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
               const isHeavy = stats.plannedMin > HEAVY_DAY_MIN
               const loadPct = Math.min(100, (stats.plannedMin / HEAVY_DAY_MIN) * 100)
               const eventCount = eventsByDay[index].length
+              const hasNote = dayNotes.has(key)
               return (
                 <button
                   key={key}
@@ -185,10 +189,12 @@ export function WeekGrid({ focusKey, onEdit, onCreate, onEditEvent, onCreateEven
                     `${headers[index]} ${dayOfMonth(key)}`,
                     stats.plannedMin > 0 ? `${durationLabel(stats.plannedMin)} planned` : null,
                     eventCount > 0 ? `${eventCount} event${eventCount === 1 ? '' : 's'}` : null,
+                    hasNote ? DAY_NOTE_WORDS : null,
                   ]
                     .filter(Boolean)
                     .join(', ')}
                 >
+                  {hasNote && <DayNoteMark />}
                   <span className="week__dow">{headers[index]}</span>
                   <span className="week__date">{dayOfMonth(key)}</span>
                   {stats.plannedMin > 0 && (
