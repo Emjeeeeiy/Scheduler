@@ -29,6 +29,7 @@ import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
+import { DayNoteButton } from '../calendar/DayNoteButton.jsx'
 import { PixelType } from './PixelType.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
@@ -58,7 +59,7 @@ const RANGES = [
  * Counts that used to be tiles of their own live where they belong: today's
  * open/done/left in the hero, the inbox beside Next up, overdue in its list.
  */
-export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
+export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDayNote }) {
   const { tasks, tags, tasksOn, occurrencesOn, inbox } = useSchedule()
   const { settings } = useSettings()
   const now = useNow()
@@ -167,13 +168,18 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate }) {
                 </div>
               </dl>
             )}
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => onCreate?.({ date: now.key })}
-            >
-              Plan something for today
-            </button>
+            {/* Still one primary action. Today's journal page sits beside it as
+                the quiet second one: the day's freeform side, one tap away. */}
+            <div className="hero__actions">
+              <DayNoteButton dayKey={now.key} onOpen={onOpenDayNote} small={false} />
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => onCreate?.({ date: now.key })}
+              >
+                Plan something for today
+              </button>
+            </div>
           </div>
         </section>
 

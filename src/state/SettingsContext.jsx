@@ -14,6 +14,7 @@ export const SHORTCUT_ACTIONS = [
   { id: 'jumpToday', label: 'Jump to today' },
   { id: 'prevDate', label: 'Previous day/week/month' },
   { id: 'nextDate', label: 'Next day/week/month' },
+  { id: 'dayNote', label: "Open the day's journal note" },
 ]
 
 export const DEFAULT_SHORTCUTS = {
@@ -22,6 +23,23 @@ export const DEFAULT_SHORTCUTS = {
   jumpToday: 't',
   prevDate: 'ArrowLeft',
   nextDate: 'ArrowRight',
+  dayNote: 'j',
+}
+
+/** A stored shortcut map, completed with the defaults for any action it
+    predates. An action added after someone rebound keys can find its default
+    already taken — say `j`, moved onto New task — and two actions on one key
+    would leave the later one dead, since the listener runs the first match.
+    So a new action whose default is taken starts unbound (null, shown as
+    "None" in Settings) rather than colliding; rebinding it works as usual. */
+export function mergeShortcuts(stored) {
+  const saved = stored && typeof stored === 'object' ? stored : {}
+  const taken = new Set(Object.values(saved))
+  const merged = { ...saved }
+  for (const [id, key] of Object.entries(DEFAULT_SHORTCUTS)) {
+    if (!(id in saved)) merged[id] = taken.has(key) ? null : key
+  }
+  return merged
 }
 
 /* One persisted object rather than a usePersistentState call per setting —
@@ -59,8 +77,9 @@ export function SettingsProvider({ children }) {
     ...stored,
     /* Merged one level deeper than the rest, because this one is an object:
        a stored map written before an action existed would otherwise leave
-       that action permanently unbound, with no way to notice from the UI. */
-    shortcuts: { ...DEFAULT_SHORTCUTS, ...stored?.shortcuts },
+       that action permanently unbound, with no way to notice from the UI.
+       See mergeShortcuts for the one case where unbound is the right answer. */
+    shortcuts: mergeShortcuts(stored?.shortcuts),
   }))
 
   const value = useMemo(

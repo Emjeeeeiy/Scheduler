@@ -97,6 +97,20 @@ export function resetMockJournal() {
   for (const listener of listeners) listener()
 }
 
+/** Adds a live note for `dayKey` to the store and returns its id — for the tests
+    of the day ↔ note link (tests/dayNotes.test.jsx). Not part of the seed:
+    journalPage.test.jsx pins the seed's order, and a day note in it would change
+    what every one of those tests sees. Undone by resetMockJournal. */
+export function addMockDayNote(dayKey, fields = {}, doc = undefined) {
+  const id = `day${++counter}`
+  const seeded = seedNote(id, { title: `Notes for ${dayKey}`, dayKey, ...fields }, doc)
+  commit({
+    notes: { ...state.notes, [id]: seeded.note },
+    bodies: { ...state.bodies, [id]: seeded.body },
+  })
+  return id
+}
+
 export function useJournalNotes() {
   const current = useSyncExternalStore(subscribe, getState, getState)
   return useMemo(() => {

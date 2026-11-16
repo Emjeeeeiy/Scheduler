@@ -18,6 +18,9 @@ function bindableKey(event) {
 
 /** Arrow keys read as symbols; everything else is a literal key. */
 function keyLabel(key) {
+  // Unbound: an action added after its default key was given to another one
+  // (see mergeShortcuts), or one that gave its key away in a swap.
+  if (!key) return 'None'
   const arrows = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' }
   return arrows[key] ?? key
 }

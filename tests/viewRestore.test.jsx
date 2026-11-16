@@ -38,6 +38,10 @@ vi.mock('../src/state/AuthContext.jsx', () => ({
   useAuth: () => ({ user: { uid: 'user-1' }, loading: false, emailVerified: true }),
 }))
 
+/* The shell listens to which days have a Journal note (DayNotesProvider), and the
+   `db` above is not a real one. */
+vi.mock('../src/state/useJournal.js', async () => import('./smoke/mockJournal.js'))
+
 /* Enough of a schedule for the shell to mount. The views themselves are stubbed
    out below — what these tests care about is which one gets chosen. */
 vi.mock('../src/state/ScheduleContext.jsx', () => ({
@@ -59,7 +63,7 @@ vi.mock('../src/state/SettingsContext.jsx', () => ({
     settings: {
       weekStartsOn: 1,
       landingView: landingView.current,
-      shortcuts: { newTask: 'n', newEvent: 'e', jumpToday: 't' },
+      shortcuts: { newTask: 'n', newEvent: 'e', jumpToday: 't', dayNote: 'j' },
       workingHours: null,
     },
     updateSetting: vi.fn(),
@@ -87,7 +91,10 @@ vi.mock('../src/components/views/WeekGrid.jsx', () => ({ WeekGrid: () => <div cl
 vi.mock('../src/components/views/MonthCalendar.jsx', () => ({ MonthCalendar: () => <div className="view-month" /> }))
 vi.mock('../src/components/views/ReviewView.jsx', () => ({ ReviewView: () => <div className="view-review" /> }))
 vi.mock('../src/components/views/FocusMode.jsx', () => ({ FocusMode: () => <div className="view-focus" /> }))
-vi.mock('../src/components/views/JournalView.jsx', () => ({ JournalView: () => <div className="view-journal" /> }))
+/* Shows what the shell asked the Journal to do, so a test can read it back. */
+vi.mock('../src/components/views/JournalView.jsx', () => ({
+  JournalView: ({ intent }) => <div className="view-journal" data-intent={JSON.stringify(intent ?? null)} />,
+}))
 vi.mock('../src/components/views/SettingsView.jsx', () => ({
   SettingsView: ({ section, detail }) => (
     <div className="view-settings" data-section={section} data-detail={String(detail)} />
@@ -240,5 +247,59 @@ describe('Settings is a page, not a dialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }))
     expect(container.querySelector('.view-dashboard')).toBeTruthy()
     expect(container.querySelector('.view-settings')).toBeNull()
+  })
+})
+
+/* The shell's two ways to a day's Journal note that are not a button on the day:
+   the palette and the `j` shortcut. Both leave an intent naming the day for the
+   Journal (it may not be loaded yet), and the day is the one on screen in Day,
+   Week and Month — today anywhere else — the same rule New task uses. */
+describe('opening a day’s journal note from the keyboard', () => {
+  const FOCUS_KEY = 'cadence-app:focus'
+  const intentOf = (container) => JSON.parse(container.querySelector('.view-journal').dataset.intent)
+  const today = () => {
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+  }
+
+  it('`j` opens today’s note from a page that is not about a day', async () => {
+    const container = refresh()
+    expect(container.querySelector('.view-dashboard')).toBeTruthy()
+    fireEvent.keyDown(document.body, { key: 'j' })
+    await waitFor(() => expect(container.querySelector('.view-journal')).toBeTruthy())
+    expect(activePage()).toBe('Journal')
+    expect(intentOf(container)).toEqual({ kind: 'day', dayKey: today() })
+  })
+
+  it('`j` opens the note of the day on screen in a dated view', async () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('month'))
+    localStorage.setItem(FOCUS_KEY, JSON.stringify('2099-01-15'))
+    const container = refresh()
+    fireEvent.keyDown(document.body, { key: 'j' })
+    await waitFor(() => expect(container.querySelector('.view-journal')).toBeTruthy())
+    expect(intentOf(container)).toEqual({ kind: 'day', dayKey: '2099-01-15' })
+  })
+
+  it('`j` does nothing while typing in a field', () => {
+    const container = refresh()
+    const field = document.createElement('input')
+    document.body.append(field)
+    fireEvent.keyDown(field, { key: 'j' })
+    field.remove()
+    expect(container.querySelector('.view-journal')).toBeNull()
+    expect(container.querySelector('.view-dashboard')).toBeTruthy()
+  })
+
+  it('the palette lists the command with the day it means, and runs it', async () => {
+    localStorage.setItem(LAST_VIEW_KEY, JSON.stringify('week'))
+    localStorage.setItem(FOCUS_KEY, JSON.stringify('2099-01-15'))
+    const container = refresh()
+    fireEvent.click(screen.getByText('Search'))
+    const row = screen.getByText("Open the day's journal note").closest('[role="option"]')
+    expect(row.textContent).toMatch(/2099|Jan/)
+    fireEvent.click(row)
+    await waitFor(() => expect(container.querySelector('.view-journal')).toBeTruthy())
+    expect(intentOf(container)).toEqual({ kind: 'day', dayKey: '2099-01-15' })
   })
 })

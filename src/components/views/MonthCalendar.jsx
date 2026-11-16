@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
+import { useDayNotes } from '../../state/DayNotesContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { DRAG_EVENT, DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
@@ -21,6 +22,7 @@ import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
 import { DayPeek } from '../calendar/DayPeek.jsx'
+import { DAY_NOTE_WORDS, DayNoteMark } from '../calendar/DayNoteMark.jsx'
 
 /* How many rows of content a cell can hold at all — event lanes and task chips
    share this budget, so a day with two spanning bars shows fewer chips rather
@@ -42,7 +44,9 @@ function MonthWeek({
   tasksOn,
   eventsInRange,
   getTag,
+  dayNotes,
   onFocusDay,
+  onOpenDayNote,
   onCreate,
   onEdit,
   onEditEvent,
@@ -79,6 +83,7 @@ function MonthWeek({
         // One honest number: the day's own hidden tasks plus any event bar
         // that could not be given a lane.
         const overflow = tasks.length - shown.length + overflowByDay[index]
+        const hasNote = dayNotes.has(key)
 
         return (
           <div
@@ -113,11 +118,12 @@ function MonthWeek({
               </span>
             )}
 
-            {/* The number, and nothing beside it: the day's load is the strip
-                along the top of the cell, and the hours it stood for are said
-                to anyone who asks rather than printed in every cell. On a phone
-                the number's button spreads over the whole cell (see the phone
-                rules), so the cell itself is "open this day". */}
+            {/* The number, and nothing beside it but the Journal's mark: the
+                day's load is the strip along the top of the cell, and the hours
+                it stood for are said to anyone who asks rather than printed in
+                every cell. On a phone the number's button spreads over the
+                whole cell (see the phone rules), so the cell itself is "open
+                this day" — and the Day view it opens has the journal button. */}
             <div className="month__cell-head">
               <button
                 type="button"
@@ -125,10 +131,11 @@ function MonthWeek({
                 onClick={() => onFocusDay(key)}
                 aria-label={`Open ${key}${
                   stats.plannedMin > 0 ? `, ${durationLabel(stats.plannedMin)} planned` : ''
-                }`}
+                }${hasNote ? `, ${DAY_NOTE_WORDS}` : ''}`}
               >
                 {dayOfMonth(key)}
               </button>
+              {hasNote && <DayNoteMark />}
             </div>
 
             {/* Reserves the lanes' height so chips start below the bars. */}
@@ -181,6 +188,7 @@ function MonthWeek({
                     onEdit={onEdit}
                     onEditEvent={onEditEvent}
                     onFocusDay={onFocusDay}
+                    onOpenDayNote={onOpenDayNote}
                   />
                 </li>
               )}
@@ -278,10 +286,11 @@ function MonthWeek({
   )
 }
 
-export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEvent }) {
+export function MonthCalendar({ focusKey, onFocusDay, onOpenDayNote, onCreate, onEdit, onEditEvent }) {
   const { tasksOn, eventsInRange, getTag, updateTask, moveEvent } = useSchedule()
   const { pushError } = useToast()
   const { settings } = useSettings()
+  const { byDay: dayNotes } = useDayNotes()
   const now = useNow()
   const [dropKey, setDropKey] = useState(null)
 
@@ -353,7 +362,9 @@ export function MonthCalendar({ focusKey, onFocusDay, onCreate, onEdit, onEditEv
             tasksOn={tasksOn}
             eventsInRange={eventsInRange}
             getTag={getTag}
+            dayNotes={dayNotes}
             onFocusDay={onFocusDay}
+            onOpenDayNote={onOpenDayNote}
             onCreate={onCreate}
             onEdit={onEdit}
             onEditEvent={onEditEvent}

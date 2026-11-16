@@ -445,6 +445,7 @@
 }
 
 .week__day {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -508,6 +509,22 @@
   display: grid;
   place-items: center;
   font-size: var(--text-item);
+}
+
+/* A day with a Journal note (DayNoteMark): the Journal's own icon, small and in
+   the secondary text colour — a fact about the day, never an accent. Out of the
+   flow wherever it sits, so a marked day is exactly the size of an unmarked one
+   and nothing beside it shifts. The words are in the day's accessible name. */
+.day-note-mark {
+  flex: none;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.week__day .day-note-mark {
+  position: absolute;
+  top: 7px;
+  right: 6px;
 }
 
 .week__allday {
@@ -832,6 +849,12 @@
 
 .month__daynum:hover {
   background: var(--color-surface-2);
+}
+
+/* The head row is space-between: the number at the start, the note's mark at
+   the far end — the corner the hover-only "+" (bottom right) never reaches. */
+.month__cell-head .day-note-mark {
+  margin-right: 2px;
 }
 
 .month__chips {

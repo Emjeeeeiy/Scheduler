@@ -15,7 +15,7 @@
  * has an exact byte size to budget against before a write is attempted.
  */
 
-import { isValidKey } from './date.js'
+import { formatFullDayLabel, isValidKey, minToLabel } from './date.js'
 
 export const SCHEMA_VERSION = 1
 
@@ -197,6 +197,34 @@ export function findNoteForDay(notes, dayKey) {
   return notes.find((note) => note.dayKey === dayKey && note.deletedAt === null) ?? null
 }
 
+/** Every day that has a live note, mapped to the note findNoteForDay would open
+    for it — the first one in `notes` order, so the calendar's mark and the
+    Journal can never disagree about which note a day means. Two notes for one
+    day (an import, or two devices pressing Today offline) are harmless: the
+    other one is still in the list, just not the day's. Pass the list sorted
+    (sortNotes) for "first" to mean pinned, then most recently edited. */
+export function notesByDay(notes) {
+  const byDay = new Map()
+  for (const note of notes) {
+    if (note.deletedAt !== null || !isValidKey(note.dayKey) || byDay.has(note.dayKey)) continue
+    byDay.set(note.dayKey, note)
+  }
+  return byDay
+}
+
+/** What a new note for a day starts as. The title is only a starting label —
+    renaming the note never unlinks it, because the day is `dayKey`. */
+export function dayNoteDraft(dayKey) {
+  return { title: formatFullDayLabel(dayKey), dayKey }
+}
+
+/** The day a note's plan lands on: the note's own day if it is today or later,
+    otherwise today. A plan never goes into the past, and a note with no day
+    (or one for a day long gone) plans onto today. */
+export function planningDay(dayKey, today) {
+  return isValidKey(dayKey) && dayKey >= today ? dayKey : today
+}
+
 /* ----------------------------------------------------------------- body -- */
 
 function isDocShape(value) {
@@ -335,6 +363,134 @@ export function summarizeDoc(doc, { limit = EXCERPT_MAX } = {}) {
 
 export function plainTextOf(doc, limit = EXCERPT_MAX) {
   return summarizeDoc(doc, { limit }).excerpt
+}
+
+/* ------------------------------------------------------------- planning -- */
+
+/** How much of a note "Plan it" will ever send for reading. The server caps its
+    input at the same figure (api/_lib/aiInput.js, CAPS.noteText) — this is the
+    client keeping to it, cut at a line so the last thing read is never half a
+    sentence. */
+export const OUTLINE_MAX = 8000
+
+const OUTLINE_SKIP = new Set(['drawing', 'image'])
+
+const squash = (text) => text.replace(/\s+/g, ' ').trim()
+
+/** The text of an inline run (a paragraph or heading), as one line. Drawings and
+    images contribute nothing. */
+function inlineText(node, depth = 0) {
+  if (!node || typeof node !== 'object' || depth > MAX_DEPTH || OUTLINE_SKIP.has(node.type)) return ''
+  if (node.type === 'text') return typeof node.text === 'string' ? node.text : ''
+  if (node.type === 'hardBreak') return ' '
+  if (!Array.isArray(node.content)) return ''
+  return node.content.map((child) => inlineText(child, depth + 1)).join('')
+}
+
+/** A note as [{ kind, text }] in reading order: 'text' (a paragraph or heading),
+    'item' (a bullet or numbered item) and 'todo' (an UNCHECKED checklist item).
+    A checked item's own line is left out — it is done, not a thing to plan — but
+    anything nested under it is still read, since an unchecked item inside a
+    ticked one is still open. Drawings and images are skipped. */
+function outlineEntries(doc) {
+  const entries = []
+
+  function walk(node, depth) {
+    if (!node || typeof node !== 'object' || depth > MAX_DEPTH || OUTLINE_SKIP.has(node.type)) return
+    const children = Array.isArray(node.content) ? node.content : []
+
+    if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'codeBlock') {
+      const text = squash(inlineText(node))
+      if (text) entries.push({ kind: 'text', text })
+      return
+    }
+
+    if (node.type === 'listItem' || node.type === 'taskItem') {
+      // "paragraph block*": the first paragraph is the item's own line, whatever
+      // follows it (a nested list) is read in turn.
+      const [first, ...rest] = children
+      const hasOwn = first?.type === 'paragraph'
+      const text = hasOwn ? squash(inlineText(first)) : ''
+      if (text && !(node.type === 'taskItem' && node.attrs?.checked === true)) {
+        entries.push({ kind: node.type === 'taskItem' ? 'todo' : 'item', text })
+      }
+      for (const child of hasOwn ? rest : children) walk(child, depth + 1)
+      return
+    }
+
+    // doc, lists, quotes, tables, rows and cells: just look inside.
+    for (const child of children) walk(child, depth + 1)
+  }
+
+  walk(doc, 0)
+  return entries
+}
+
+/** What "Plan it" reads: the note as plain lines — `- ` before a bullet, `[ ] `
+    before an unchecked checklist item — so the structure the writer used (which
+    of these is a to-do) survives, where plainTextOf would flatten it to one
+    run. Cut at a line before `limit`; a single line longer than that is cut
+    itself, rather than sending nothing. */
+export function noteOutline(doc, limit = OUTLINE_MAX) {
+  const lines = []
+  let size = 0
+  for (const { kind, text } of outlineEntries(doc)) {
+    const line = kind === 'todo' ? `[ ] ${text}` : kind === 'item' ? `- ${text}` : text
+    const cost = line.length + (lines.length > 0 ? 1 : 0)
+    if (size + cost > limit) {
+      if (lines.length === 0) lines.push(line.slice(0, limit))
+      break
+    }
+    lines.push(line)
+    size += cost
+  }
+  return lines.join('\n')
+}
+
+/** The unchecked checklist items, as plain text, in order — what "Plan it" can
+    propose with no network at all, because the writer already made them a list. */
+export function uncheckedTaskLines(doc) {
+  return outlineEntries(doc)
+    .filter((entry) => entry.kind === 'todo')
+    .map((entry) => entry.text)
+}
+
+/** A day's items as note content, for "Copy the day into the note": the events
+    as a bullet list, then the tasks as a checklist (ticked if done). Blocks, not
+    a document, so they can be inserted at the cursor. A timed item reads
+    `9:00 AM — Title`; an all-day one is just its title.
+
+    The em dash is deliberate and so is the plain title: these lines are
+    checklist items, and "Plan it" reads checklists. `9:00 AM — Stand-up` parses
+    back to the title "Stand-up" at 9:00, which matches the task already on the
+    day and is held back as a duplicate; any other separator, or a bracketed time,
+    leaves stray punctuation in the title and would propose it all over again.
+    Empty when the day has nothing. */
+export function dayCopyContent({ tasks = [], events = [] } = {}) {
+  const line = (item) => {
+    const title = String(item?.title ?? '').trim() || 'Untitled'
+    return Number.isFinite(item?.startMin) ? `${minToLabel(item.startMin)} — ${title}` : title
+  }
+  const paragraph = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+
+  const blocks = []
+  if (events.length > 0) {
+    blocks.push({
+      type: 'bulletList',
+      content: events.map((event) => ({ type: 'listItem', content: [paragraph(line(event))] })),
+    })
+  }
+  if (tasks.length > 0) {
+    blocks.push({
+      type: 'taskList',
+      content: tasks.map((task) => ({
+        type: 'taskItem',
+        attrs: { checked: task.done === true },
+        content: [paragraph(line(task))],
+      })),
+    })
+  }
+  return blocks
 }
 
 const encoder = typeof TextEncoder === 'undefined' ? null : new TextEncoder()

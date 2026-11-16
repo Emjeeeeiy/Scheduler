@@ -1,12 +1,14 @@
-import { useEffect, useRef } from 'react'
-import { formatFullDayLabel, todayKey } from '@cadence/shared/date.js'
-import { findNoteForDay, noteDisplayTitle, normalizePaper } from '@cadence/shared/journal.js'
+import { useEffect, useRef, useState } from 'react'
+import { isValidKey, todayKey } from '@cadence/shared/date.js'
+import { dayNoteDraft, findNoteForDay, noteDisplayTitle, normalizePaper } from '@cadence/shared/journal.js'
 import { loadJournalFonts } from '../../lib/journalFonts.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { useJournalActions, useJournalNotes } from '../../state/useJournal.js'
+import { NoteDayPanel } from '../journal/NoteDayPanel.jsx'
 import { NoteEditor, NoteSkeleton } from '../journal/NoteEditor.jsx'
+import { NoteScheduleToolsProvider } from '../journal/NoteScheduleTools.jsx'
 import { NoteList } from '../journal/NoteList.jsx'
 import '../../styles/journal.css'
 
@@ -18,6 +20,12 @@ import '../../styles/journal.css'
  * Reading and writing are in state/useJournal.js; the editor and everything
  * about a single note are in components/journal/. The open note is remembered
  * across a reload, like the schedule's date cursor.
+ *
+ * A note can belong to a day (its `dayKey`). That is the Journal's link to the
+ * schedule, both ways: the calendar's "Open journal" buttons arrive here as an
+ * intent naming a day (openDay finds or starts its note), and a day note shows
+ * that day's tasks and events, with the way back to it (NoteDayPanel) — which
+ * is why the item editors and the date cursor are passed in from App.jsx.
  *
  * It is loaded on demand (App.jsx lazy-loads it), so the editor — most of the
  * app's weight by far — costs nothing until someone opens the page.
@@ -31,7 +39,7 @@ const LIST_HIDDEN_KEY = 'cadence-app:journal-list-hidden'
 // was purged elsewhere (or never written) rather than still on its way.
 const MISSING_GRACE_MS = 3000
 
-export function JournalView({ intent = null, onIntentHandled }) {
+export function JournalView({ intent = null, onIntentHandled, onFocusDay, onEdit, onEditEvent }) {
   const { notes, trashed, loading, error } = useJournalNotes()
   const actions = useJournalActions()
   const { settings, updateSetting } = useSettings()
@@ -77,12 +85,37 @@ export function JournalView({ intent = null, onIntentHandled }) {
     setSelectedId(id)
   }
 
-  function openToday() {
-    const key = todayKey()
+  /* A day asked for before the list has loaded waits here. Answering it from an
+     empty list would find no note for the day and start a second one — so
+     pressing Today in the moment before the first snapshot used to do exactly
+     that. Run once the list is in (below). */
+  const [pendingDay, setPendingDay] = useState(null)
+
+  /** The day's note — the one already written for it, or a new one titled with
+      the date. A note belongs to a day by its `dayKey`, never by its title, so
+      a renamed day note is still found. */
+  function openDay(key) {
+    if (loading || !actions) {
+      setPendingDay(key)
+      return
+    }
     const existing = findNoteForDay(notes, key)
     if (existing) setSelectedId(existing.id)
-    else createAndOpen({ title: formatFullDayLabel(key), dayKey: key })
+    else createAndOpen(dayNoteDraft(key))
   }
+
+  const openToday = () => openDay(todayKey())
+
+  const runPendingDay = useRef(null)
+  useEffect(() => {
+    runPendingDay.current = () => {
+      setPendingDay(null)
+      openDay(pendingDay)
+    }
+  })
+  useEffect(() => {
+    if (pendingDay && !loading && actions) runPendingDay.current()
+  }, [pendingDay, loading, actions])
 
   function pin(note) {
     actions?.updateNoteMeta(note.id, { pinned: !note.pinned }).catch(failed('Could not pin the note.'))
@@ -115,13 +148,16 @@ export function JournalView({ intent = null, onIntentHandled }) {
     pushSuccess('New notes will start on this paper.')
   }
 
-  /* The command palette asks for a new note by leaving an intent here, because
-     this view may not exist yet when it does (it is lazy-loaded). Handled once
-     the list has loaded, then cleared so a later visit does not repeat it. */
+  /* The rest of the app asks for something here by leaving an intent, because
+     this view may not exist yet when it does (it is lazy-loaded): 'new' (the
+     palette's New note) or { kind: 'day', dayKey } (a day's "Open journal",
+     the palette's day-note command, the `j` shortcut). Handled once the list
+     has loaded, then cleared so a later visit does not repeat it. */
   const runIntent = useRef(null)
   useEffect(() => {
     runIntent.current = () => {
       if (intent === 'new') createAndOpen({})
+      else if (intent?.kind === 'day' && isValidKey(intent.dayKey)) openDay(intent.dayKey)
       onIntentHandled?.()
     }
   })
@@ -133,19 +169,34 @@ export function JournalView({ intent = null, onIntentHandled }) {
 
   let main
   if (selected) {
+    /* The schedule's side of this note — Plan it, Send to schedule, and what the
+       day band can do (NoteScheduleTools). Keyed with the note so a plan, or an
+       answer still on its way, never carries over to the next one. */
     main = (
-      <NoteEditor
-        key={selected.id}
-        note={selected}
-        actions={actions}
-        defaultPaper={defaultPaper}
-        onBack={() => setSelectedId(null)}
-        onPin={() => pin(selected)}
-        onTrash={() => trash(selected)}
-        onUseForNew={useForNewNotes}
-        listHidden={listHidden}
-        onToggleList={() => setListHidden(!listHidden)}
-      />
+      <NoteScheduleToolsProvider key={selected.id} dayKey={selected.dayKey}>
+        <NoteEditor
+          key={selected.id}
+          note={selected}
+          actions={actions}
+          defaultPaper={defaultPaper}
+          onBack={() => setSelectedId(null)}
+          onPin={() => pin(selected)}
+          onTrash={() => trash(selected)}
+          onUseForNew={useForNewNotes}
+          listHidden={listHidden}
+          onToggleList={() => setListHidden(!listHidden)}
+          dayPanel={
+            selected.dayKey ? (
+              <NoteDayPanel
+                dayKey={selected.dayKey}
+                onFocusDay={onFocusDay}
+                onEdit={onEdit}
+                onEditEvent={onEditEvent}
+              />
+            ) : null
+          }
+        />
+      </NoteScheduleToolsProvider>
     )
   } else if (selectedId !== null && (loading || missing)) {
     main = <NoteSkeleton />

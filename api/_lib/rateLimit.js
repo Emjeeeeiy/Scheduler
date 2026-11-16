@@ -30,6 +30,9 @@ export const LIMITS = {
   enrichTask: { limit: 120, windowSec: HOUR },
   parseTask: { limit: 60, windowSec: HOUR },
   aiSchedule: { limit: 40, windowSec: HOUR },
+  // A foreground "I pressed Plan it" on a whole note, never a background call:
+  // generous for someone planning a few days of notes, small for a script.
+  noteTasks: { limit: 30, windowSec: HOUR },
   // On the reasoning-tier model, whose free quota is tiny.
   planDay: { limit: 20, windowSec: HOUR },
   // Across every AI route together, so five separate hourly budgets can't add

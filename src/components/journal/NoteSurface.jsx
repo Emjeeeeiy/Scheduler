@@ -11,6 +11,8 @@ import { useTheme } from '../../state/ThemeContext.jsx'
 import { ChevronLeftIcon, CloseIcon, TrashIcon, WarningIcon } from '../icons.jsx'
 import { EditorToolbar } from './EditorToolbar.jsx'
 import { PushPinIcon, SidePanelIcon } from './journalIcons.jsx'
+import { NotePlanPanel } from './NotePlanPanel.jsx'
+import { useNoteScheduleTools } from './NoteScheduleTools.jsx'
 import { ShortcutsHelp } from './ShortcutsHelp.jsx'
 import { Drawing } from './extensions/drawing.js'
 import { buildExtensions } from './extensions/index.js'
@@ -74,12 +76,20 @@ export function NoteSurface({
   onUseForNew,
   listHidden = false,
   onToggleList,
+  /* Whatever the page wants shown between the header and the note — a day
+     note's own day (NoteDayPanel). A slot, so this file never has to know
+     about the schedule. */
+  dayPanel = null,
 }) {
   const titleId = useId()
   const titleRef = useRef(null)
   const sheetRef = useRef(null)
   const { theme } = useTheme()
   const online = useOnline()
+  /* The schedule's side of the note (Plan it, Send to schedule, the day band's
+     actions), or null where this note is mounted on its own. */
+  const scheduleTools = useNoteScheduleTools()
+  const registerEditor = scheduleTools?.registerEditor
 
   /* ------------------------------------------------------------ the body -- */
 
@@ -211,6 +221,46 @@ export function NoteSurface({
   useEffect(() => {
     editorRef.current = editor
   })
+
+  /* What the schedule's tools may do to this editor — and nothing more. Handed
+     over once, and every call reads the live editor, so none of it goes stale.
+     An editor that is not editable (a note this build cannot read, which is never
+     saved) refuses every write: a command still changes a read-only editor on
+     screen, and what is then shown would not be what is stored. */
+  useEffect(() => {
+    if (!registerEditor) return undefined
+    const live = () => {
+      const instance = editorRef.current
+      return instance && !instance.isDestroyed ? instance : null
+    }
+    return registerEditor({
+      isEditable: () => Boolean(live()?.isEditable),
+      getDoc: () => live()?.getJSON() ?? null,
+      // The selected part as a document, or null when nothing is selected.
+      getSelectionDoc: () => {
+        const instance = live()
+        if (!instance) return null
+        const { from, to, empty } = instance.state.selection
+        return empty ? null : instance.state.doc.cut(from, to).toJSON()
+      },
+      // The text of the checklist item the caret is in, or null if it is in none.
+      taskItemText: () => {
+        const instance = live()
+        if (!instance) return null
+        const { $from } = instance.state.selection
+        for (let depth = $from.depth; depth > 0; depth -= 1) {
+          const node = $from.node(depth)
+          if (node.type.name === 'taskItem') return node.firstChild?.textContent.trim() || null
+        }
+        return null
+      },
+      insert: (content) => {
+        const instance = live()
+        if (!instance?.isEditable) return false
+        return instance.chain().focus().insertContent(content).run()
+      },
+    })
+  }, [registerEditor])
 
   useEffect(() => {
     /* Only when it actually changes. setEditable emits an update event, which
@@ -454,6 +504,11 @@ export function NoteSurface({
         </div>
       </div>
 
+      {dayPanel}
+
+      {/* What Plan it found, until it is accepted or dismissed. */}
+      {scheduleTools ? <NotePlanPanel /> : null}
+
       {contentError ? (
         <Banner
           tone="error"
@@ -538,6 +593,8 @@ export function NoteSurface({
         onInsertImage={() => imageInputRef.current?.click()}
         onPrint={() => window.print()}
         onExport={exportNote}
+        onPlan={scheduleTools?.startPlan}
+        onSendLine={scheduleTools?.sendLine}
         paperProps={{
           paper,
           disabled: contentError,

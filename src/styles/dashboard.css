@@ -211,6 +211,16 @@
   min-width: 0;
 }
 
+/* The hero's one primary action, with today's journal page as a ghost button
+   beside it — secondary first, so the primary keeps the far end. */
+.hero__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* Open · Done · Left: what used to be a tile row and a sentence. A label over a
    figure each, the way a stat reads everywhere else — figures are the one place
    Space Mono belongs. */
@@ -841,6 +851,17 @@
     justify-content: center;
     text-align: center;
     padding-block: 11px;
+  }
+
+  /* Both actions span the width, the primary last — nearest the thumb. */
+  .hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero__actions .ghost-button {
+    justify-content: center;
+    padding-block: 10px;
   }
 
   .trends__head .filter-row {

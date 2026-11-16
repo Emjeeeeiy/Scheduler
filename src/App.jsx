@@ -5,6 +5,7 @@ import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
 import { ToastProvider, useToast } from './state/ToastContext.jsx'
 import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { ThemeProvider } from './state/ThemeContext.jsx'
+import { DayNotesProvider } from './state/DayNotesContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { useReminderSync } from './lib/useReminderSync.js'
@@ -428,6 +429,19 @@ function AppShell() {
     [setFocusKey, setView],
   )
 
+  /* A day's page in the Journal: the one already written for it, or a new one.
+     Left as an intent, like the palette's "New note" — the Journal may not be
+     loaded yet, and it is the Journal that knows which note a day has (it
+     waits for its list before deciding, so a day never gets a second note).
+     The way back is the note's own day band, which calls focusDay. */
+  const openDayNote = useCallback(
+    (key) => {
+      setView('journal')
+      setJournalIntent({ kind: 'day', dayKey: key })
+    },
+    [setView],
+  )
+
   const step = DATE_NAV[view]
 
   useEffect(() => {
@@ -490,17 +504,25 @@ function AppShell() {
       } else if (bound('nextDate') && step) {
         event.preventDefault()
         setFocusKey(step(focusKey, 1))
+      } else if (bound('dayNote')) {
+        // The day on screen when there is one, the same rule as `n` and `e`.
+        event.preventDefault()
+        openDayNote(onDatedView ? focusKey : todayKey())
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [modalOpen, paletteOpen, view, focusKey, step, shortcuts, openCreate, openCreateEvent, setFocusKey])
+  }, [modalOpen, paletteOpen, view, focusKey, step, shortcuts, openCreate, openCreateEvent, openDayNote, setFocusKey])
 
   const dateLabel = useMemo(() => {
     if (view === 'week' || view === 'review') return formatWeekLabel(focusKey, settings.weekStartsOn)
     if (view === 'month') return formatMonthLabel(focusKey)
     return relativeDayLabel(focusKey)
   }, [view, focusKey, settings.weekStartsOn])
+
+  /* The day "Open the day's journal note" means: the one on screen in Day,
+     Week or Month, today anywhere else (Review's cursor is a week, not a day). */
+  const dayNoteKey = view === 'today' || view === 'week' || view === 'month' ? focusKey : todayKey()
 
   /* Built from the same handlers the sidebar buttons and keyboard shortcuts
      already call — a palette entry can't drift from what its equivalent
@@ -538,6 +560,15 @@ function AppShell() {
           setView('journal')
           setJournalIntent('new')
         },
+      },
+      {
+        id: 'day-note',
+        label: "Open the day's journal note",
+        // Which day, said up front: the one on screen in Day/Week/Month (the
+        // same rule the `j` shortcut uses), today anywhere else.
+        hint: relativeDayLabel(dayNoteKey),
+        Icon: JournalIcon,
+        onRun: () => openDayNote(dayNoteKey),
       },
       // Distinct from "Go to Day/Week/Month" above: those navigate the app to
       // a view, these open a quick read-only peek at what's scheduled without
@@ -598,7 +629,20 @@ function AppShell() {
           }),
       })),
     ],
-    [view, focusKey, templates, shortcuts, emailVerified, openCreate, openCreateEvent, openSettings, setFocusKey, setView],
+    [
+      view,
+      focusKey,
+      dayNoteKey,
+      templates,
+      shortcuts,
+      emailVerified,
+      openCreate,
+      openCreateEvent,
+      openDayNote,
+      openSettings,
+      setFocusKey,
+      setView,
+    ],
   )
 
   /* Typing "lunch with Ana tomorrow 1pm" into the palette offers to create
@@ -997,6 +1041,7 @@ function AppShell() {
                   onFocusMonth={focusMonth}
                   onEdit={openEdit}
                   onCreate={openCreate}
+                  onOpenDayNote={openDayNote}
                 />
               )}
               {view === 'today' && (
@@ -1007,6 +1052,7 @@ function AppShell() {
                   onCreate={openCreate}
                   onEditEvent={openEditEvent}
                   onCreateEvent={openCreateEvent}
+                  onOpenDayNote={openDayNote}
                 />
               )}
               {view === 'week' && (
@@ -1023,6 +1069,7 @@ function AppShell() {
                 <MonthCalendar
                   focusKey={focusKey}
                   onFocusDay={focusDay}
+                  onOpenDayNote={openDayNote}
                   onCreate={openCreate}
                   onEdit={openEdit}
                   onEditEvent={openEditEvent}
@@ -1067,7 +1114,13 @@ function AppShell() {
                   )}
                 >
                   <Suspense fallback={<ViewSkeleton view="journal" label="Loading your journal" />}>
-                    <JournalView intent={journalIntent} onIntentHandled={() => setJournalIntent(null)} />
+                    <JournalView
+                      intent={journalIntent}
+                      onIntentHandled={() => setJournalIntent(null)}
+                      onFocusDay={focusDay}
+                      onEdit={openEdit}
+                      onEditEvent={openEditEvent}
+                    />
                   </Suspense>
                 </ErrorBoundary>
               )}
@@ -1118,6 +1171,7 @@ function AppShell() {
           onEdit={openEdit}
           onEditEvent={openEditEvent}
           onFocusDay={focusDay}
+          onOpenDayNote={openDayNote}
         />
       )}
       {paletteOpen && (
@@ -1157,7 +1211,9 @@ function Gate() {
 
   return (
     <ScheduleProvider>
-      <AppShell />
+      <DayNotesProvider>
+        <AppShell />
+      </DayNotesProvider>
     </ScheduleProvider>
   )
 }

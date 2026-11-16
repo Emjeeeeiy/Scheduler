@@ -14,7 +14,10 @@ import {
   defaultPaper,
   emptyDoc,
   findNoteForDay,
+  dayCopyContent,
+  dayNoteDraft,
   matchesQuery,
+  noteOutline,
   normalizeHex,
   normalizeNote,
   normalizeNoteBody,
@@ -22,14 +25,26 @@ import {
   noteDisplayTitle,
   noteFromBackup,
   noteToBackup,
+  notesByDay,
+  planningDay,
   plainTextOf,
   sortNotes,
   stripRemoteImages,
   summarizeDoc,
+  uncheckedTaskLines,
 } from '@cadence/shared/journal.js'
+import { parseQuickAdd } from '@cadence/shared/parseQuickAdd.js'
 
 const text = (value) => ({ type: 'text', text: value })
 const para = (...content) => ({ type: 'paragraph', content })
+const doc = (...content) => ({ type: 'doc', content })
+const todo = (checked, label, ...nested) => ({
+  type: 'taskItem',
+  attrs: { checked },
+  content: [para(text(label)), ...nested],
+})
+const taskList = (...items) => ({ type: 'taskList', content: items })
+const bullet = (label) => ({ type: 'listItem', content: [para(text(label))] })
 
 describe('normalizeHex', () => {
   it('expands shorthand and lowercases', () => {
@@ -218,6 +233,185 @@ describe('findNoteForDay', () => {
 
   it('returns null when the day has no note', () => {
     assert.equal(findNoteForDay(notes, '2026-12-01'), null)
+  })
+})
+
+describe('notesByDay', () => {
+  const note = (id, dayKey, deletedAt = null) => ({ id, dayKey, deletedAt })
+
+  it('maps each day that has a live note to that note', () => {
+    const byDay = notesByDay([note('a', '2026-11-05'), note('c', '2026-11-06')])
+    assert.equal(byDay.size, 2)
+    assert.equal(byDay.get('2026-11-05').id, 'a')
+    assert.equal(byDay.get('2026-11-06').id, 'c')
+    assert.equal(byDay.has('2026-12-01'), false)
+  })
+
+  it('leaves out trashed notes, and notes that belong to no day', () => {
+    const byDay = notesByDay([
+      note('gone', '2026-11-06', 99),
+      note('loose', null),
+      note('bad', 'yesterday'),
+      note('kept', '2026-11-07'),
+    ])
+    assert.deepEqual([...byDay.keys()], ['2026-11-07'])
+  })
+
+  it('keeps the first note a day has, so a duplicate never replaces it', () => {
+    const byDay = notesByDay([note('first', '2026-11-06'), note('second', '2026-11-06')])
+    assert.equal(byDay.get('2026-11-06').id, 'first')
+  })
+
+  it('agrees with findNoteForDay about which note a day opens', () => {
+    const notes = sortNotes([
+      normalizeNote('older', { dayKey: '2026-11-06', createdAt: 1, updatedAt: 1 }),
+      normalizeNote('newer', { dayKey: '2026-11-06', createdAt: 2, updatedAt: 9 }),
+      normalizeNote('trashed', { dayKey: '2026-11-06', createdAt: 3, updatedAt: 99, deletedAt: 100 }),
+    ])
+    assert.equal(notesByDay(notes).get('2026-11-06').id, findNoteForDay(notes, '2026-11-06').id)
+    assert.equal(notesByDay(notes).get('2026-11-06').id, 'newer')
+  })
+
+  it('is empty for no notes', () => {
+    assert.equal(notesByDay([]).size, 0)
+  })
+})
+
+describe('dayNoteDraft', () => {
+  it('titles a new day note with the date and links it by dayKey', () => {
+    const draft = dayNoteDraft('2026-11-14')
+    assert.equal(draft.dayKey, '2026-11-14')
+    assert.match(draft.title, /November/)
+    assert.match(draft.title, /14/)
+  })
+})
+
+describe('planningDay', () => {
+  const TODAY = '2026-11-14'
+
+  it('plans onto the note’s own day when it is today or ahead', () => {
+    assert.equal(planningDay('2026-11-14', TODAY), '2026-11-14')
+    assert.equal(planningDay('2026-11-20', TODAY), '2026-11-20')
+  })
+
+  it('never plans into the past: a past day, or no day, means today', () => {
+    assert.equal(planningDay('2026-11-01', TODAY), TODAY)
+    assert.equal(planningDay(null, TODAY), TODAY)
+    assert.equal(planningDay('someday', TODAY), TODAY)
+  })
+})
+
+describe('noteOutline', () => {
+  it('reads a note as lines, marking bullets and unchecked to-dos', () => {
+    const note = doc(
+      { type: 'heading', attrs: { level: 1 }, content: [text('Plans')] },
+      para(text('Call Ana tomorrow')),
+      { type: 'bulletList', content: [bullet('milk'), bullet('eggs')] },
+      taskList(todo(false, 'Book flights'), todo(true, 'Pay rent'), todo(false, 'Pack bags')),
+    )
+    assert.equal(noteOutline(note), 'Plans\nCall Ana tomorrow\n- milk\n- eggs\n[ ] Book flights\n[ ] Pack bags')
+  })
+
+  it('leaves out a ticked item — it is done, not a thing to plan', () => {
+    assert.equal(noteOutline(doc(taskList(todo(true, 'Pay rent')))), '')
+  })
+
+  it('still reads an open item nested under a ticked one', () => {
+    const note = doc(taskList(todo(true, 'Trip', taskList(todo(false, 'Passport')))))
+    assert.equal(noteOutline(note), '[ ] Passport')
+  })
+
+  it('sends no drawings and no images', () => {
+    const note = doc(
+      para(text('Before')),
+      { type: 'drawing', attrs: { strokes: 'abc' } },
+      { type: 'image', attrs: { src: 'data:image/png;base64,AAAA' } },
+      para(text('After')),
+    )
+    assert.equal(noteOutline(note), 'Before\nAfter')
+  })
+
+  it('turns a line break into a space and collapses runs of whitespace', () => {
+    const note = doc(para(text('one'), { type: 'hardBreak' }, text('two    three  ')))
+    assert.equal(noteOutline(note), 'one two three')
+  })
+
+  it('reads table cells as text', () => {
+    const cell = (label) => ({ type: 'tableCell', content: [para(text(label))] })
+    const note = doc({
+      type: 'table',
+      content: [{ type: 'tableRow', content: [cell('Mon'), cell('Gym')] }],
+    })
+    assert.equal(noteOutline(note), 'Mon\nGym')
+  })
+
+  it('is empty for an empty or unreadable note', () => {
+    assert.equal(noteOutline(emptyDoc()), '')
+    assert.equal(noteOutline(null), '')
+    assert.equal(noteOutline({ type: 'doc' }), '')
+  })
+
+  it('cuts at a line, never mid-line, and still sends something when one line is huge', () => {
+    const note = doc(para(text('a'.repeat(10))), para(text('b'.repeat(10))))
+    // 10 + newline + 10 is 21: the second line does not fit whole, so it is left out.
+    assert.equal(noteOutline(note, 20), 'a'.repeat(10))
+    assert.equal(noteOutline(note, 21), `${'a'.repeat(10)}\n${'b'.repeat(10)}`)
+    assert.equal(noteOutline(doc(para(text('c'.repeat(50)))), 12), 'c'.repeat(12))
+  })
+})
+
+describe('uncheckedTaskLines', () => {
+  it('lists the open checklist items in order, nested ones included', () => {
+    const note = doc(
+      para(text('Not a to-do')),
+      taskList(todo(false, 'Book flights', taskList(todo(false, 'Passport'))), todo(true, 'Pay rent')),
+      { type: 'bulletList', content: [bullet('A bullet is not a to-do')] },
+    )
+    assert.deepEqual(uncheckedTaskLines(note), ['Book flights', 'Passport'])
+  })
+
+  it('is empty when there is no checklist', () => {
+    assert.deepEqual(uncheckedTaskLines(doc(para(text('just prose')))), [])
+  })
+})
+
+describe('dayCopyContent', () => {
+  it('turns events into bullets and tasks into a checklist, ticked when done', () => {
+    const blocks = dayCopyContent({
+      events: [{ title: 'Offsite', startMin: null }],
+      tasks: [
+        { title: 'Stand-up', startMin: 540, done: false },
+        { title: 'Pay rent', startMin: null, done: true },
+      ],
+    })
+    assert.equal(blocks.length, 2)
+    assert.equal(blocks[0].type, 'bulletList')
+    assert.equal(blocks[0].content[0].content[0].content[0].text, 'Offsite')
+    assert.equal(blocks[1].type, 'taskList')
+    const [standup, rent] = blocks[1].content
+    assert.equal(standup.attrs.checked, false)
+    assert.equal(standup.content[0].content[0].text, '9:00 AM — Stand-up')
+    assert.equal(rent.attrs.checked, true)
+    assert.equal(rent.content[0].content[0].text, 'Pay rent')
+  })
+
+  it('is empty for a day with nothing on it', () => {
+    assert.deepEqual(dayCopyContent({ tasks: [], events: [] }), [])
+    assert.deepEqual(dayCopyContent(), [])
+  })
+
+  it('never writes an empty text node, which a document cannot hold', () => {
+    const [list] = dayCopyContent({ tasks: [{ title: '   ', startMin: null, done: false }] })
+    assert.equal(list.content[0].content[0].content[0].text, 'Untitled')
+  })
+
+  it('reads back as the same task, so "Plan it" does not propose it a second time', () => {
+    // The point of the em dash and of leaving an all-day title bare: any other
+    // separator leaves stray punctuation in the parsed title.
+    const timed = parseQuickAdd('9:00 AM — Stand-up', { today: '2026-11-14' })
+    assert.equal(timed.title, 'Stand-up')
+    assert.equal(timed.startMin, 540)
+    assert.equal(parseQuickAdd('Pay rent', { today: '2026-11-14' }).title, 'Pay rent')
   })
 })
 

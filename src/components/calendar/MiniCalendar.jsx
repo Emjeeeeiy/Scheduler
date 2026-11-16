@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
+import { useDayNotes } from '../../state/DayNotesContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { HEAVY_DAY_MIN, dayStats } from '@cadence/shared/stats.js'
 import {
@@ -14,6 +15,7 @@ import {
   weekdayHeaders,
 } from '@cadence/shared/date.js'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
+import { DAY_NOTE_WORDS, DayNoteMark } from './DayNoteMark.jsx'
 
 /* The same "heavy day" reference the week and month load bars use. Reusing it
    rather than inventing a third scale is the point: "busy" has to mean one
@@ -36,6 +38,7 @@ function loadDots(plannedMin) {
 export function MiniCalendar({ onFocusDay, onFocusMonth }) {
   const { tasksOn, eventsOn } = useSchedule()
   const { settings } = useSettings()
+  const { byDay: dayNotes } = useDayNotes()
   const now = useNow()
   const [cursor, setCursor] = useState(() => todayKey())
 
@@ -87,6 +90,7 @@ export function MiniCalendar({ onFocusDay, onFocusMonth }) {
           const dots = loadDots(stats.plannedMin)
           const outside = monthOf(key) !== month
           const isToday = key === now.key
+          const hasNote = dayNotes.has(key)
 
           return (
             <button
@@ -108,11 +112,20 @@ export function MiniCalendar({ onFocusDay, onFocusMonth }) {
                 key,
                 stats.plannedMin > 0 ? `${durationLabel(stats.plannedMin)} planned` : 'nothing planned',
                 events.length > 0 ? `${events.length} event${events.length === 1 ? '' : 's'}` : null,
+                hasNote ? DAY_NOTE_WORDS : null,
               ]
                 .filter(Boolean)
                 .join(' — ')}
             >
               <span className="mini-cal__num">{dayOfMonth(key)}</span>
+              {/* The button's name is its numeral; the note joins it in words
+                  as well as in the corner glyph. */}
+              {hasNote && (
+                <>
+                  <DayNoteMark />
+                  <span className="visually-hidden">, {DAY_NOTE_WORDS}</span>
+                </>
+              )}
               <span className="mini-cal__dots" aria-hidden="true">
                 {Array.from({ length: dots }, (_, i) => (
                   <span key={i} className="mini-cal__dot" />
