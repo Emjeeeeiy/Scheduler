@@ -13,6 +13,7 @@
     "lint": "oxlint",
     "icons": "node scripts/makeIcons.mjs",
     "icons:mobile": "node scripts/makeMobileAssets.mjs",
+    "mcp:dev": "node --env-file-if-exists=.env.local scripts/mcp-dev.mjs",
     "test": "node --test \"tests/**/*.test.js\"",
     "test:functions": "npm --prefix functions test",
     "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-cadence-rules \"node --test tests/rules/firestoreRules.spec.mjs\"",
@@ -23,6 +24,7 @@
   "dependencies": {
     "@cadence/shared": "0.1.0",
     "@google/genai": "^2.21.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@tiptap/core": "3.32.0",
     "@tiptap/extension-highlight": "3.32.0",
     "@tiptap/extension-image": "3.32.0",
@@ -38,11 +40,13 @@
     "@tiptap/starter-kit": "3.32.0",
     "@upstash/redis": "^1.41.0",
     "firebase": "^12.8.0",
+    "firebase-admin": "^14.5.1",
     "jose": "^6.2.11",
     "perfect-freehand": "1.2.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

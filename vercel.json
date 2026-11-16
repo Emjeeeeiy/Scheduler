@@ -3,9 +3,14 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!api/|@)[^.]*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/mcp/k/:key", "destination": "/api/mcp?key=:key" },
+    { "source": "/((?!api/|@)[^.]*)", "destination": "/index.html" }
+  ],
   "functions": {
-    "api/push/tick.js": { "maxDuration": 30 }
+    "api/push/tick.js": { "maxDuration": 30 },
+    "api/mcp.js": { "maxDuration": 30 }
   },
   "headers": [
     {

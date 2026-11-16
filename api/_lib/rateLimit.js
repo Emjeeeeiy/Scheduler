@@ -47,6 +47,11 @@ export const LIMITS = {
   // The session-less push calls (a service worker's subscription rotation,
   // turning push off from the sign-in screen), keyed by IP.
   pushAnonymous: { limit: 60, windowSec: HOUR },
+
+  // The MCP endpoint (mcp/handler.js), spent only AFTER the caller has proven
+  // it holds the key, so an anonymous caller can't use up the budget. One
+  // assistant turn can be several tool calls, hence the headroom.
+  mcp: { limit: 600, windowSec: HOUR },
 }
 
 const TOO_MANY = 'Too many requests — try again later.'

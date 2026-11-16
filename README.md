@@ -56,6 +56,7 @@ is not optional. `.env.local` is gitignored regardless.
 | `npm run test:functions` | the Cloud Functions' own tests (`functions/`) |
 | `npm run test:rules` | `firestore.rules` against the Firestore emulator (`tests/rules/`) — needs JDK 21+; CI runs it |
 | `npm run test:render` | smoke-renders every view against mock data |
+| `npm run mcp:dev` | the MCP endpoint (`/mcp`) on `http://localhost:8787`, for the MCP Inspector — see [README-mcp.md](README-mcp.md) |
 | `node tests/smoke/qa.mjs` | manual visual QA — screenshots a running `npm run dev` with a real browser; not part of `npm test`, not run in CI, needs `playwright` installed separately (see the comment at the top of the file) |
 
 `test:render` exists because the app cannot start without a Firebase project, so
@@ -373,6 +374,10 @@ Firestore rules are not deployed from here either — see step 6 of Setup.
 optional extra with their own setup — an Upstash Redis database, a VAPID key
 pair, and a once-a-minute cron call. See [README-push.md](README-push.md).
 Nothing else needs it, and the app behaves exactly as before until it's set up.
+
+**MCP server** (lets Claude, ChatGPT, Cursor or Gemini CLI read and update your
+schedule by URL) is likewise optional: one account, a bearer key, a Firebase
+service account. It stays off until configured. See [README-mcp.md](README-mcp.md).
 
 ## Security
 

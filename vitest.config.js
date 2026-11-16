@@ -23,6 +23,7 @@ const apiTests = [
   'tests/auth.test.jsx',
   'tests/appCheck.test.jsx',
   'tests/pushHandlers.test.jsx',
+  'tests/mcpHttp.test.jsx',
   'tests/webPushConfig.test.jsx',
   'tests/webPushSend.test.jsx',
 ]
