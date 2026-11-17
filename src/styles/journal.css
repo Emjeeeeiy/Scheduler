@@ -44,13 +44,34 @@
   min-width: 0;
 }
 
-/* One quiet line. The list beside it already has New note and Today. */
+/* A line about planning the day, then one quiet instruction. The list beside it
+   already has New note and Today. `align-content` matters: the box is taller than
+   its two children, and a grid stretches its rows to fill the height, which
+   would pull the quote and the instruction apart instead of keeping them a pair. */
 .journal__empty {
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 14px;
   min-height: 46dvh;
   padding: 48px 16px;
   text-align: center;
+}
+
+/* Set apart from the instruction by its quote marks and a step up in ink and size
+   — the app has no italics, so it does not start with this. No border or stripe:
+   a quote is not a callout. */
+.journal__quote {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--color-text-secondary);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.journal__quote p {
+  margin: 0;
 }
 
 .journal__empty-text {
