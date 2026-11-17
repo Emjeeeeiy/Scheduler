@@ -203,8 +203,14 @@ export function JournalView({ intent = null, onIntentHandled, onFocusDay, onEdit
   } else {
     // The list beside it has New note and Today; saying so again here, under a
     // second "Journal", was the same page offering the same two buttons twice.
+    // The one thing added is a line about what the page is for — planning the
+    // day — above the instruction. Unattributed on purpose: it is the app's own
+    // sentence, and a name under it would claim a source it does not have.
     main = (
       <div className="journal__empty">
+        <blockquote className="journal__quote">
+          <p>“Plan your day in your journal, and the day will follow.”</p>
+        </blockquote>
         <p className="journal__empty-text">Select a note, or start a new one.</p>
       </div>
     )
