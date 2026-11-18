@@ -13,7 +13,7 @@
     "serve": "npm run sync && firebase emulators:start --only functions"
   },
   "dependencies": {
-    "firebase-admin": "^14.5.0",
+    "firebase-admin": "^14.5.1",
     "firebase-functions": "^7.4.0"
   }
 }
