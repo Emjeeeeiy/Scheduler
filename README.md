@@ -289,14 +289,12 @@ for a full backup.
 ```text
 src/
   firebase.js            init, auth, Firestore + offline cache
-  lib/
-    date.js              day keys & minutes — every date primitive
-    layout.js            overlap packing for the time grid
-    normalize.js          Firestore doc -> trusted shape (normalizeTask/Event/Tag)
-    recurrence.js        repeat rules — expansion, labels, occurrence ids
-    stats.js             dashboard & trends aggregations
+  lib/                   browser adapters and hooks; the pure date, layout,
+                         normalize, recurrence and stats logic lives in
+                         packages/shared (below)
     useNow.js            live clock for the now-line
-    useTheme.js          system / light / dark
+    appPath.js           which addresses are the app (`/`); anything else is the 404 page
+    dotField.js          the 404 page's dot grid and ribbon — pure geometry, no canvas
     usePersistentState.js
     useModalA11y.js       shared focus-trap/restore/Escape contract for every dialog
     journalPaper.js      paper patterns, presets and the CSS they become
@@ -307,6 +305,7 @@ src/
     AuthContext.jsx      session, Google + username/password
     ScheduleContext.jsx  the single data seam
     ToastContext.jsx      transient "that write failed" surface
+    ThemeContext.jsx     system / light / dark
     useJournal.js        the Journal's list, open note and actions
     journalData.js       where notes live in Firestore; purge, backup export/import
     DayNotesContext.jsx  which days have a Journal note — the calendars' marks and buttons
@@ -323,7 +322,8 @@ src/
                          controls only they use (RepeatPicker, EditorKindToggle)
     stats/               Dashboard's data display — StatTile, BarChart, TagBars
     shell/               chrome that belongs to no one view — NotificationBell,
-                         SetupNotice, ToastStack, ErrorBoundary
+                         SetupNotice, ToastStack, ErrorBoundary, NotFound (the 404
+                         page) and its DotField canvas backdrop
     journal/             the Journal: NoteList, NoteSurface (the open note),
                          EditorToolbar, PaperPicker, DrawingBlock, and extensions/
                          (the editor's own nodes and shortcuts)
@@ -338,12 +338,14 @@ src/
     settings.css           the Settings page's navigation, panel and rows
     calendar.css           Day/Week time grids, Month grid, inbox & task rows
     modals.css              every dialog, its fields, tags, item index, repeat picker
+    not-found.css           the 404 page (loaded last: it builds on auth.css and shell.css)
     toggles-responsive.css  filter chips/toggles + every ≤900px override
     calendar-dnd.css        drag-to-create/move/resize on the time grid
                          (split from one file, in original cascade order — see
                          the import comment in App.jsx)
 packages/shared/         @cadence/shared — pure logic the web app, functions and
-                         mobile app share (dates, normalizers, journal.js)
+                         mobile app share (date, layout, normalize, recurrence,
+                         stats, journal.js, …)
 tests/                   pure-logic tests (date, layout, stats, normalize, …) —
                          plus the *.test.jsx component tests (vitest + jsdom, see
                          Scripts) and smoke/ (SSR render check + manual qa.mjs)
@@ -356,6 +358,15 @@ catch-all rewrite to `index.html`, and cache headers: hashed `/assets/*` are
 immutable for a year, `index.html` is `no-cache` so a deploy is picked up on the
 next load. The rewrite is safe alongside those headers because Vercel matches
 static files before rewrites — an existing asset is served, not rewritten.
+
+The catch-all rewrite is also why there is a **404 page inside the app**: every
+path without a dot is served `index.html`, so `App.jsx` checks the pathname
+(`src/lib/appPath.js` — only `/` and `/index.html` are the app) and shows the
+`NotFound` page for anything else, before Firebase or the sign-in gate. It is a
+*soft* 404 — the response is still HTTP 200, since the rewrite is what served
+it — and a path containing a dot (`/x.php`) never reaches the app at all and
+gets Vercel's own plain 404. A true 404 status would need a second Vite entry
+and a narrower rewrite; not done, because nothing here is indexed by search.
 
 Two steps are **not** in the config, and sign-in fails without either:
 

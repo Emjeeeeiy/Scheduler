@@ -39,6 +39,7 @@ import { AuthWeek } from '../../src/components/auth/AuthWeek.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
+import { NotFound } from '../../src/components/shell/NotFound.jsx'
 import { NotificationBell } from '../../src/components/shell/NotificationBell.jsx'
 import { SettingsView } from '../../src/components/views/SettingsView.jsx'
 import { CommandPalette } from '../../src/components/shell/CommandPalette.jsx'
@@ -87,6 +88,7 @@ const taskWithChecklist = {
 
 const cases = [
   ['SetupNotice', <SetupNotice missing={['VITE_FIREBASE_API_KEY']} />],
+  ['NotFound', <NotFound path="/nowhere" />],
   ['SignIn', <SignIn />],
   ['LoginForm', <LoginForm onSwitchToRegister={noop} />],
   ['RegisterForm', <RegisterForm onSwitchToLogin={noop} />],
@@ -207,6 +209,12 @@ expect('Dashboard chart draws bars', html.dashboard.includes('chart__bar'))
 expect('Tag bars use the themed token', html.dashboard.includes('var(--tag-blue)'))
 expect('Dashboard trends render the table toggle', html.dashboard.includes('Table view'))
 expect('Dashboard trends compute a completion rate', html.dashboard.includes('Completion rate'))
+
+// The 404 names the address it could not find, links home, and carries the
+// decorative canvas — hidden from assistive tech.
+const notFound = render(<NotFound path="/nowhere" />)
+expect('404 page names the missing address and links home', notFound.includes('/nowhere') && notFound.includes('href="/"'))
+expect('404 page carries its dot field, hidden from assistive tech', notFound.includes('class="dot-field"') && notFound.includes('aria-hidden="true"'))
 
 const signIn = render(<SignIn />)
 expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with Google'))

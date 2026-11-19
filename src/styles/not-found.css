@@ -1,0 +1,91 @@
+/* ============================================================== not found == */
+
+/* The 404 page. It borrows the sign-in screen's frame (`.auth-shell` and its
+   topbar, from auth.css) and adds only what is its own: a centred message over
+   the dot field. Imported last in App.jsx because it builds on auth.css and
+   shell.css (`.primary-button`) and overrides neither. */
+
+.not-found__body {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 48px 28px;
+  /* The canvas is exactly this box; nothing of it may spill into the topbar. */
+  overflow: hidden;
+}
+
+/* A backdrop, never a target: the app is built on drag and drop, so a decorative
+   layer is out of reach of every pointer event. The page's own pointer tracking
+   listens on the window instead. */
+.dot-field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  /* Fades the field out toward the edges so it never butts against the topbar's
+     rule or the screen edge. A mask reads alpha only, so these two colours are
+     just "kept" and "removed", not themed colours. */
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 55%, transparent 100%);
+}
+
+.not-found__content {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  text-align: center;
+}
+
+/* A bare numeral, so Space Mono — and kept to a quiet label step: the headline
+   is the loud thing here, not the number. */
+.not-found__code {
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+/* The Auth Headline's own spec — the same weight, tracking and fluid size as
+   "Plan your rhythm." on the sign-in screen. */
+.not-found__title {
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: var(--font-weight-figure);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.not-found__lead {
+  margin: 18px 0 26px;
+  font-size: var(--text-icon);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  /* Balanced, not just "pretty": "pretty" left "a typo." alone on a second line. */
+  text-wrap: balance;
+}
+
+/* A mistyped address can be one unbroken string; let it wrap rather than push
+   the page sideways. The global `code` padding is 5px a side, which here opens a
+   visible gap before the full stop that follows. */
+.not-found__path {
+  overflow-wrap: anywhere;
+  padding-inline: 3px;
+}
+
+/* `.primary-button` is made for a <button>; as a link it needs the layout and no
+   underline (the same fix `a.ghost-button` gets in journal.css). */
+.not-found__home {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .not-found__body {
+    padding: 36px 20px;
+  }
+}
