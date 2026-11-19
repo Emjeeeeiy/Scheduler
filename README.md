@@ -151,6 +151,24 @@ entry it is standing on, but cannot remove the one below, so a single Back
 reloads the app before the next leaves it. A new dialog gets all of this by using
 `useModalA11y`; anything else that should close on Back calls `useBackLayer`.
 
+**Ask AI keeps the time you state, and the model never does the arithmetic.**
+`api/ai-schedule.js` used to keep a time only if the whole block fit inside one
+of the free windows sent with the request, so any overlap with something already
+booked — or a time in a day's third gap, which was never sent — quietly became a
+task with no time. Now the model copies the time as `"HH:MM"` (`startTime`) and
+`parseClock` converts it; every time in the prompt is printed the same way,
+because turning "7:30pm" into `1170` and comparing it with ranges printed as
+`540-600`, deep in a long prompt, is where a small model slipped. A stated time is
+kept as given, a missing length becomes the default, a missing day becomes today
+(or tomorrow, once the time has passed), and a value that could not be used is
+listed in the item's `issues` and said out loud by the chat instead of vanishing;
+`skipped` counts what was dropped. The free windows are only a guide for a vague
+phrase ("tomorrow afternoon"), and the chat warns about a clash rather than
+refusing one. The server cannot be exercised from a test (it needs a verified
+account and a Gemini key), so what it asks of the model is pinned in
+`tests/apiHandlers.test.jsx` and the numbers it does itself — parsing, defaults,
+dates — are tested directly.
+
 **Offline works.** `persistentLocalCache` keeps the working set in IndexedDB, so
 the app opens instantly on reload, keeps working with no connection, and queues
 writes until it returns.
@@ -441,7 +459,12 @@ What the app relies on, and where it's enforced:
   image, no drawing and no ticked item. It is said where the button is (its
   tooltip, and a line in the proposal) and in `src/lib/aiDisclosure.js`. A
   verified email and a connection are required; without them Plan it still
-  proposes the note's checklist lines, and sends nothing.
+  proposes the note's checklist lines, and sends nothing. Ask AI (`/api/ai-schedule`)
+  sends the conversation, tag names, the next week's free windows, a sample of
+  recent task titles and the open tasks. What the assistant did in earlier turns
+  goes back as plain words — `Created "Gym" on 2026-08-25 at 07:00 for 60 min.` —
+  so "make that 8pm instead" has something to point at; those are task titles,
+  days and times already covered above, not a new kind of data.
 - **Push** accepts only real push-service endpoints, caps an account at ten
   devices, queues nothing for an account with no device, and drains the queue in
   batches so a burst can't starve real reminders.

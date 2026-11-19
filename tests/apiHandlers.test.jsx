@@ -493,13 +493,24 @@ describe('ai-schedule', () => {
     taskId: null,
     title: 'Gym',
     date: '2026-08-25',
-    startMin: 9 * 60,
+    startTime: '09:00',
     durationMin: 60,
     tagId: 'health',
     notes: 'Bring water.',
     priority: 'normal',
   }
-  const { taskId: _validCreateTaskId, ...validCreateOutput } = validCreate
+  // What the route hands back: the model's "HH:MM" converted to minutes, no
+  // taskId, and an (empty) list of anything it supplied that could not be used.
+  const { taskId: _validCreateTaskId, startTime: _validCreateStartTime, ...validCreateFields } = validCreate
+  const validCreateOutput = { ...validCreateFields, startMin: 9 * 60, issues: [] }
+  const ask = (items) => ({ status: 'act', question: null, items })
+  /** Runs one item through the handler and returns the one item that came back. */
+  async function sanitized(item, body = base) {
+    generateJson.mockResolvedValue(ask([item]))
+    const res = fakeRes()
+    await aiScheduleHandler(fakeReq({ body }), res)
+    return res.body.items[0]
+  }
 
   it('400s when messages is missing or has no usable content', async () => {
     const res = fakeRes()
@@ -544,43 +555,110 @@ describe('ai-schedule', () => {
       expect(res.body.items[0].title).toBe('Gym')
     })
 
-    it('never hands back a tagId that was not in the offered set', async () => {
-      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, tagId: 'made-up' }] })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items[0].tagId).toBe(null)
+    it('never hands back a tagId that was not in the offered set, and says so', async () => {
+      const item = await sanitized({ ...validCreate, tagId: 'made-up' })
+      expect(item.tagId).toBe(null)
+      expect(item.issues).toEqual(['tag'])
     })
 
-    it('sanitizes an out-of-range durationMin to null', async () => {
-      generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ ...validCreate, durationMin: 5000 }] })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items[0].durationMin).toBe(null)
+    it('sanitizes an out-of-range durationMin to null, and says so', async () => {
+      const item = await sanitized({ ...validCreate, startTime: null, durationMin: 5000 })
+      expect(item.durationMin).toBe(null)
+      expect(item.issues).toEqual(['duration'])
     })
 
-    it('drops startMin when it would run past the end of every real slot given for that date', async () => {
-      // The only slot given for 2026-08-25 is 9-11 (120 min); this starts at
-      // 10:30 and needs 60, ending at 11:30 — never trust the model's
-      // arithmetic about time.
-      generateJson.mockResolvedValue({
-        status: 'act',
-        question: null,
-        items: [{ ...validCreate, startMin: 10 * 60 + 30 }],
+    /* The time someone states is theirs. These are the cases that used to come
+       back as an "All day" task with no explanation: the route kept a time only if
+       the whole block fit inside one of the free windows sent with the request. */
+    describe('a stated time', () => {
+      // Regression: the only free window sent for 2026-08-25 is 09:00-11:00; this
+      // starts at 10:30 for 60 minutes and runs 30 past it. It used to be dropped.
+      it('is kept when it overlaps something already booked', async () => {
+        const item = await sanitized({ ...validCreate, startTime: '10:30' })
+        expect(item.startMin).toBe(10 * 60 + 30)
+        expect(item.durationMin).toBe(60)
+        expect(item.issues).toEqual([])
       })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items[0].startMin).toBe(null)
+
+      // Regression: only a day's first few free windows are ever sent, so a time
+      // in a later gap — or on a day with none sent — could never match one.
+      it('is kept on a day no free window was sent for', async () => {
+        const item = await sanitized({ ...validCreate, date: '2026-08-27', startTime: '18:00' })
+        expect(item.startMin).toBe(18 * 60)
+        expect(item.date).toBe('2026-08-27')
+      })
+
+      it.each([
+        ['19:30', 19 * 60 + 30],
+        ['00:00', 0],
+        ['23:59', 23 * 60 + 59],
+        ['7:30 pm', 19 * 60 + 30],
+        ['7pm', 19 * 60],
+        ['7 P.M.', 19 * 60],
+        ['12am', 0],
+        ['12pm', 12 * 60],
+        ['12:00 PM', 12 * 60],
+        ['9:05 AM', 9 * 60 + 5],
+      ])('is read from "%s"', async (written, minutes) => {
+        const item = await sanitized({ ...validCreate, startTime: written })
+        expect(item.startMin).toBe(minutes)
+        expect(item.issues).toEqual([])
+      })
+
+      it.each(['25:00', '24:00', '12:60', 'soon', 'evening', '7', '13pm', '0am', '7:3'])(
+        'is reported, not guessed, when "%s" cannot be read',
+        async (written) => {
+          const item = await sanitized({ ...validCreate, startTime: written })
+          expect(item.startMin).toBe(null)
+          expect(item.issues).toContain('time')
+        },
+      )
+
+      it('is not an issue when the model simply gave none', async () => {
+        const item = await sanitized({ ...validCreate, startTime: null })
+        expect(item.startMin).toBe(null)
+        expect(item.issues).toEqual([])
+      })
+
+      it('gets the default length when the model gave none, rather than being discarded', async () => {
+        const item = await sanitized({ ...validCreate, durationMin: null })
+        expect(item.startMin).toBe(9 * 60)
+        expect(item.durationMin).toBe(30)
+      })
+
+      it('gets the default length, and the issue reported, when the length was unusable', async () => {
+        const item = await sanitized({ ...validCreate, durationMin: 5000 })
+        expect(item.startMin).toBe(9 * 60)
+        expect(item.durationMin).toBe(30)
+        expect(item.issues).toEqual(['duration'])
+      })
+
+      it('gets today when no day was given and the time is still ahead, or the clock is unknown', async () => {
+        const ahead = await sanitized({ ...validCreate, date: null, startTime: '15:00' }, { ...base, nowMin: 10 * 60 })
+        expect(ahead.date).toBe('2026-08-24')
+        const unknown = await sanitized({ ...validCreate, date: null, startTime: '08:00' })
+        expect(unknown.date).toBe('2026-08-24')
+      })
+
+      it('gets tomorrow when no day was given and the time has already passed today', async () => {
+        const item = await sanitized({ ...validCreate, date: null, startTime: '09:00' }, { ...base, nowMin: 10 * 60 })
+        expect(item.date).toBe('2026-08-25')
+        expect(item.startMin).toBe(9 * 60)
+      })
+
+      it('still lands when the day it came with was unusable, on the day such a time means', async () => {
+        const item = await sanitized({ ...validCreate, date: 'next-tuesday' })
+        expect(item.date).toBe('2026-08-24')
+        expect(item.startMin).toBe(9 * 60)
+        expect(item.issues).toEqual(['date'])
+      })
     })
 
-    it("drops startMin when it fits a real slot on a DIFFERENT date than the item's own", async () => {
-      generateJson.mockResolvedValue({
-        status: 'act',
-        question: null,
-        items: [{ ...validCreate, date: '2026-08-26', startMin: 9 * 60 }],
-      })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items[0].startMin).toBe(null)
+    it('treats a date that only looks like one as no date at all', async () => {
+      // "2026-02-31" matches YYYY-MM-DD and rolls over to March in a Date.
+      const item = await sanitized({ ...validCreate, startTime: null, date: '2026-02-31' })
+      expect(item.date).toBe(null)
+      expect(item.issues).toEqual(['date'])
     })
 
     it('an unrecognised priority falls back to "normal"', async () => {
@@ -590,12 +668,22 @@ describe('ai-schedule', () => {
       expect(res.body.items[0].priority).toBe('normal')
     })
 
-    it('caps items at 10 per turn', async () => {
-      const items = Array.from({ length: 15 }, (_, i) => ({ ...validCreate, title: `Task ${i}`, date: null }))
+    it('caps items at 20 per turn, and says how many it left out', async () => {
+      const items = Array.from({ length: 25 }, (_, i) => ({ ...validCreate, title: `Task ${i}`, date: null }))
       generateJson.mockResolvedValue({ status: 'act', question: null, items })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items).toHaveLength(10)
+      expect(res.body.items).toHaveLength(20)
+      expect(res.body.skipped).toBe(5)
+    })
+
+    it('counts the items it dropped as invalid, not only those past the cap', async () => {
+      const titleless = { ...validCreate, title: ' ' }
+      generateJson.mockResolvedValue({ status: 'act', question: null, items: [validCreate, titleless, titleless] })
+      const res = fakeRes()
+      await aiScheduleHandler(fakeReq({ body: base }), res)
+      expect(res.body.items).toHaveLength(1)
+      expect(res.body.skipped).toBe(2)
     })
 
     it('falls back to asking when every candidate item fails validation (a missing title, the only way one can), rather than silently doing nothing', async () => {
@@ -613,11 +701,11 @@ describe('ai-schedule', () => {
       generateJson.mockResolvedValue({ status: 'act', question: null, items: [validCreate] })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body).toEqual({ status: 'act', question: null, items: [validCreateOutput] })
+      expect(res.body).toEqual({ status: 'act', question: null, items: [validCreateOutput], skipped: 0 })
     })
 
     it('an undated task is a legitimate create — there is no dateless item this route ever needs to drop', async () => {
-      const undatedTask = { ...validCreate, date: null, startMin: null }
+      const undatedTask = { ...validCreate, date: null, startTime: null }
       generateJson.mockResolvedValue({ status: 'act', question: null, items: [undatedTask] })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
@@ -637,7 +725,7 @@ describe('ai-schedule', () => {
       generateJson.mockResolvedValue({ status: 'act', question: null, items: [{ action: 'remove', taskId: 'existing-1' }] })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items).toEqual([{ action: 'remove', taskId: 'existing-1' }])
+      expect(res.body.items).toEqual([{ action: 'remove', taskId: 'existing-1', issues: [] }])
     })
 
     it('drops a remove for a task id that was not in the offered existingTasks list — never invented, never cross-account', async () => {
@@ -659,7 +747,7 @@ describe('ai-schedule', () => {
             taskId: 'existing-1',
             title: null,
             date: null,
-            startMin: null,
+            startTime: null,
             durationMin: null,
             tagId: null,
             notes: 'Bring a towel.',
@@ -669,14 +757,16 @@ describe('ai-schedule', () => {
       })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items).toEqual([{ action: 'update', taskId: 'existing-1', patch: { notes: 'Bring a towel.' } }])
+      expect(res.body.items).toEqual([
+        { action: 'update', taskId: 'existing-1', patch: { notes: 'Bring a towel.' }, issues: [] },
+      ])
     })
 
     it('drops an update for a task id that is not a real offered task', async () => {
       generateJson.mockResolvedValue({
         status: 'act',
         question: null,
-        items: [{ action: 'update', taskId: 'made-up', title: 'New title', date: null, startMin: null, durationMin: null, tagId: null, notes: null, priority: null }],
+        items: [{ action: 'update', taskId: 'made-up', title: 'New title', date: null, startTime: null, durationMin: null, tagId: null, notes: null, priority: null }],
       })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
@@ -687,36 +777,97 @@ describe('ai-schedule', () => {
       generateJson.mockResolvedValue({
         status: 'act',
         question: null,
-        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: null, durationMin: null, tagId: 'made-up', notes: null, priority: null }],
+        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startTime: null, durationMin: null, tagId: 'made-up', notes: null, priority: null }],
       })
       const res = fakeRes()
       await aiScheduleHandler(fakeReq({ body: base }), res)
       expect(res.body.status).toBe('ask')
     })
 
-    it("validates a new startMin against the task's own existing date when the update doesn't change the date", async () => {
-      // existing-1 already lives on 2026-08-25, the only date with a real
-      // slot (9-11). Moving it to 10:00 (still within that slot) should
-      // survive without the update needing to restate the date at all.
-      generateJson.mockResolvedValue({
-        status: 'act',
-        question: null,
-        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: 10 * 60, durationMin: null, tagId: null, notes: null, priority: null }],
-      })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.items).toEqual([{ action: 'update', taskId: 'existing-1', patch: { startMin: 10 * 60 } }])
+    const update = (fields) => ({
+      action: 'update',
+      taskId: 'existing-1',
+      title: null,
+      date: null,
+      startTime: null,
+      durationMin: null,
+      tagId: null,
+      notes: null,
+      priority: null,
+      ...fields,
     })
 
-    it("drops a new startMin that doesn't fit any real slot for the task's effective date", async () => {
-      generateJson.mockResolvedValue({
-        status: 'act',
-        question: null,
-        items: [{ action: 'update', taskId: 'existing-1', title: null, date: null, startMin: 14 * 60, durationMin: null, tagId: null, notes: null, priority: null }],
+    it("moves just the time of a task, keeping the task's own day and length without restating them", async () => {
+      const item = await sanitized(update({ startTime: '14:00' }))
+      expect(item).toEqual({ action: 'update', taskId: 'existing-1', patch: { startMin: 14 * 60 }, issues: [] })
+    })
+
+    // Regression: free time counted the task's OWN slot as busy, so moving a task
+    // to a time that overlapped where it already sat (existing-1 is 09:00-10:00)
+    // was rejected — a documented limitation, now gone with the rule.
+    it('moves a task to a time that overlaps where it already is', async () => {
+      const item = await sanitized(update({ startTime: '09:30' }))
+      expect(item.patch).toEqual({ startMin: 9 * 60 + 30 })
+    })
+
+    it('gives an undated task the day, and a length, when it is given a time — that schedules it', async () => {
+      const inbox = { id: 'inbox-1', title: 'Call Mum', date: null, startMin: null, durationMin: null, tagId: null }
+      const item = await sanitized(update({ taskId: 'inbox-1', startTime: '18:00' }), {
+        ...base,
+        existingTasks: [inbox],
       })
-      const res = fakeRes()
-      await aiScheduleHandler(fakeReq({ body: base }), res)
-      expect(res.body.status).toBe('ask')
+      expect(item.patch).toEqual({ startMin: 18 * 60, date: '2026-08-24', durationMin: 30 })
+    })
+
+    it('reports an unreadable time but still applies the rest of the update', async () => {
+      const item = await sanitized(update({ startTime: 'soon', notes: 'Bring water.' }))
+      expect(item.patch).toEqual({ notes: 'Bring water.' })
+      expect(item.issues).toEqual(['time'])
+    })
+  })
+
+  /* Times go to the model as "HH:MM" and come back as "HH:MM". Printing minute
+     counts in a long prompt is where it used to slip. */
+  describe('the prompt', () => {
+    async function promptFor(body) {
+      generateJson.mockResolvedValue({ status: 'ask', question: 'Which day?', items: [] })
+      await aiScheduleHandler(fakeReq({ body }), fakeRes())
+      return sentPrompt()
+    }
+
+    it('prints every time as HH:MM, never as a minute count', async () => {
+      const prompt = await promptFor({
+        ...base,
+        nowMin: 14 * 60 + 5,
+        history: [{ title: 'Standup', tagId: null, durationMin: 15, startMin: 9 * 60 + 30 }],
+      })
+      expect(prompt).toContain('current time: 14:05')
+      expect(prompt).toContain('2026-08-25: 09:00-11:00')
+      expect(prompt).toContain('started at 09:30')
+      expect(prompt).toContain('starts at 09:00')
+      expect(prompt).not.toMatch(/minute \d+|\b540-660\b/)
+    })
+
+    it('names the weekday and lays out the next two weeks, so "next Tuesday" is not worked out from a date', async () => {
+      const prompt = await promptFor(base)
+      expect(prompt).toContain('today: 2026-08-24 (Mon)')
+      expect(prompt).toContain('Mon 2026-08-24 (today), Tue 2026-08-25')
+      expect(prompt).toContain('Sun 2026-09-06')
+      expect(prompt).not.toContain('2026-09-07')
+    })
+
+    it('asks for the time as HH:MM and never to be dropped for looking busy', async () => {
+      await promptFor(base)
+      const { systemInstruction, schema } = generateJson.mock.calls[0][0]
+      expect(schema.properties.items.items.properties.startTime).toBeTruthy()
+      expect(schema.properties.items.items.properties.startMin).toBeUndefined()
+      expect(schema.properties.items.items.required).toContain('startTime')
+      expect(systemInstruction).toMatch(/NEVER drop, round, or replace a time/)
+    })
+
+    it('is told to return one item for every task in a long message', async () => {
+      await promptFor(base)
+      expect(generateJson.mock.calls[0][0].systemInstruction).toMatch(/one item for EACH distinct task/)
     })
   })
 })

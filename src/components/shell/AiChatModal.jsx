@@ -8,7 +8,9 @@ import { addDays, MINUTES_PER_DAY } from '@cadence/shared/date.js'
 import { freeSlots } from '@cadence/shared/slots.js'
 import { aiScheduleAi } from '../../lib/aiClient.js'
 import { AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
-import { ArrowUpIcon, ClockIcon, CloseIcon } from '../icons.jsx'
+import { ArrowUpIcon, ClockIcon, CloseIcon, WarningIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
+import { changesContext, describeChanges, skippedNote } from './aiChatChanges.js'
 import { VerifyNotice } from './VerifyNotice.jsx'
 
 // How far ahead real free time is offered to the model, and how many
@@ -22,7 +24,20 @@ const LOOKAHEAD_DAYS = 7
 // up to 7 days x 4 slots was the single largest variable-size part of the
 // prompt, and 2 real windows a day is still enough for the model to place
 // something sensibly without carrying every minor gap along too.
+// These windows are only a guide now, for choosing a time when none was
+// stated ("tomorrow afternoon"). A time someone DOES state is kept whatever the
+// windows say (api/ai-schedule.js), so sending more of them would buy nothing
+// and bring the latency back.
 const MAX_SLOTS_PER_DAY = 2
+
+// The most one message can be — the same number as CAPS.messageChars in
+// api/_lib/aiInput.js, which clips anything longer without a word (it used to
+// be 2000, and the end of a detailed message, where the times often are, never
+// reached the model). The box stops here instead, and counts down near it.
+const MAX_MESSAGE_CHARS = 4000
+const COUNT_FROM = 300
+
+const CHANGE_VERBS = { create: 'Added', update: 'Changed', remove: 'Removed' }
 
 // Same cap as enrich-task.js's own MAX_HISTORY — enough of this account's
 // tagging pattern to be useful without dominating the prompt.
@@ -36,6 +51,19 @@ const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
+/** One message as the route reads it: who said it and what. An assistant turn that
+    changed things carries a plain-text account of them (`context`), which is what
+    the model needs to resolve "make that 8pm instead" — and, if the person undid
+    them since, says so. The rest of a message's state (rows, undo, the batch
+    awaiting a yes) is for the screen, not the request. */
+function modelMessage(message) {
+  if (!message.context) return { role: message.role, content: message.content }
+  return {
+    role: message.role,
+    content: message.undone ? `${message.context}\n(All of that was undone.)` : message.context,
+  }
+}
+
 // What the composer's disabled controls point at, so a screen reader that reaches
 // one hears why it is disabled.
 const VERIFY_NOTICE_ID = 'verify-ai-chat'
@@ -44,6 +72,51 @@ const VERIFY_NOTICE_ID = 'verify-ai-chat'
 // fill the composer and wait, because "cancel the groceries task" is a real
 // delete and should be read (and perhaps changed) before it is sent.
 const SUGGESTIONS = ['Gym Monday 7am', 'Move dentist to 4pm', 'Cancel the groceries task']
+
+/** What the assistant did, one row per change (see aiChatChanges.js). Words carry
+    every distinction — a verb, a day, a time, a tag's name beside its dot, and a
+    warning's icon alongside its sentence — never colour alone. */
+function ChangeList({ rows, undone = false }) {
+  return (
+    <ul className={`ai-chat__changes${undone ? ' ai-chat__changes--undone' : ''}`} aria-label="Changes">
+      {rows.map((row, i) => (
+        // Append-only for the life of one message, like the transcript itself.
+        // eslint-disable-next-line react/no-array-index-key
+        <li key={i} className="ai-chat__change">
+          <p className="ai-chat__change-head">
+            <span className="ai-chat__change-verb">{CHANGE_VERBS[row.action]}</span>
+            <span className="ai-chat__change-title">{row.title}</span>
+          </p>
+          {(row.meta.length > 0 || row.tag) && (
+            <p className="ai-chat__change-line">
+              {row.meta.join(' · ')}
+              {row.tag && (
+                <>
+                  {row.meta.length > 0 && ' · '}
+                  <span className="ai-chat__change-tag">
+                    <TagGlyph tag={row.tag} className="ai-chat__change-dot" />
+                    {row.tag.name}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+          {row.changes.map((line) => (
+            <p key={line} className="ai-chat__change-line">
+              {line}
+            </p>
+          ))}
+          {row.note && <p className="ai-chat__change-line">{row.note}</p>}
+          {row.warnings.map((warning) => (
+            <p key={warning} className="ai-chat__change-warn">
+              <WarningIcon className="ai-chat__change-warn-icon" /> {warning}
+            </p>
+          ))}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** The assistant's mark: the brand's clock, frozen, in a ring — the small round
     avatar every chat puts beside the other side's words. */
@@ -132,7 +205,7 @@ export function AiChatModal({ onClose }) {
     }
     setBusy(true)
     try {
-      await applyAndReport(target.pending)
+      await applyAndReport(target.pending, target.rows, target.skipped)
     } finally {
       setBusy(false)
     }
@@ -158,16 +231,23 @@ export function AiChatModal({ onClose }) {
       calling freeSlots directly (0-1440 minus whatever's already busy) was
       the actual fix for an early time silently coming back as "no time
       set" whenever it fell outside a configured working-hours window. */
-  function buildWeekSlots() {
-    const dayItems = (key) => [
+  /** What is already on a day with a start time: its tasks and its timed
+      single-day events (a multi-day or all-day event holds no particular
+      hour). The free-time windows are the gaps between these, and a stated
+      time is checked against them for a clash. */
+  function timedItemsOn(key) {
+    return [
       ...tasksOn(key),
       ...eventsOn(key).filter((e) => Number.isFinite(e.startMin) && e.startDate === e.endDate),
     ]
+  }
+
+  function buildWeekSlots() {
     const slots = []
     for (let i = 0; i < LOOKAHEAD_DAYS; i += 1) {
       const key = addDays(now.key, i)
       const fromMin = i === 0 ? now.min : 0
-      const daySlots = freeSlots(dayItems(key), fromMin, MINUTES_PER_DAY, 1)
+      const daySlots = freeSlots(timedItemsOn(key), fromMin, MINUTES_PER_DAY, 1)
       for (const slot of daySlots.slice(0, MAX_SLOTS_PER_DAY)) {
         slots.push({ date: key, startMin: slot.startMin, endMin: slot.endMin })
       }
@@ -216,10 +296,11 @@ export function AiChatModal({ onClose }) {
       task (already a soft delete) is undone by restoring it; an updated
       task is undone by writing back whatever it looked like immediately
       before this patch, captured from live data right before the write. */
-  async function applyItems(items) {
-    const created = []
-    const removed = []
-    const updated = []
+  async function applyItems(items, outcome) {
+    // Filled in as it goes, not returned at the end: a write that fails part way
+    // throws, and what had already landed must still be reported and undoable —
+    // returning the lists would have lost them with the throw.
+    const { created, removed, updated } = outcome
 
     for (const item of items) {
       if (item.action === 'remove') {
@@ -249,15 +330,15 @@ export function AiChatModal({ onClose }) {
       })
       created.push(ref.id)
     }
-
-    return { created, removed, updated }
   }
 
-  /** Applies a batch and reports it in one line, with one Undo for all of it. */
-  async function applyAndReport(items) {
-    let outcome = { created: [], removed: [], updated: [] }
+  /** Applies a batch and reports it: one line saying how many, the rows saying
+      what, and one Undo for all of it. `rows` and `skipped` describe the reply
+      (aiChatChanges.js); both are optional so a caller with only items still works. */
+  async function applyAndReport(items, rows = [], skipped = 0) {
+    const outcome = { created: [], removed: [], updated: [] }
     try {
-      outcome = await applyItems(items)
+      await applyItems(items, outcome)
     } catch (caught) {
       console.error('Could not apply everything AI proposed.', caught)
       pushError('Could not finish all of those. Some may have gone through.')
@@ -277,8 +358,16 @@ export function AiChatModal({ onClose }) {
       if (updated.length) bits.push(`updated ${updated.length}`)
       if (removed.length) bits.push(`removed ${removed.length}`)
       const summary = `Done — ${bits.join(', ')}.`
+      // Items are applied in order and a failure stops the loop, so what landed
+      // is the first `total` of them: the list never claims more than happened.
+      const applied = rows.slice(0, total)
 
       say('assistant', summary, {
+        rows: applied,
+        skipped,
+        // What the assistant did, in words, for the NEXT request: without it the
+        // model sees "Done — created 1." and nothing to match "make that 8pm" to.
+        context: [summary, changesContext(applied)].filter(Boolean).join('\n'),
         // Resolves to whether it worked, so the message can say "Undone" (or
         // keep its button) honestly.
         undo: async () => {
@@ -309,7 +398,10 @@ export function AiChatModal({ onClose }) {
 
     try {
       const result = await aiScheduleAi({
-        messages: nextMessages,
+        // Words only. The messages in state also carry rows, undo functions and
+        // the batch awaiting a yes, none of which the route reads — and an
+        // assistant turn says what it DID (its context), not just that it did.
+        messages: nextMessages.map(modelMessage),
         today: now.key,
         nowMin: now.min,
         tags: tags.map((t) => ({ id: t.id, name: t.name })),
@@ -328,10 +420,22 @@ export function AiChatModal({ onClose }) {
         return
       }
 
+      // Described BEFORE anything is applied: an update shows what a task was
+      // from the task as it is now, and a clash is judged against today's plan.
+      const skipped = Number.isInteger(result.skipped) ? result.skipped : 0
+      const rows = describeChanges(result.items, {
+        tasks,
+        tags,
+        dayItems: timedItemsOn,
+        today: now.key,
+        nowMin: now.min,
+      })
+
       /* Deleting is the one thing a misread request (or a task title that
          reads like an instruction) can do that matters, so a batch with any
          removal waits for a yes. Everything else applies straight away, with
-         Undo. */
+         Undo. The same list that will report the change is shown first, so the
+         yes is to what is about to happen, not to a count. */
       const removals = result.items.filter((item) => item.action === 'remove')
       if (removals.length > 0) {
         const names = removals.map((item) => `“${tasks.find((t) => t.id === item.taskId)?.title ?? 'a task'}”`)
@@ -341,12 +445,12 @@ export function AiChatModal({ onClose }) {
           `Remove ${plural(removals.length, 'task')}: ${names.join(', ')}?${
             others > 0 ? ` I’ll also make the ${plural(others, 'other change')} you asked for.` : ''
           }`,
-          { pending: result.items },
+          { pending: result.items, rows, skipped },
         )
         return
       }
 
-      await applyAndReport(result.items)
+      await applyAndReport(result.items, rows, skipped)
     } finally {
       setBusy(false)
     }
@@ -429,6 +533,8 @@ export function AiChatModal({ onClose }) {
                   <Mark />
                   <div className="ai-chat__body">
                     <p className="ai-chat__text">{m.content}</p>
+                    {m.rows?.length > 0 && <ChangeList rows={m.rows} undone={m.undone} />}
+                    {skippedNote(m.skipped) && <p className="ai-chat__skipped">{skippedNote(m.skipped)}</p>}
                     {m.pending &&
                       (m.resolved ? null : (
                         <span className="ai-chat__confirm">
@@ -491,6 +597,7 @@ export function AiChatModal({ onClose }) {
               className="ai-chat__input"
               rows={1}
               value={draft}
+              maxLength={MAX_MESSAGE_CHARS}
               disabled={!emailVerified}
               aria-describedby={emailVerified ? undefined : VERIFY_NOTICE_ID}
               onChange={(e) => setDraft(e.target.value)}
@@ -517,6 +624,13 @@ export function AiChatModal({ onClose }) {
               <ArrowUpIcon />
             </button>
           </div>
+          {/* Only near the limit: a counter on every message is noise, but a
+              box that silently stops taking text is worse. */}
+          {draft.length > MAX_MESSAGE_CHARS - COUNT_FROM && (
+            <p className="ai-chat__count" role="status">
+              {plural(MAX_MESSAGE_CHARS - draft.length, 'character')} left
+            </p>
+          )}
         </form>
       </div>
     </div>
