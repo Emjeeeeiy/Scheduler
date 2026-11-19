@@ -1373,6 +1373,132 @@
   overflow-wrap: anywhere;
 }
 
+/* What the assistant did: one row per change, under the line that reports it.
+   A hairline list, not boxes — the system's line-based vocabulary. Every
+   distinction is in words (a verb, a day, a time, a tag's name beside its dot, a
+   warning's icon beside its sentence); nothing relies on colour. A name takes the
+   item weight in primary ink and its detail the body weight in muted ink (the
+   Name-Versus-Detail Rule). */
+.ai-chat__changes {
+  width: 100%;
+  max-width: 62ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.ai-chat__change {
+  display: grid;
+  gap: 2px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ai-chat__change-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Added / Changed / Removed: the kind of change as a small label, set like every
+   other structural label (tracked, uppercase) so the title stays the loud thing. */
+.ai-chat__change-verb {
+  flex: none;
+  font-size: var(--text-micro);
+  font-weight: var(--font-weight-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ai-chat__change-title {
+  min-width: 0;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.ai-chat__change-line {
+  margin: 0;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-body);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* A tag wears its colour and always its name — the tag chip's own recipe. */
+.ai-chat__change-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+}
+
+.ai-chat__change-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* A tag with a glyph instead of a dot claims a little more room. */
+.ai-chat__change-dot--icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 0;
+}
+
+/* "Overlaps …", "That time has already passed", "Couldn't read a time" — the
+   things worth a second look. Secondary ink at the item weight, with the warning
+   icon: the words and the icon say it, so no wash and no hue is needed. */
+.ai-chat__change-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: var(--text-meta);
+  font-weight: var(--font-weight-item);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.ai-chat__change-warn-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
+
+/* After Undo the list stays as a record of what was undone, quietly: the same 55%
+   a done chip drops to, with each title struck through. */
+.ai-chat__changes--undone {
+  opacity: 0.55;
+}
+
+.ai-chat__changes--undone .ai-chat__change-title {
+  text-decoration: line-through;
+}
+
+/* The line under a reply that left some of its items out. */
+.ai-chat__skipped {
+  margin: 0;
+  font-size: var(--text-label);
+  color: var(--color-text-secondary);
+}
+
+/* How many characters are left, only near the limit — under the box, right-aligned
+   with it. */
+.ai-chat__count {
+  margin: 6px 4px 0;
+  text-align: right;
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
 /* Where the answer is about to appear. */
 .ai-chat__typing {
   align-self: center;

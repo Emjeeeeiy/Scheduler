@@ -27,7 +27,11 @@ export const CAPS = {
   taskTitle: 200,
   existingTasks: 40,
   messages: 12,
-  messageChars: 2000,
+  // Raised from 2000: a detailed message that lists a week of tasks is where the
+  // times are, and clipping it dropped whatever came last without a word. The
+  // composer stops typing at this length (AiChatModal's MAX_MESSAGE_CHARS), so
+  // the client never sends more than the server keeps.
+  messageChars: 4000,
   // A journal note's lines, as the Journal's "Plan it" sends them. The largest
   // thing any route reads by a long way, and the one place an AI route is sent
   // what someone WROTE — so it is capped here and cut at a line by the client

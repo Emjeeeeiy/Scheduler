@@ -46,6 +46,9 @@ const pushError = vi.fn()
 // values to undo back to), while every other test gets an empty list with
 // no setup of its own.
 let mockTasks = []
+// What is already on every day with a start time, for the clash notes; empty
+// unless a test is about one.
+let mockDayItems = []
 // The AI route only serves confirmed addresses; most tests are about a
 // confirmed account.
 let mockEmailVerified = true
@@ -69,7 +72,7 @@ vi.mock('../src/state/ScheduleContext.jsx', () => ({
     get tasks() {
       return mockTasks
     },
-    tasksOn: () => [],
+    tasksOn: () => mockDayItems,
     eventsOn: () => [],
   }),
 }))
@@ -81,6 +84,7 @@ vi.mock('../src/lib/aiClient.js', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mockTasks = []
+  mockDayItems = []
   mockEmailVerified = true
 })
 
@@ -590,5 +594,194 @@ describe('the chat layout', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(onClose).toHaveBeenCalledTimes(1)
     expect(container.querySelector('.modal.modal--sheet > .modal__panel.ai-chat')).toBeTruthy()
+  })
+})
+
+/* What the reply says it did. The one-line "Done — created 2." gave no day, time
+ * or tag and no word about a time that could not be used; now each change is a row
+ * (aiChatChanges.js has the wording, tested on its own), and these pin that the
+ * rows reach the screen, that a clash warns without stopping anything, and that
+ * what the assistant did is what the model is told next turn. */
+describe('what the reply reports', () => {
+  const gym = {
+    action: 'create',
+    taskId: null,
+    title: 'Gym',
+    date: '2026-08-25',
+    startMin: 420,
+    durationMin: 60,
+    tagId: 'health',
+    notes: null,
+    priority: 'normal',
+    issues: [],
+  }
+  // Not called `act`: that is Testing Library's, used below to flush a send.
+  const acts = (items, extra = {}) => ({ status: 'act', question: null, items, skipped: 0, ...extra })
+  const changes = () => screen.getByRole('list', { name: 'Changes' })
+  const sendText = async (value, placeholder = 'Describe what to schedule…') => {
+    fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } })
+    await act(async () => {
+      send()
+    })
+  }
+
+  it('lists each change under the summary: what, when, how long, and the tag by name', async () => {
+    aiScheduleAi.mockResolvedValue(acts([gym]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('gym monday 7am')
+
+    const list = within(changes())
+    expect(list.getByText('Added')).toBeTruthy()
+    expect(list.getByText('Gym')).toBeTruthy()
+    expect(list.getByText(/7:00–8:00 AM/)).toBeTruthy()
+    expect(list.getByText(/1h/)).toBeTruthy()
+    // A tag is never colour alone.
+    expect(list.getByText('Health')).toBeTruthy()
+    // …and the summary line is still there, once.
+    expect(screen.getAllByText(/Done — created 1/)).toHaveLength(1)
+  })
+
+  it('shows what an update changed, from what the task was', async () => {
+    mockTasks = [{ id: 'task-1', title: 'Gym', date: '2026-08-25', startMin: 420, durationMin: 60, tagId: 'health', done: false, createdAt: 1 }]
+    aiScheduleAi.mockResolvedValue(acts([{ action: 'update', taskId: 'task-1', patch: { startMin: 480 }, issues: [] }]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('move gym to 8am')
+
+    expect(within(changes()).getByText('Changed')).toBeTruthy()
+    expect(within(changes()).getByText('Time: 7:00 AM → 8:00 AM')).toBeTruthy()
+  })
+
+  // The point of "keep the time": a clash is the person's call, and the chat says
+  // so — the task is still made, at the time they gave.
+  it('warns about an overlap, names what it overlaps, and still makes the task at that time', async () => {
+    mockDayItems = [{ id: 'standup', title: 'Standup', startMin: 450, durationMin: 30 }]
+    aiScheduleAi.mockResolvedValue(acts([gym]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('gym monday 7am')
+
+    expect(within(changes()).getByText(/Overlaps “Standup” \(7:30–8:00 AM\) — kept at the time you gave\./)).toBeTruthy()
+    expect(addTask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Gym', startMin: 420 }))
+  })
+
+  it('says so when it could not read a time, instead of quietly showing no time', async () => {
+    aiScheduleAi.mockResolvedValue(acts([{ ...gym, startMin: null, issues: ['time'] }]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('gym monday evening-ish')
+
+    expect(within(changes()).getByText(/No time set/)).toBeTruthy()
+    expect(within(changes()).getByText(/Couldn’t read a time from that, so it has no start time\./)).toBeTruthy()
+  })
+
+  it('says how many it left out, rather than reporting a long list as all done', async () => {
+    aiScheduleAi.mockResolvedValue(acts([gym], { skipped: 2 }))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('lots of things')
+
+    expect(screen.getByText('2 more couldn’t be added — try them in another message.')).toBeTruthy()
+  })
+
+  it('shows what is about to go before asking, so the yes is to the list and not to a count', async () => {
+    mockTasks = [{ id: 'task-1', title: 'Dentist', date: '2026-08-26', startMin: 900, durationMin: 30, tagId: null, done: false, createdAt: 1 }]
+    aiScheduleAi.mockResolvedValue(acts([{ action: 'remove', taskId: 'task-1', issues: [] }, gym]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('cancel the dentist and add gym')
+
+    const list = within(changes())
+    expect(list.getByText('Removed')).toBeTruthy()
+    expect(list.getByText('Dentist')).toBeTruthy()
+    expect(list.getByText('Added')).toBeTruthy()
+    expect(removeTask).not.toHaveBeenCalled()
+    expect(addTask).not.toHaveBeenCalled()
+  })
+
+  it('keeps the list as a dimmed record once the batch is undone', async () => {
+    aiScheduleAi.mockResolvedValue(acts([gym]))
+    const { container } = render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('gym monday 7am')
+    expect(container.querySelector('.ai-chat__changes--undone')).toBeNull()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    })
+    expect(container.querySelector('.ai-chat__changes--undone')).toBeTruthy()
+    expect(screen.getByText('Undone.')).toBeTruthy()
+  })
+
+  it('lists only what actually landed when the batch stops part way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    addTask.mockImplementationOnce(async (draft) => ({ id: `task-${draft.title}` }))
+    addTask.mockRejectedValueOnce(new Error('offline'))
+    aiScheduleAi.mockResolvedValue(acts([gym, { ...gym, title: 'Swim' }, { ...gym, title: 'Run' }]))
+    render(<AiChatModal onClose={vi.fn()} />)
+    await sendText('three things')
+
+    const list = within(changes())
+    expect(list.getByText('Gym')).toBeTruthy()
+    expect(list.queryByText('Swim')).toBeNull()
+    expect(list.queryByText('Run')).toBeNull()
+  })
+
+  describe('what the model is told next turn', () => {
+    const second = async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Sure.', items: [] })
+      await sendText('make that 8pm instead', 'Reply…')
+    }
+
+    it('is words only, and says what the assistant did — not just that it did', async () => {
+      aiScheduleAi.mockResolvedValueOnce(acts([gym]))
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym monday 7am')
+      await second()
+
+      const sent = aiScheduleAi.mock.calls[1][0].messages
+      expect(sent).toEqual([
+        { role: 'user', content: 'gym monday 7am' },
+        { role: 'assistant', content: 'Done — created 1.\nCreated "Gym" on 2026-08-25 at 07:00 for 60 min.' },
+        { role: 'user', content: 'make that 8pm instead' },
+      ])
+    })
+
+    it('says so when what the assistant did has since been undone', async () => {
+      aiScheduleAi.mockResolvedValueOnce(acts([gym]))
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym monday 7am')
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+      })
+      await second()
+
+      const assistant = aiScheduleAi.mock.calls[1][0].messages[1]
+      expect(assistant.content).toMatch(/\(All of that was undone\.\)$/)
+    })
+
+    it('sends a plain question as it was asked', async () => {
+      aiScheduleAi.mockResolvedValueOnce({ status: 'ask', question: 'Which day?', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym')
+      await second()
+      expect(aiScheduleAi.mock.calls[1][0].messages[1]).toEqual({ role: 'assistant', content: 'Which day?' })
+    })
+  })
+
+  describe('the box', () => {
+    const box = () => screen.getByPlaceholderText('Describe what to schedule…')
+
+    // Regression: the server used to clip a message at 2000 characters without a
+    // word, so the end of a detailed message — often where the times are — never
+    // reached the model. The box now stops where the server does.
+    it('stops at the length the server keeps, so nothing is clipped unseen', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      expect(box().maxLength).toBe(4000)
+    })
+
+    it('counts down only near the limit', () => {
+      render(<AiChatModal onClose={vi.fn()} />)
+      fireEvent.change(box(), { target: { value: 'x'.repeat(3000) } })
+      expect(screen.queryByText(/characters? left/)).toBeNull()
+      fireEvent.change(box(), { target: { value: 'x'.repeat(3750) } })
+      expect(screen.getByText('250 characters left')).toBeTruthy()
+      fireEvent.change(box(), { target: { value: 'x'.repeat(3999) } })
+      expect(screen.getByText('1 character left')).toBeTruthy()
+    })
   })
 })
