@@ -7,6 +7,7 @@ import { SettingsProvider, useSettings } from './state/SettingsContext.jsx'
 import { ThemeProvider } from './state/ThemeContext.jsx'
 import { DayNotesProvider } from './state/DayNotesContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
+import { isAppPath } from './lib/appPath.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { useReminderSync } from './lib/useReminderSync.js'
 import { hadSession, lastView, LAST_VIEW_KEY } from './lib/sessionHint.js'
@@ -24,6 +25,7 @@ import {
 import { parseQuickAdd } from '@cadence/shared/parseQuickAdd.js'
 import { parseTaskAi } from './lib/aiClient.js'
 import { SetupNotice } from './components/shell/SetupNotice.jsx'
+import { NotFound } from './components/shell/NotFound.jsx'
 import { VerifyEmailBanner } from './components/shell/VerifyEmailBanner.jsx'
 import { SignIn } from './components/auth/SignIn.jsx'
 import { Dashboard } from './components/views/Dashboard.jsx'
@@ -85,6 +87,7 @@ import './styles/modals.css'
 import './styles/toggles-responsive.css'
 import './styles/calendar-dnd.css'
 import './styles/review.css'
+import './styles/not-found.css'
 
 /* The Journal is its own chunk: the rich-text editor is by far the heaviest
    thing in the app, and most visits never open it. `loadJournal` is shared so
@@ -159,6 +162,17 @@ const launch = (() => {
     view: isViewId(view) ? view : null,
   }
 })()
+
+/* An address the app does not have, read once at import like `launch` above.
+ *
+ * The app lives at `/` and there is no router, but Vercel rewrites every unknown
+ * path to index.html (vercel.json), so without this a mistyped or stale link
+ * would silently open the app and never say it was wrong. Only the pathname is
+ * judged: `?view=` and `?new=` are launch parameters on a valid path. */
+const missingPath =
+  typeof window !== 'undefined' && !isAppPath(window.location.pathname)
+    ? window.location.pathname
+    : null
 
 /** The page a session opens on, and it is three different questions:
       1. An explicit request — the "Focus" home-screen shortcut (?view=). A
@@ -1228,6 +1242,20 @@ function LiveFavicon() {
 }
 
 export default function App() {
+  /* Before the Firebase check and the gate on purpose: a broken link needs
+     neither a project nor a session, and must not ask for a sign-in first. The
+     theme provider is still here so a first visit lands on dark like everywhere. */
+  if (missingPath) {
+    return (
+      <ErrorBoundary>
+        <LiveFavicon />
+        <ThemeProvider>
+          <NotFound path={missingPath} />
+        </ThemeProvider>
+      </ErrorBoundary>
+    )
+  }
+
   if (!firebaseReady) return <SetupNotice missing={missingConfigKeys} />
 
   return (
