@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { durationLabel, toHours } from '@cadence/shared/date.js'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { CloseIcon } from '../icons.jsx'
 
 /* Round the axis top to a clean number so ticks read 0 / 2 / 4 rather than
@@ -156,6 +157,16 @@ function ChartTableModal({ id, label, rows, onClose }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
+
+  // The phone's Back button closes it too (see backStack.js).
+  useBackLayer(
+    true,
+    () => {
+      onClose()
+      return true
+    },
+    BACK_RANK.modal,
+  )
 
   return (
     <div className="modal" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

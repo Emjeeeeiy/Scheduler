@@ -2,6 +2,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { getBackStack } from './lib/backStack.js'
+
+/* Created now, not on the first dialog that opens: history.state outlives a
+   reload, so a reload with something open lands on an entry that still says
+   "one layer deep". The stack tidies that the moment it exists, and until then
+   Back would be walking over an entry nothing is looking after. */
+getBackStack()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

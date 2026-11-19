@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { BACK_RANK, useBackLayer } from './useBackLayer.js'
 
 const GAP = 8
 const EDGE = 12
@@ -26,6 +27,18 @@ export function usePopoverPlacement({ open, onDismiss, width, maxHeight }) {
   const [placement, setPlacement] = useState(null)
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
+
+  /* Back closes an open popover first. Ranked above dialogs because a popover
+     can be opened from inside one (the Journal toolbar's pop-ups, the day peek),
+     and the thing most recently opened is the thing Back should close. */
+  useBackLayer(
+    open ? 'popover' : null,
+    () => {
+      onDismiss()
+      return true
+    },
+    BACK_RANK.popover,
+  )
 
   useLayoutEffect(() => {
     /* Nothing to clear on close: the panel renders only when `open` too, and

@@ -133,6 +133,24 @@ tasks, swap in a date-range query — that is the point to revisit, not before.
 the local cache including pending writes, so there is no local reducer mirroring
 server state — which is where this kind of app usually rots.
 
+**Back is a stack of layers, not a route.** There is no router (the page you are
+on is remembered state), so nothing gave the Back button anything to step
+through and it left the app from under an open dialog. `src/lib/backStack.js`
+fixes that without introducing URLs: each open dialog, popover, Journal note,
+Settings screen or drill-down is a *layer* that owns one same-URL `pushState`
+entry, and Back closes the topmost. Three choices are worth knowing before
+touching it. Layers stack by **rank** (`BACK_RANK`), not by when they registered,
+because React runs a child's effects before its parent's. The depth is read from
+`history.state`, never counted, and changes are applied once per microtask, so
+React StrictMode's mount/unmount/mount and one dialog handing over to another
+cost no history at all. And closing a layer from the UI removes its entry with
+`history.go()`, whose `popstate` the stack recognises as its own rather than as a
+Back press. One known limit: `history.state` survives a reload, so reloading with
+something open leaves one stale entry behind the page; the stack resets the
+entry it is standing on, but cannot remove the one below, so a single Back
+reloads the app before the next leaves it. A new dialog gets all of this by using
+`useModalA11y`; anything else that should close on Back calls `useBackLayer`.
+
 **Offline works.** `persistentLocalCache` keeps the working set in IndexedDB, so
 the app opens instantly on reload, keeps working with no connection, and queues
 writes until it returns.
@@ -293,6 +311,8 @@ src/
                          normalize, recurrence and stats logic lives in
                          packages/shared (below)
     useNow.js            live clock for the now-line
+    backStack.js         the phone's Back button — layers that each own one history entry
+    useBackLayer.js      how a dialog, popover, note or screen joins that stack
     appPath.js           which addresses are the app (`/`); anything else is the 404 page
     dotField.js          the 404 page's dot grid and ribbon — pure geometry, no canvas
     usePersistentState.js

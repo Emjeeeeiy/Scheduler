@@ -4,6 +4,7 @@ import { useToast } from '../../state/ToastContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '@cadence/shared/layout.js'
 import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
 import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { durationLabel, formatDayLabel, minToLabel, snapMin } from '@cadence/shared/date.js'
 import { recurrenceLabel } from '@cadence/shared/recurrence.js'
 import { CloseIcon, RepeatIcon } from '../icons.jsx'
@@ -84,6 +85,15 @@ export function DayColumn({
   const [armedId, setArmedIdState] = useState(null)
   // The block whose title card is open (see `peekOnTouch`).
   const [peekId, setPeekId] = useState(null)
+  // Back closes the card, as a tap elsewhere or Escape does (see backStack.js).
+  useBackLayer(
+    peekId,
+    () => {
+      setPeekId(null)
+      return true
+    },
+    BACK_RANK.gesture,
+  )
   /* A ref mirror of `armedId`: the handlers below also need the answer *within*
      the event that changes it, before React has re-rendered. */
   const armedRef = useRef(null)

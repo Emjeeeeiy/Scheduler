@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { BACK_RANK, useBackLayer } from './useBackLayer.js'
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -87,6 +88,20 @@ export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisable
     onCloseRef.current = onClose
     escapeDisabledRef.current = escapeDisabled
   })
+
+  /* The phone's Back button closes the dialog the way Escape does — and is
+     refused in the same circumstances (a dialog that has switched Escape off is
+     mid-something that closing would lose). Without this Back skipped straight
+     past an open dialog and left the app. See backStack.js. */
+  useBackLayer(
+    true,
+    () => {
+      if (escapeDisabledRef.current) return false
+      onCloseRef.current?.()
+      return true
+    },
+    BACK_RANK.modal,
+  )
 
   useEffect(() => {
     // Captured once, up front, rather than re-read as `panelRef.current`
