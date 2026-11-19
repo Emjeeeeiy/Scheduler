@@ -27,11 +27,18 @@ vi.mock('@cadence/shared/journal.js', async (importOriginal) => {
   return { ...real, bodyLimitState: (bytes) => (bytes > 1500 ? 'full' : bytes > 1000 ? 'warn' : 'ok') }
 })
 
+/* How many history entries the app's back stack holds right now (backStack.js). */
+const backDepth = () => window.history.state?.cadenceBack ?? 0
+
 beforeAll(installProseMirrorDom)
-afterEach(() => {
+afterEach(async () => {
   cleanup()
   vi.useRealTimers()
   document.body.innerHTML = ''
+  /* An open note owns a history entry for the phone's Back button, handed back
+     asynchronously once it unmounts. Wait for that, or one test's entry is still
+     in flight when the next test's note asks for its own. */
+  await waitFor(() => expect(backDepth()).toBe(0))
 })
 
 const para = (value) => ({ type: 'paragraph', content: [{ type: 'text', text: value }] })
@@ -560,5 +567,44 @@ describe('exiting a note', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(actions.saveNote).toHaveBeenCalledTimes(1)
     expect(props.onBack).toHaveBeenCalledTimes(1)
+  })
+})
+
+/* On a phone the Back button is the Exit button. Going straight to `onBack` from
+   it would be the one remaining way to lose a note's text, so it goes through
+   the same exit() — which is what these pin. */
+describe('exiting a note with the phone’s Back button', () => {
+  it('writes what is pending and closes, the same as Exit', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent(' typed before Back')
+    await waitFor(() => expect(backDepth()).toBe(1))
+
+    window.history.back()
+    await waitFor(() => expect(props.onBack).toHaveBeenCalledTimes(1))
+    expect(actions.saveNote).toHaveBeenCalledTimes(1)
+    expect(actions.saveNote.mock.calls[0][1].json).toContain('typed before Back')
+  })
+
+  // Regression guard: a Back that closed the note regardless would discard text
+  // the note had just said it could not save.
+  it('is refused while the text cannot be saved, and works again once it can', async () => {
+    const { container, actions, props } = mount()
+    const editor = await editorOf(container)
+    editor.commands.insertContent('x'.repeat(2000)) // past the test's size limit
+    await waitFor(() => expect(backDepth()).toBe(1))
+
+    window.history.back()
+    await waitFor(() => expect(screen.getByText(/hasn’t been closed/)).toBeTruthy())
+    expect(props.onBack).not.toHaveBeenCalled()
+    expect(actions.saveNote).not.toHaveBeenCalled()
+    expect(editor.getText()).toContain('xxxx')
+    // The refusal gave the entry back, so Back is still there to press.
+    await waitFor(() => expect(backDepth()).toBe(1))
+
+    editor.commands.setContent('<p>short again</p>')
+    window.history.back()
+    await waitFor(() => expect(props.onBack).toHaveBeenCalledTimes(1))
+    expect(actions.saveNote).toHaveBeenCalledTimes(1)
   })
 })

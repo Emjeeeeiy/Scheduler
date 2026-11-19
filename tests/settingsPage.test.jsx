@@ -5,7 +5,7 @@
  * that shortcut. As a page nothing switches it off, so the rebinding control has
  * to keep the key to itself — that is the last describe.
  */
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -382,5 +382,51 @@ describe('on a phone: a list, then a screen', () => {
       expect(scrollTo).not.toHaveBeenCalled()
       restore()
     })
+  })
+})
+
+/* The phone's Back button is the screen's own "Settings" back button: from a
+   category it returns to the list, and only from the list does it leave. Beside a
+   desktop's panel there is no second screen to step out of, so no history entry
+   is taken at all (backStack.js). */
+describe('the phone’s Back button on a Settings category', () => {
+  const backDepth = () => window.history.state?.cadenceBack ?? 0
+  const screenOf = (container) => container.querySelector('.settings-page').dataset.mobileScreen
+  const viewport = (matches) => {
+    window.matchMedia = (query) => ({ matches, media: query, addEventListener() {}, removeEventListener() {} })
+  }
+
+  /* The screen's history entry is handed back asynchronously once it unmounts, so
+     both ends wait for it: the tests above this block open screens too, and one
+     of their entries can still be unwinding when this block's first test starts. */
+  beforeEach(async () => {
+    await waitFor(() => expect(backDepth()).toBe(0))
+  })
+  afterEach(async () => {
+    cleanup()
+    delete window.matchMedia
+    await waitFor(() => expect(backDepth()).toBe(0))
+  })
+
+  it('returns from a category to the list, and gives the entry back', async () => {
+    viewport(true)
+    vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const { container } = render(<SettingsView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    expect(screenOf(container)).toBe('detail')
+    await waitFor(() => expect(backDepth()).toBe(1))
+
+    window.history.back()
+    await waitFor(() => expect(screenOf(container)).toBe('list'))
+    await waitFor(() => expect(backDepth()).toBe(0))
+  })
+
+  it('takes no history entry beside a desktop panel, where there is no second screen', async () => {
+    viewport(false)
+    render(<SettingsView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    // Let any (wrongly) queued history change land before asserting there was none.
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(backDepth()).toBe(0)
   })
 })

@@ -6,6 +6,7 @@ import { fileToNoteImage } from '../../lib/image.js'
 import { exportFilename, noteToHtmlDocument, noteToText } from '../../lib/journalExport.js'
 import { formatBytes, formatEdited } from '../../lib/journalFormat.js'
 import { paperStyle, resolvePaperHex } from '../../lib/journalPaper.js'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { useOnline } from '../../lib/useOnline.js'
 import { useTheme } from '../../state/ThemeContext.jsx'
 import { ChevronLeftIcon, CloseIcon, TrashIcon, WarningIcon } from '../icons.jsx'
@@ -329,10 +330,17 @@ export function NoteSurface({
     flushPaper()
     if (autosave.isDirty()) {
       setExitBlocked(true)
-      return
+      return false
     }
     onBack()
+    return true
   }
+
+  /* The phone's Back button is the Exit button: edits are written first, and a
+     note that cannot be saved stays open and says so (`false` makes the back
+     stack keep its entry, so Back is still there to press again). Going straight
+     to `onBack` instead would be the one way left to lose a note's text. */
+  useBackLayer('note', exit, BACK_RANK.screen)
 
   /* ----------------------------------------------------------------- title -- */
 

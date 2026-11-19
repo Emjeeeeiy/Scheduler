@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { ChevronLeftIcon, ChevronRightIcon } from '../icons.jsx'
 import { AccountSection } from '../settings/AccountSection.jsx'
 import { AppearanceSection } from '../settings/AppearanceSection.jsx'
@@ -18,6 +19,27 @@ const PANELS = {
   notifications: NotificationsSection,
   keyboard: KeyboardSection,
   data: DataSection,
+}
+
+/* The stylesheet's own breakpoint: below it the page is two screens, a list and
+   a category. */
+const NARROW = '(max-width: 900px)'
+
+/** Whether the page is currently drawn as two screens. Read from the same media
+    query the stylesheet uses rather than from a width, so the two cannot
+    disagree; false where there is no matchMedia (the smoke render, jsdom). */
+function useNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && (window.matchMedia?.(NARROW)?.matches ?? false),
+  )
+  useEffect(() => {
+    const query = window.matchMedia?.(NARROW)
+    if (!query?.addEventListener) return undefined
+    const update = () => setNarrow(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return narrow
 }
 
 /**
@@ -45,6 +67,7 @@ const PANELS = {
  * on the list. Left uncontrolled it just remembers them while it is mounted.
  */
 export function SettingsView({ section, onSectionChange, detail, onDetailChange }) {
+  const narrow = useNarrow()
   const [ownSection, setOwnSection] = useState(DEFAULT_SETTINGS_SECTION)
   const [ownDetail, setOwnDetail] = useState(false)
   const active = isSettingsSection(section) ? section : ownSection
@@ -76,6 +99,19 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
     setOwnDetail(false)
     onDetailChange?.(false)
   }
+
+  /* The phone's Back button is the screen's own "Settings" back button: from a
+     category's screen it returns to the list, and only from the list does it
+     leave Settings. Beside a desktop's panel there is no second screen to step
+     out of, so no layer — Back there is the browser's. */
+  useBackLayer(
+    showDetail && narrow ? active : null,
+    () => {
+      back()
+      return true
+    },
+    BACK_RANK.screen,
+  )
 
   return (
     <div className="settings-page frame stack" data-mobile-screen={showDetail ? 'detail' : 'list'}>

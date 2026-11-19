@@ -3,6 +3,7 @@ import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { durationLabel, todayKey, weekKeys } from '@cadence/shared/date.js'
 import { focusByTag, focusStatsFor } from '@cadence/shared/stats.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { showLocalNotification } from '@cadence/shared/notifications.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -247,6 +248,16 @@ export function FocusMode({ onEdit }) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [alarmRinging])
+
+  // …and so is the phone's Back button (see backStack.js).
+  useBackLayer(
+    alarmRinging ? 'alarm' : null,
+    () => {
+      stopAlarm()
+      return true
+    },
+    BACK_RANK.modal,
+  )
 
   useEffect(() => {
     async function requestWakeLock() {

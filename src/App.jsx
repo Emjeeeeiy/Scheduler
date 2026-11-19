@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
@@ -8,6 +8,7 @@ import { ThemeProvider } from './state/ThemeContext.jsx'
 import { DayNotesProvider } from './state/DayNotesContext.jsx'
 import { usePersistentState } from './lib/usePersistentState.js'
 import { isAppPath } from './lib/appPath.js'
+import { BACK_RANK, useBackLayer } from './lib/useBackLayer.js'
 import { useLiveFavicon } from './lib/liveFavicon.js'
 import { useReminderSync } from './lib/useReminderSync.js'
 import { hadSession, lastView, LAST_VIEW_KEY } from './lib/sessionHint.js'
@@ -138,6 +139,10 @@ const isViewId = (value) =>
     faster than reading further down a list. */
 const SEARCH_LIMIT = 6
 
+/** How many drill-downs Back remembers. Far more than anyone chains by hand; the
+    cap only stops a pathological loop (Day ⇄ Month, over and over) growing it. */
+const TRAIL_LIMIT = 20
+
 /* How the app was launched, read once at import.
  *
  * The manifest's home-screen shortcuts (see public/manifest.webmanifest)
@@ -257,6 +262,72 @@ function AppShell() {
   const [focusKey, setFocusKey] = usePersistentState('cadence-app:focus', todayKey, (stored) =>
     isValidKey(stored) && stored >= todayKey() ? stored : todayKey(),
   )
+
+  /* The phone's Back button (see lib/backStack.js), in two layers of the shell's
+     own. From a tab other than the home one, Back goes home — the landing view,
+     Dashboard unless chosen otherwise — and only from home does it leave the app;
+     one stray Back must not close the app from a tab you merely tapped into.
+     And a *drill-down* — a day opened from the month, a month from the mini
+     calendar, a day's note from a calendar — remembers where it came from, so
+     Back returns there rather than skipping to home.
+
+     Switching tabs is not a drill-down: it is a move sideways, so it forgets the
+     trail (`goTo`) and does not build one. Stepping the date with the arrows adds
+     nothing either; they are the same place seen a day later. */
+  const home = isViewId(settings.landingView) ? settings.landingView : 'dashboard'
+  const [trail, setTrail] = useState([])
+  // The ref is the source of truth inside a handler: two Back presses can land
+  // before React has re-rendered, and each must see what the other did.
+  const trailRef = useRef([])
+  const commitTrail = useCallback((next) => {
+    trailRef.current = next
+    setTrail(next)
+  }, [])
+
+  /** A move sideways: to another tab or page. */
+  const goTo = useCallback(
+    (next) => {
+      if (trailRef.current.length) commitTrail([])
+      setView(next)
+    },
+    [commitTrail, setView],
+  )
+
+  /** A move into the detail of where you are: Back returns here. Without a `key`
+      the date stays as it is (the Journal's day note). */
+  const drill = useCallback(
+    (next, key) => {
+      const samePlace = next === view && (key === undefined || key === focusKey)
+      if (!samePlace) {
+        commitTrail([...trailRef.current, { view, focusKey }].slice(-TRAIL_LIMIT))
+      }
+      if (key !== undefined) setFocusKey(key)
+      setView(next)
+    },
+    [view, focusKey, commitTrail, setFocusKey, setView],
+  )
+
+  const popTrail = useCallback(() => {
+    const entry = trailRef.current[trailRef.current.length - 1]
+    if (!entry) return false
+    commitTrail(trailRef.current.slice(0, -1))
+    setFocusKey(entry.focusKey)
+    setView(entry.view)
+    return true
+  }, [commitTrail, setFocusKey, setView])
+
+  /* The trail is keyed by its length so that each step back is its own layer and
+     so its own history entry: one Back press, one step. The home layer sits
+     below it (rank), so a drill-down always unwinds before home is offered. */
+  useBackLayer(trail.length > 0 ? trail.length : null, popTrail, BACK_RANK.trail)
+  useBackLayer(
+    view !== home ? 'away' : null,
+    () => {
+      goTo(home)
+      return true
+    },
+    BACK_RANK.tab,
+  )
   /* Seeded straight from the launch parameters when the app was opened
      through a "New task"/"New event" shortcut — the same shape openCreate
      and openCreateEvent build below. */
@@ -292,9 +363,9 @@ function AppShell() {
       const named = isSettingsSection(section)
       if (named) setSettingsSection(section)
       setSettingsDetail(named)
-      setView('settings')
+      goTo('settings')
     },
-    [setSettingsSection, setSettingsDetail, setView],
+    [setSettingsSection, setSettingsDetail, goTo],
   )
   const [itemsOpen, setItemsOpen] = useState(false)
   const [todoOpen, setTodoOpen] = useState(false)
@@ -427,21 +498,11 @@ function AppShell() {
     })
   }, [])
 
-  const focusDay = useCallback(
-    (key) => {
-      setFocusKey(key)
-      setView('today')
-    },
-    [setFocusKey, setView],
-  )
+  /* Opening a day or a month from somewhere else is a drill-down: Back returns to
+     where you were (see `drill`). */
+  const focusDay = useCallback((key) => drill('today', key), [drill])
 
-  const focusMonth = useCallback(
-    (key) => {
-      setFocusKey(key)
-      setView('month')
-    },
-    [setFocusKey, setView],
-  )
+  const focusMonth = useCallback((key) => drill('month', key), [drill])
 
   /* A day's page in the Journal: the one already written for it, or a new one.
      Left as an intent, like the palette's "New note" — the Journal may not be
@@ -450,10 +511,10 @@ function AppShell() {
      The way back is the note's own day band, which calls focusDay. */
   const openDayNote = useCallback(
     (key) => {
-      setView('journal')
+      drill('journal')
       setJournalIntent({ kind: 'day', dayKey: key })
     },
-    [setView],
+    [drill],
   )
 
   const step = DATE_NAV[view]
@@ -556,13 +617,13 @@ function AppShell() {
         Icon: BulbIcon,
         onRun: () => setAiOpen(true),
       },
-      { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => setView('dashboard') },
-      { id: 'view-day', label: 'Go to Day', Icon: DayIcon, onRun: () => setView('today') },
-      { id: 'view-week', label: 'Go to Week', Icon: WeekIcon, onRun: () => setView('week') },
-      { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => setView('month') },
-      { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => setView('review') },
-      { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => setView('focus') },
-      { id: 'view-journal', label: 'Go to Journal', Icon: JournalIcon, onRun: () => setView('journal') },
+      { id: 'view-dashboard', label: 'Go to Dashboard', Icon: DashboardIcon, onRun: () => goTo('dashboard') },
+      { id: 'view-day', label: 'Go to Day', Icon: DayIcon, onRun: () => goTo('today') },
+      { id: 'view-week', label: 'Go to Week', Icon: WeekIcon, onRun: () => goTo('week') },
+      { id: 'view-month', label: 'Go to Month', Icon: MonthIcon, onRun: () => goTo('month') },
+      { id: 'view-review', label: 'Go to Review', Icon: TrendIcon, onRun: () => goTo('review') },
+      { id: 'view-focus', label: 'Go to Focus', Icon: FocusIcon, onRun: () => goTo('focus') },
+      { id: 'view-journal', label: 'Go to Journal', Icon: JournalIcon, onRun: () => goTo('journal') },
       {
         id: 'new-note',
         label: 'New note',
@@ -571,7 +632,7 @@ function AppShell() {
         // Left as an intent rather than done here: the Journal may not be
         // loaded yet, and it creates the note once it is.
         onRun: () => {
-          setView('journal')
+          goTo('journal')
           setJournalIntent('new')
         },
       },
@@ -596,7 +657,7 @@ function AppShell() {
         label: 'Plan my day',
         Icon: DayIcon,
         onRun: () => {
-          setView('today')
+          goTo('today')
           setPlanSignal((n) => n + 1)
         },
       },
@@ -655,7 +716,7 @@ function AppShell() {
       openDayNote,
       openSettings,
       setFocusKey,
-      setView,
+      goTo,
     ],
   )
 
@@ -880,7 +941,7 @@ function AppShell() {
                 className={`sidebar__link${active ? ' sidebar__link--active' : ''}`}
                 aria-current={active ? 'page' : undefined}
                 title={item.label}
-                onClick={() => setView(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
+                onClick={() => goTo(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
               >
                 <Icon className="sidebar__icon" />
                 <span className="sidebar__label">{item.label}</span>
@@ -1021,7 +1082,7 @@ function AppShell() {
                     role="tab"
                     aria-selected={view === tab.id}
                     className={`view-tabs__tab${view === tab.id ? ' view-tabs__tab--active' : ''}`}
-                    onClick={() => setView(tab.id)}
+                    onClick={() => goTo(tab.id)}
                   >
                     {tab.label}
                   </button>
