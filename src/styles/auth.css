@@ -103,12 +103,6 @@ code {
   color: var(--color-text-primary);
 }
 
-.auth-hero__mark {
-  width: 22px;
-  height: 22px;
-  flex: none;
-}
-
 /* The way in and the way back, at the far right: Log in on the hero, Back while the
    form is showing. Ink Invert — the Ink fill with a Paper label, black on white in
    dark and white on black in light — the same pairing the Trends range switch uses.

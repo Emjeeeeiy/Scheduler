@@ -119,9 +119,16 @@ async function openNote(content = WEEK, day = FUTURE) {
       <JournalView intent={{ kind: 'day', dayKey: day }} onIntentHandled={vi.fn()} />
     </ThemeProvider>,
   )
-  // The toolbar is there once the editor is.
   await screen.findByRole('button', { name: 'Plan it' })
-  return { ...view, editor: view.container.querySelector('.ProseMirror').editor }
+  // The toolbar can be on screen a beat before the editor's own element is (the
+  // editor starts after the first render), so wait for the editor itself rather
+  // than assume it — on a busy machine that beat is long enough to be hit.
+  const dom = await waitFor(() => {
+    const element = view.container.querySelector('.ProseMirror')
+    if (!element?.editor) throw new Error('The editor has not mounted yet.')
+    return element
+  })
+  return { ...view, editor: dom.editor }
 }
 
 const planIt = () => fireEvent.click(screen.getByRole('button', { name: 'Plan it' }))
@@ -365,6 +372,125 @@ describe('Plan it', () => {
       })
       expect(rows(container).map((r) => r.title)).toEqual(['From the second'])
     })
+  })
+})
+
+/* While the AI is reading the note, the page shows it: a band that sweeps over the
+ * paper (`.note-scan`). It is tied to exactly the time the answer is awaited — from
+ * the press until the answer lands, is dismissed, or is replaced by a new press —
+ * and it is never shown when nothing is being asked. */
+describe('the scan over the page', () => {
+  const scan = (container) => container.querySelector('.note-scan')
+
+  /** An AI that answers when told to, so "in flight" can be held open. */
+  function holdAi() {
+    const answers = []
+    ai.notePlanAi.mockImplementation(() => new Promise((resolve) => answers.push(resolve)))
+    return answers
+  }
+
+  it('starts when Plan it is pressed and runs for as long as the AI is reading', async () => {
+    holdAi()
+    const { container } = await openNote()
+    expect(scan(container)).toBeNull()
+
+    planIt()
+    expect(scan(container)).toBeTruthy()
+
+    // Still going a moment later — it does not stop on its own.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+    expect(scan(container)).toBeTruthy()
+  })
+
+  it('stops when the answer lands, whatever it says', async () => {
+    const answers = holdAi()
+    const { container } = await openNote()
+    planIt()
+    await act(async () => {
+      answers[0]([{ title: 'Water the plants', date: null, startMin: null, durationMin: null }])
+    })
+    expect(scan(container)).toBeNull()
+    expect(panel(container)).toBeTruthy() // and the proposal is there in its place
+  })
+
+  it('stops when the AI cannot be reached, and when it finds nothing', async () => {
+    const first = holdAi()
+    const { container } = await openNote()
+    planIt()
+    await act(async () => {
+      first[0](null)
+    })
+    expect(scan(container)).toBeNull()
+
+    ai.notePlanAi.mockResolvedValue([])
+    planIt()
+    await waitFor(() => expect(scan(container)).toBeNull())
+  })
+
+  it('stops when Plan it is dismissed, and the late answer does not bring it back', async () => {
+    const answers = holdAi()
+    const { container } = await openNote()
+    planIt()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(scan(container)).toBeNull()
+
+    await act(async () => {
+      answers[0]([])
+    })
+    expect(scan(container)).toBeNull()
+  })
+
+  it('keeps going through a second press, until the second answer', async () => {
+    const answers = holdAi()
+    const { container } = await openNote()
+    planIt()
+    planIt()
+    expect(answers).toHaveLength(2)
+
+    await act(async () => {
+      answers[0]([]) // the first press's answer is for a plan nobody is looking at
+    })
+    expect(scan(container)).toBeTruthy()
+
+    await act(async () => {
+      answers[1]([])
+    })
+    expect(scan(container)).toBeNull()
+  })
+
+  // Nothing is awaited in either of these, so nothing scans: the checklist is shown
+  // at once and no request is made.
+  it('never shows for an unconfirmed account — nothing is sent, so nothing waits', async () => {
+    auth.emailVerified = false
+    const { container } = await openNote(WEEK)
+    planIt()
+    expect(panel(container)).toBeTruthy() // the checklist, at once
+    expect(scan(container)).toBeNull()
+    expect(ai.notePlanAi).not.toHaveBeenCalled()
+  })
+
+  it('never shows for a note with nothing in it to read', async () => {
+    const { container } = await openNote(doc(para('')))
+    planIt()
+    expect(scan(container)).toBeNull()
+    expect(ai.notePlanAi).not.toHaveBeenCalled()
+  })
+
+  it('is decoration laid over the page: out of the sheet, out of the editor, out of a screen reader', async () => {
+    holdAi()
+    const { container, editor } = await openNote()
+    planIt()
+    const band = scan(container)
+
+    expect(band.getAttribute('aria-hidden')).toBe('true')
+    // A sibling of the sheet, inside its wrapper — not part of what is being written.
+    expect(band.parentElement.classList.contains('note-sheet-wrap')).toBe(true)
+    expect(container.querySelector('.note-sheet').contains(band)).toBe(false)
+    expect(editor.view.dom.contains(band)).toBe(false)
+    // Nothing about the note changed to show it.
+    expect(editor.isEditable).toBe(true)
   })
 })
 

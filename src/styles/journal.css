@@ -1097,9 +1097,85 @@ a.ghost-button {
    a hundred characters a line at the default size, not the whole of a wide
    monitor. */
 .note-sheet-wrap {
+  position: relative;
+  /* Contains the scan's z-index below, so it can never climb over the sticky
+     toolbar (z-index 4) or a pop-up. */
+  isolation: isolate;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+/* While Plan it waits on the AI (NoteSurface, `checking`) the page is being read,
+   and says so: a soft band of coral sweeps across the sheet, left to right the way
+   a line is read, rests a beat, and goes again — for as long as the AI takes.
+
+   Sideways rather than down. The sheet is a whole page tall, and taller with a long
+   note, so a band travelling down it would spend most of its time off screen; one
+   travelling across is on screen wherever the note is scrolled.
+
+   It is chrome laid over the writer's page, not part of it, so it is drawn from the
+   system's accent washes and never from the paper's or the ink's colours (a paper
+   can be any colour). It takes no pointer events — typing and selecting go on as
+   they were — and it is not printed. The leading edge is a gradient stop, not a
+   border: a coloured edge on one side of a box is a stripe, and this is a line. */
+.note-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  animation: note-scan-in 220ms ease-out both;
+}
+
+.note-scan::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-accent-wash) calc(100% - 2px),
+    var(--color-accent-line) calc(100% - 2px)
+  );
+  transform: translateX(-100%);
+  animation: note-scan-sweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes note-scan-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The band is 40% of the sheet, so 250% of its own width is the sheet's whole
+   width: it is clear of the right edge at 80%, and rests for the last fifth. */
+@keyframes note-scan-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  80%,
+  to {
+    transform: translateX(250%);
+  }
+}
+
+/* No travel for someone who asked for none: a still, faint wash over the page says
+   the same thing — it is being read — without moving. */
+@media (prefers-reduced-motion: reduce) {
+  .note-scan {
+    animation: none;
+  }
+
+  .note-scan::before {
+    width: 100%;
+    transform: none;
+    animation: none;
+    background: var(--color-accent-wash);
+    opacity: 0.5;
+  }
 }
 
 .note-sheet {
@@ -1679,6 +1755,7 @@ a.ghost-button {
   .note-head,
   .note-day,
   .note-plan,
+  .note-scan,
   .note-foot,
   .journal-toolbar,
   .note-surface .banner,

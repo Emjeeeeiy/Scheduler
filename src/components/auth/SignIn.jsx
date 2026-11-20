@@ -172,7 +172,6 @@ export function SignIn() {
     >
       <header className="auth-topbar">
         <div className="auth-topbar__brand">
-          <ClockIcon className="auth-hero__mark" />
           <span className="auth-hero__name">Cadence</span>
         </div>
 

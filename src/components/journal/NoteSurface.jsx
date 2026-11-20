@@ -93,6 +93,11 @@ export function NoteSurface({
      actions), or null where this note is mounted on its own. */
   const scheduleTools = useNoteScheduleTools()
   const registerEditor = scheduleTools?.registerEditor
+  /* Plan it is waiting on the AI to read the note: from the press until the answer
+     lands (or Plan it is dismissed or pressed again). The page says so, over the
+     paper — see `.note-scan` in journal.css. A checklist alone never waits, so it
+     never shows. */
+  const checking = scheduleTools?.plan?.status === 'thinking'
 
   /* ------------------------------------------------------------ the body -- */
 
@@ -687,6 +692,11 @@ export function NoteSurface({
         <div ref={sheetRef} className="note-sheet" style={sheet.style} {...sheet.attrs}>
           <EditorContent editor={editor} />
         </div>
+        {/* A sibling of the sheet, not a child: the sheet lifts every child above
+            its own pattern (`.note-sheet > *`), which this must not be. Decoration
+            only — the plan panel already says what is happening (`aria-busy`, "Reading
+            …") — so it is hidden from a screen reader and ignores the pointer. */}
+        {checking ? <div className="note-scan" aria-hidden="true" /> : null}
       </div>
 
       {/* What used to be a line between the title and the toolbar: the details of

@@ -47,7 +47,7 @@ Used solo, in-browser, as part of a personal daily/weekly planning ritual — no
 
 ## Brand Commitments
 
-Name: **Cadence** (renamed from a generic "Scheduler" working title). Mark: a drawn clock icon (`ClockIcon`, part of the app's own small stroke-icon set), used in the sidebar brand lockup and on the sign-in screen.
+Name: **Cadence** (renamed from a generic "Scheduler" working title). Mark: a drawn clock icon (`ClockIcon`, part of the app's own small stroke-icon set), used in the signed-in app's brand lockup (the sidebar, and the top bar on a phone). The sign-in and 404 screens carry the word "Cadence" alone, without the mark.
 
 ## Evidence on Hand
 

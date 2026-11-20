@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { ClockIcon } from '../icons.jsx'
 import { DotField } from './DotField.jsx'
 
 /* Long enough for any real address, short enough that a pasted junk URL cannot
@@ -31,7 +30,6 @@ export function NotFound({ path }) {
     <div className="auth-shell not-found">
       <header className="auth-topbar">
         <div className="auth-topbar__brand">
-          <ClockIcon className="auth-hero__mark" />
           <span className="auth-hero__name">Cadence</span>
         </div>
       </header>
