@@ -97,6 +97,8 @@ beforeEach(() => {
   state.tasks = []
   state.inbox = []
   state.tags = [WORK]
+  // The queue and chart choices are remembered per device; a test's must not leak.
+  localStorage.clear()
 })
 
 afterEach(() => {
@@ -110,11 +112,19 @@ describe('the bands', () => {
     busyWeek()
     const { container } = renderDashboard()
     const bands = [...container.querySelector('.dashboard').children]
-    expect(bands.map((el) => (el.matches('.dashboard__top') ? 'today' : el.matches('.queue-row') ? 'queues' : el.matches('.trends') ? 'trends' : '?'))).toEqual([
-      'today',
-      'queues',
-      'trends',
-    ])
+    const name = (el) =>
+      el.matches('.dashboard__top')
+        ? 'today'
+        : el.matches('.queue-row')
+          ? 'queues'
+          : el.matches('.trends')
+            ? 'trends'
+            : el.matches('.pane-tabs-band')
+              ? 'queue tabs'
+              : '?'
+    // The tab row is the phone's way to pick a queue: it is in the document so
+    // there is one DOM at every width, but the stylesheet draws it only below 900px.
+    expect(bands.map(name)).toEqual(['today', 'queue tabs', 'queues', 'trends'])
   })
 
   it('has no stat tiles — what they said lives in the hero, the queues and the figures', () => {
@@ -152,6 +162,98 @@ describe('the hero', () => {
     const { container } = renderDashboard()
     expect(container.querySelectorAll('.hero .primary-button')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'Plan something for today' })).toBeTruthy()
+  })
+})
+
+/* On a phone the queues are a tab row over one list. Which list shows is the
+ * stylesheet's job (a `data-pane` on the row, checked by eye); what is worth
+ * pinning here is the row itself: which tabs there are, what they count, that
+ * choosing one is remembered, and that a choice that has since emptied falls back
+ * rather than showing nothing. */
+describe('the queues as tabs, on a phone', () => {
+  const tabs = () => screen.queryAllByRole('tab')
+  const names = () => tabs().map((tab) => tab.textContent)
+  const pane = (container) => container.querySelector('.queue-row').dataset.pane
+
+  it('is a tab for each queue with something in it, each carrying its count', () => {
+    busyWeek()
+    renderDashboard()
+    expect(screen.getByRole('tablist', { name: 'Queues' })).toBeTruthy()
+    expect(names()).toEqual(['Next up', 'Overdue4', 'Pinned1'])
+  })
+
+  it('opens on Next up', () => {
+    busyWeek()
+    const { container } = renderDashboard()
+    expect(pane(container)).toBe('next')
+    expect(screen.getByRole('tab', { name: /^Next up/ }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('switches the queue that shows, and says which tab is selected', () => {
+    busyWeek()
+    const { container } = renderDashboard()
+    fireEvent.click(screen.getByRole('tab', { name: /^Overdue/ }))
+    expect(pane(container)).toBe('overdue')
+    expect(screen.getByRole('tab', { name: /^Overdue/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: /^Next up/ }).getAttribute('aria-selected')).toBe('false')
+  })
+
+  it('points each tab at the list it switches', () => {
+    busyWeek()
+    renderDashboard()
+    for (const tab of tabs()) {
+      expect(document.getElementById(tab.getAttribute('aria-controls'))).toBeTruthy()
+    }
+  })
+
+  it('moves between tabs with the arrow keys, wrapping, and keeps only the selected one in the tab order', () => {
+    busyWeek()
+    const { container } = renderDashboard()
+    const next = screen.getByRole('tab', { name: /^Next up/ })
+    expect(tabs().map((tab) => tab.tabIndex)).toEqual([0, -1, -1])
+    fireEvent.keyDown(next, { key: 'ArrowRight' })
+    expect(pane(container)).toBe('overdue')
+    fireEvent.keyDown(screen.getByRole('tab', { name: /^Overdue/ }), { key: 'End' })
+    expect(pane(container)).toBe('pinned')
+    fireEvent.keyDown(screen.getByRole('tab', { name: /^Pinned/ }), { key: 'ArrowRight' })
+    expect(pane(container)).toBe('next')
+    fireEvent.keyDown(screen.getByRole('tab', { name: /^Next up/ }), { key: 'ArrowLeft' })
+    expect(pane(container)).toBe('pinned')
+  })
+
+  it('remembers the choice for next time', () => {
+    busyWeek()
+    renderDashboard().unmount()
+    cleanup()
+    const first = renderDashboard()
+    fireEvent.click(screen.getByRole('tab', { name: /^Pinned/ }))
+    first.unmount()
+
+    const { container } = renderDashboard()
+    expect(pane(container)).toBe('pinned')
+  })
+
+  // Regression guard: the remembered queue can be one that has since emptied.
+  // Showing it would be a blank page under a row of tabs that do not include it.
+  it('shows Next up when the remembered queue is empty now', () => {
+    localStorage.setItem('cadence-app:dash-queue', JSON.stringify('overdue'))
+    state.tasks = [task('1', 'Write report', TODAY, { startMin: 780, durationMin: 60 }), task('2', 'Pinned thing', addDays(TODAY, 9), { pinned: true })]
+    const { container } = renderDashboard()
+    expect(pane(container)).toBe('next')
+  })
+
+  it('ignores a remembered value it does not recognise', () => {
+    localStorage.setItem('cadence-app:dash-queue', JSON.stringify('timeline'))
+    busyWeek()
+    const { container } = renderDashboard()
+    expect(pane(container)).toBe('next')
+  })
+
+  it('has no tab row at all when there is only one queue — one is no choice', () => {
+    state.tasks = [task('1', 'Write report', TODAY, { startMin: 780, durationMin: 60 })]
+    const { container } = renderDashboard()
+    expect(tabs()).toHaveLength(0)
+    expect(container.querySelector('.pane-tabs-band')).toBeNull()
   })
 })
 
@@ -211,6 +313,55 @@ describe('trends', () => {
     expect(Object.keys(figures(container))).toEqual(['Planned', 'Completed', 'Tasks done', 'Completion rate'])
     expect(trends.querySelector('.chart__columns')).toBeTruthy()
     expect(within(trends).getByText('Time by tag')).toBeTruthy()
+  })
+
+  // On a phone the chart and the tag breakdown fold behind a toggle — the answer
+  // (the takeaway and four figures) first, the detail a tap away. The folding is
+  // the stylesheet's (`data-chart`); the button and its memory are what is pinned.
+  describe('the chart toggle, on a phone', () => {
+    const toggle = () => screen.getByRole('button', { name: /(Show|Hide) chart/ })
+    const chartState = (container) => container.querySelector('.trends').dataset.chart
+
+    it('starts folded, and says what it will do', () => {
+      busyWeek()
+      const { container } = renderDashboard()
+      expect(chartState(container)).toBe('closed')
+      expect(toggle().textContent).toBe('Show chart')
+      expect(toggle().getAttribute('aria-expanded')).toBe('false')
+    })
+
+    it('unfolds and folds again, and points at the chart it controls', () => {
+      busyWeek()
+      const { container } = renderDashboard()
+      fireEvent.click(toggle())
+      expect(chartState(container)).toBe('open')
+      expect(toggle().textContent).toBe('Hide chart')
+      expect(toggle().getAttribute('aria-expanded')).toBe('true')
+      expect(document.getElementById(toggle().getAttribute('aria-controls'))).toBe(container.querySelector('.trends__body'))
+      fireEvent.click(toggle())
+      expect(chartState(container)).toBe('closed')
+    })
+
+    it('keeps the chart in the document either way: a desktop shows it, and the toggle is not there', () => {
+      busyWeek()
+      const { container } = renderDashboard()
+      expect(container.querySelector('.trends .chart__columns')).toBeTruthy()
+    })
+
+    it('remembers being unfolded', () => {
+      busyWeek()
+      const first = renderDashboard()
+      fireEvent.click(toggle())
+      first.unmount()
+      const { container } = renderDashboard()
+      expect(chartState(container)).toBe('open')
+    })
+
+    it('has no toggle when there is nothing to fold', () => {
+      // Nothing scheduled in the range: the takeaway says so and there is no chart.
+      renderDashboard()
+      expect(screen.queryByRole('button', { name: /(Show|Hide) chart/ })).toBeNull()
+    })
   })
 
   it('says in one sentence what the range holds', () => {

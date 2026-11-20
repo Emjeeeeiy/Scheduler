@@ -4,6 +4,7 @@ import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
+import { DockedLayer } from './DockedLayer.jsx'
 import { useDesktopNotifications } from '../../lib/useDesktopNotifications.js'
 import { useAppBadge } from '../../lib/useAppBadge.js'
 import { buildNotifications, describeNotification } from '@cadence/shared/notifications.js'
@@ -43,11 +44,13 @@ export function NotificationBell({ onEdit }) {
      about fixed positioning and the single clamped `left`. The month's day
      peek needs identical behaviour, and this logic is too subtle to keep in
      two places. */
-  const { placement, triggerRef, panelRef } = usePopoverPlacement({
+  const { placement, docked, style, triggerRef, panelRef } = usePopoverPlacement({
     open,
     onDismiss: dismiss,
     width: PANEL_WIDTH,
     maxHeight: PANEL_MAX_HEIGHT,
+    // A bottom sheet on a phone, where there is no corner for it to hang from.
+    sheet: true,
   })
 
   /* Stored tasks carry the overdue scan, which reaches arbitrarily far back;
@@ -102,8 +105,16 @@ export function NotificationBell({ onEdit }) {
         )}
       </button>
 
+      <DockedLayer docked={docked}>
+      {open && placement && docked && <div className="popover-scrim" aria-hidden="true" />}
       {open && placement && (
-        <div ref={panelRef} className="notif__panel" style={placement} role="menu" aria-label="Notifications">
+        <div
+          ref={panelRef}
+          className={`notif__panel${docked ? ' popover--sheet' : ''}`}
+          style={style}
+          role="menu"
+          aria-label="Notifications"
+        >
           <div className="notif__head">
             <span>Notifications</span>
             {visible.length > 0 && (
@@ -161,6 +172,7 @@ export function NotificationBell({ onEdit }) {
           )}
         </div>
       )}
+      </DockedLayer>
     </div>
   )
 }

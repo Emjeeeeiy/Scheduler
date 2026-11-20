@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { BACK_RANK, useBackLayer } from './useBackLayer.js'
 
+/* The swipe-to-close is only for a touch screen at sheet width — with a mouse
+   nothing is dragged, and a wider dialog is a card, not a sheet. */
+const SHEET_SWIPE_QUERY = '(max-width: 640px) and (pointer: coarse)'
+/* How far down the head is dragged to close, and the shorter, quicker flick that
+   closes too (px, then px per ms). */
+const SWIPE_CLOSE_PX = 90
+const SWIPE_FLICK_MIN_PX = 40
+const SWIPE_FLICK_SPEED = 0.6
+
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -168,6 +177,95 @@ export function useModalA11y(panelRef, { onClose, initialFocusRef, escapeDisable
        never recreates, so they carry nothing new to react to; `onClose` and
        `escapeDisabled` are read through the refs above precisely so this
        effect doesn't need to depend on either. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* On a phone a dialog is a bottom sheet (modals.css), and two things about one
+     are only a script's to do — so they live here, where every dialog already gets
+     its keyboard behaviour, rather than being copied into each.
+
+     1. Stand clear of the on-screen keyboard. A sheet bottom-aligned in the layout
+        viewport sits BEHIND the keyboard, hiding Save exactly when a field is being
+        typed in. The visual viewport knows how much of the screen the keyboard took;
+        it is written to `--keyboard-inset` on the dim, which the sheet pads by.
+        (Not while pinch-zoomed: a zoomed viewport is smaller too, and that is not a
+        keyboard.)
+     2. Swipe down on the head to close. Closing goes through the same `onClose` —
+        and the same refusal when Escape is off — as every other way out, so a
+        dialog that is mid-save cannot be flicked away. Anything short of a clear
+        drag springs back. The head, not the whole panel, is the drag zone: a drag
+        inside the content is a scroll. */
+  useEffect(() => {
+    const panel = panelRef.current
+    const root = panel?.closest?.('.modal')
+    if (!panel || !root) return undefined
+    const undo = []
+
+    const viewport = window.visualViewport
+    if (viewport) {
+      const measure = () => {
+        const inset = viewport.scale > 1.01 ? 0 : window.innerHeight - viewport.height - viewport.offsetTop
+        root.style.setProperty('--keyboard-inset', `${Math.max(0, Math.round(inset))}px`)
+      }
+      measure()
+      viewport.addEventListener('resize', measure)
+      viewport.addEventListener('scroll', measure)
+      undo.push(() => {
+        viewport.removeEventListener('resize', measure)
+        viewport.removeEventListener('scroll', measure)
+      })
+    }
+
+    const head = panel.querySelector('.modal__head')
+    if (head && window.matchMedia?.(SHEET_SWIPE_QUERY)?.matches) {
+      const drag = { id: null, startY: 0, startAt: 0, dy: 0 }
+
+      const onDown = (event) => {
+        // A press on the Close button (or any control in the head) is that
+        // control's, not the start of a drag.
+        if (event.pointerType === 'mouse' || event.target.closest?.('button, a, input, select, textarea')) return
+        drag.id = event.pointerId
+        drag.startY = event.clientY
+        drag.startAt = event.timeStamp
+        drag.dy = 0
+        head.setPointerCapture?.(event.pointerId)
+      }
+      const onMove = (event) => {
+        if (drag.id !== event.pointerId) return
+        // Downward only: a sheet has nowhere to go up.
+        drag.dy = Math.max(0, event.clientY - drag.startY)
+        panel.style.transition = 'none'
+        panel.style.transform = `translateY(${drag.dy}px)`
+      }
+      const onEnd = (event, cancelled) => {
+        if (drag.id !== event.pointerId) return
+        drag.id = null
+        const elapsed = Math.max(1, event.timeStamp - drag.startAt)
+        // Far enough, or a short but quick flick.
+        const dismissed = !cancelled && (drag.dy > SWIPE_CLOSE_PX || (drag.dy > SWIPE_FLICK_MIN_PX && drag.dy / elapsed > SWIPE_FLICK_SPEED))
+        if (dismissed && !escapeDisabledRef.current) onCloseRef.current?.()
+        // Whether it closed (the panel is about to go) or not (it must come back),
+        // hand the transform back to the stylesheet.
+        panel.style.transition = 'transform 160ms ease-out'
+        panel.style.transform = ''
+      }
+      const onUp = (event) => onEnd(event, false)
+      const onCancel = (event) => onEnd(event, true)
+
+      head.addEventListener('pointerdown', onDown)
+      head.addEventListener('pointermove', onMove)
+      head.addEventListener('pointerup', onUp)
+      head.addEventListener('pointercancel', onCancel)
+      undo.push(() => {
+        head.removeEventListener('pointerdown', onDown)
+        head.removeEventListener('pointermove', onMove)
+        head.removeEventListener('pointerup', onUp)
+        head.removeEventListener('pointercancel', onCancel)
+      })
+    }
+
+    return () => undo.forEach((fn) => fn())
+    // Mount-only, for the reasons given for the effect above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 }

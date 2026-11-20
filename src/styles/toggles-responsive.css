@@ -72,6 +72,27 @@
     position: static;
   }
 
+  /* Day · Inbox. The inbox and the day's checklist were stacked under a 24-hour
+     grid, a long scroll from the top; they are a tab away instead (PaneTabs, in
+     TodayView), `data-pane` saying which of the two shows. The grid and everything
+     above it are exactly as they were. */
+  .day-layout[data-pane='day'] > .day-side,
+  .day-layout[data-pane='inbox'] > .day-panel {
+    display: none;
+  }
+
+  /* The sibling rule above ruled the inbox off from a day panel that is not
+     showing; alone, it sits flush under the tabs. */
+  .day-layout[data-pane='inbox'] > .day-side {
+    border-top: 0;
+    padding-top: 0;
+    margin-top: 0;
+  }
+
+  .day-tabs {
+    margin-bottom: 6px;
+  }
+
   /* The sidebar splits into the two bars a phone actually navigates with: the
      column becomes a sticky TOP bar carrying identity and the things you reach
      for occasionally (brand, create, managers, sign-out, bell, theme), and the
@@ -94,6 +115,14 @@
      footer) — and with it the tab order, search first — is untouched. */
   .app-shell {
     flex-direction: column;
+    /* How tall the fixed bottom tab bar is: its 6px padding either side of the 48px
+       + button, and the hairline above. What anything else fixed to the bottom of
+       the screen (Focus's controls) has to sit clear of — plus the home indicator,
+       which each adds for itself. */
+    --tabbar-h: 62px;
+    /* And the sticky top bar's: 8px padding either side of 44px controls, and its
+       hairline. What a page's own pinned bar (Settings') sticks just under. */
+    --topbar-h: 62px;
   }
 
   .sidebar {
@@ -200,6 +229,58 @@
   .sidebar__nav .sidebar__label {
     font-size: var(--text-nano);
     font-weight: var(--font-weight-item);
+  }
+
+  /* The bar's centre +: a 48px Ink disc — Ink Invert, the one filled look the app
+     has — and the only control in the bar that starts something rather than going
+     somewhere. Flat, no shadow: the bar is chrome at rest, not a floating layer.
+     Its own margins sit beside the four tabs' equal columns without disturbing
+     them; the bar is still short of the 76px the content reserves under it. */
+  .sidebar__create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    align-self: center;
+    width: 48px;
+    height: 48px;
+    margin: 0 4px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    color: var(--color-page);
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+
+  .sidebar__create:hover {
+    background: var(--color-text-secondary);
+  }
+
+  .sidebar__create-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* The tab row that swaps a page's panes (PaneTabs.jsx): the Schedule switcher's
+     own segmented look, equal columns, 40px tall so a thumb finds each. The count
+     pill beside a label is the only other thing in it. */
+  .pane-tabs,
+  .pane-tabs-band {
+    display: block;
+  }
+
+  .pane-tabs {
+    display: flex;
+  }
+
+  .pane-tabs__tab {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    min-height: 40px;
+    padding: 6px 8px;
+    font-size: var(--text-item);
   }
 
   /* --- occasional controls, icon-only in the top bar --- */

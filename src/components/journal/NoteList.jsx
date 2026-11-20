@@ -169,6 +169,11 @@ export function NoteList({
 
   return (
     <section className="note-list" aria-label={inTrash ? 'Trash' : 'Notes'}>
+      {/* The title with its buttons, and the search: on a phone one block, pinned
+          under the top bar while the notes scroll beneath it — a long list used to
+          carry both off the top of the screen. `display: contents` elsewhere, so
+          the two are exactly the loose siblings they were. */}
+      <div className="note-list__top">
       {inTrash ? (
         <div className="note-list__head">
           <button type="button" className="ghost-button ghost-button--sm note-list__back" onClick={leaveTrash}>
@@ -225,6 +230,7 @@ export function NoteList({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+      </div>
       </div>
 
       {error ? (

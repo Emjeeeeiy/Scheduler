@@ -89,6 +89,79 @@ const rim = (container) => {
   return filled / whole
 }
 
+/* On a phone Focus is a Timer · Stats row over two panes, instead of three bands
+ * with the stats under the fold. Which pane shows is the stylesheet's (a
+ * `data-pane` on the page, checked by eye). Pinned here: the row, that a running
+ * round says so on its tab (the other pane hides the clock), and — the thing a
+ * timer must never lose — that looking at the stats does not stop, restart or
+ * slow the round. */
+describe('Timer · Stats, on a phone', () => {
+  const page = (container) => container.querySelector('.focus-page')
+  const tabs = () => screen.getAllByRole('tab')
+
+  it('is a Timer tab and a Stats tab, opening on the timer', () => {
+    const { container } = focus()
+    expect(screen.getByRole('tablist', { name: 'Focus page' })).toBeTruthy()
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['Timer', 'Stats'])
+    expect(page(container).dataset.pane).toBe('timer')
+    expect(screen.getByRole('tab', { name: 'Timer' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('switches to the stats and back', () => {
+    const { container } = focus()
+    fireEvent.click(screen.getByRole('tab', { name: 'Stats' }))
+    expect(page(container).dataset.pane).toBe('stats')
+    fireEvent.click(screen.getByRole('tab', { name: 'Timer' }))
+    expect(page(container).dataset.pane).toBe('timer')
+  })
+
+  it('points each tab at the pane it switches', () => {
+    focus()
+    for (const tab of tabs()) {
+      expect(document.getElementById(tab.getAttribute('aria-controls'))).toBeTruthy()
+    }
+    expect(document.getElementById('focus-pane-timer').classList.contains('focus__timer')).toBe(true)
+    expect(document.getElementById('focus-pane-stats').classList.contains('focus__stats')).toBe(true)
+  })
+
+  // Regression guard: the page's stack draws a hairline and padding before every
+  // band after its first, so the row has to sit above it to be left out of that.
+  it('sits above the page, not inside its stack', () => {
+    const { container } = focus()
+    expect(container.firstElementChild.matches('.pane-tabs-band')).toBe(true)
+    expect(page(container).querySelector('.pane-tabs')).toBeNull()
+  })
+
+  it('keeps the timer, the task and the stats all in the document, so a desktop shows them together', () => {
+    const { container } = focus()
+    for (const selector of ['.focus__timer', '.focus__tasks', '.focus__stats']) {
+      expect(container.querySelector(selector)).toBeTruthy()
+    }
+  })
+
+  it('says on its tab when a round is running, since the other pane hides the clock', () => {
+    const { container } = focus()
+    expect(screen.getByRole('tab', { name: 'Timer' })).toBeTruthy()
+    expect(container.querySelector('.focus-tabs .now-next__dot')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(screen.getByRole('tab', { name: 'Timer (running)' })).toBeTruthy()
+    expect(container.querySelector('.focus-tabs .now-next__dot')).toBeTruthy()
+  })
+
+  it('keeps counting while the stats are showing, and the clock is right when you come back', () => {
+    const { container } = focus()
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    advance(10_000)
+    const before = clock(container)
+    fireEvent.click(screen.getByRole('tab', { name: /^Stats/ }))
+    advance(30_000)
+    fireEvent.click(screen.getByRole('tab', { name: /^Timer/ }))
+    expect(clock(container)).not.toBe(before)
+    // 25:00 less the 40 seconds that passed in all, wherever it was looked at.
+    expect(clock(container)).toBe('24:20')
+  })
+})
+
 describe('the header', () => {
   it('is the phase, with no "Focus mode", no "Focus stats" and no second phase label', () => {
     focus()

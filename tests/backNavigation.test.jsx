@@ -260,3 +260,58 @@ describe('Back from a drill-down', () => {
     expect(container.querySelector('.view-month')).toBeNull()
   })
 })
+
+/* The phone bottom bar's centre +: one place that starts anything. It lives in the
+   same <nav> as the tabs (one DOM at every width; CSS hides it from 901px) but is
+   not a tab, and it opens a sheet that is a dialog like any other, so Back and the
+   one-key shortcuts treat it the same. */
+describe('The + in the bottom bar', () => {
+  const plus = () => screen.getByRole('button', { name: 'Create' })
+  const sheet = () => screen.queryByRole('dialog', { name: 'Create' })
+
+  it('sits between Schedule and Focus, and is not a tab', () => {
+    const container = open()
+    const nav = container.querySelector('.sidebar__nav')
+    const names = [...nav.children].map((el) => el.getAttribute('title') ?? el.textContent)
+    expect(names).toEqual(['Dashboard', 'Schedule', 'Create', 'Focus', 'Journal'])
+    // Never "current", and its label is not one of the tab labels.
+    expect(plus().getAttribute('aria-current')).toBeNull()
+    expect(nav.querySelectorAll('.sidebar__label')).toHaveLength(4)
+  })
+
+  it('opens the Create sheet, and Back closes it without leaving the page', async () => {
+    open()
+    fireEvent.click(plus())
+    expect(sheet()).toBeTruthy()
+    await waitFor(() => expect(depth()).toBe(1))
+
+    pressBack()
+    await waitFor(() => expect(sheet()).toBeNull())
+    expect(activePage()).toBe('Dashboard')
+  })
+
+  // Regression guard: a dialog that is not in `modalOpen` lets `n` and `e` fire
+  // underneath it, so typing in its field starts a second dialog on top.
+  it('counts as a dialog, so the one-key shortcuts stay quiet under it', () => {
+    open()
+    fireEvent.click(plus())
+    fireEvent.keyDown(window, { key: 'n' })
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+  })
+
+  it('New note closes the sheet and goes to the Journal', async () => {
+    open()
+    fireEvent.click(plus())
+    fireEvent.click(screen.getByText('New note'))
+    expect(sheet()).toBeNull()
+    await waitFor(() => expect(activePage()).toBe('Journal'))
+  })
+
+  it('Ask AI closes the sheet and opens the chat', () => {
+    open()
+    fireEvent.click(plus())
+    fireEvent.click(screen.getByText('Ask AI'))
+    expect(sheet()).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Ask AI' })).toBeTruthy()
+  })
+})

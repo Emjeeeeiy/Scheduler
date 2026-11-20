@@ -21,6 +21,7 @@ import { DayColumn } from '../calendar/DayColumn.jsx'
 import { DayNoteButton } from '../calendar/DayNoteButton.jsx'
 import { TaskInbox } from '../calendar/TaskInbox.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
+import { PaneTabs } from '../shell/PaneTabs.jsx'
 import { SpanIcon } from '../icons.jsx'
 
 const HOUR_HEIGHT = 52
@@ -53,6 +54,10 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
   const { pushError, pushUndo } = useToast()
   const now = useNow()
   const [mode, setMode] = usePersistentState('cadence-app:day-mode', 'grid')
+  /* Phone only (the stylesheet decides; a desktop has the day and the inbox side by
+     side): which of the two shows. Not remembered — the Day page opens on the day.
+     Below the day's grid the inbox was a long scroll away; now it is one tap. */
+  const [pane, setPane] = useState('day')
   // null = not asked for. An empty array is a real answer: "nothing fits."
   const [plan, setPlan] = useState(null)
   // 'greedy' while `plan` is planDay's own mechanical packing; 'ai' once a
@@ -115,8 +120,12 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
     minute: gridOpenMinute({ isToday, nowMin: now.min, items: itemsOnDay }),
     windowStart,
     hourHeight: HOUR_HEIGHT,
-    resetKey: `${focusKey}|${mode}`,
+    // The pane is part of "which page am I looking at": a hidden pane loses its
+    // scroll position, so the grid opens at the right hour again when the day is
+    // shown. (Always 'day' on a desktop, so nothing changes there.)
+    resetKey: `${focusKey}|${mode}|${pane}`,
   })
+  const inboxOpen = inbox.filter((task) => !task.done).length
   const current = isToday ? taskHappeningNow(tasks, now.min) : null
   // An all-day item has no place in a time sequence — it isn't "next", it's
   // just true all day — so only a timed block is eligible here.
@@ -159,6 +168,9 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
      limited, invalid — leaves the greedy plan exactly as it was; see
      aiClient.js for why that's the only two outcomes this ever has. */
   function proposePlan() {
+    // The plan is drawn in the day's pane, so a plan asked for from the inbox's own
+    // button (or the palette) has to bring the day back, or it would appear unseen.
+    setPane('day')
     if (plan !== null) {
       closePlan()
       return
@@ -254,8 +266,26 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
   }
 
   return (
-    <div className="day-layout frame">
-      <section className="day-panel" aria-label={formatFullDayLabel(focusKey)}>
+    <>
+      {/* On a phone: Day · Inbox. Above the layout rather than in it, so the layout's
+          own column rules (a hairline and a gap before every sibling after the first)
+          do not treat the tab row as the first column. Not drawn on a desktop. */}
+      <div className="pane-tabs-band day-tabs">
+        <PaneTabs
+          label="Day page"
+          tabs={[
+            // "Timeline", not "Day": the schedule's own switcher above already has a
+            // Day tab, and two stacked segmented rows both saying Day read as one.
+            { id: 'day', label: 'Timeline' },
+            { id: 'inbox', label: 'Inbox', count: inboxOpen > 0 ? inboxOpen : undefined },
+          ]}
+          value={pane}
+          onChange={setPane}
+          idPrefix="day-pane"
+        />
+      </div>
+    <div className="day-layout frame" data-pane={pane}>
+      <section id="day-pane-day" className="day-panel" aria-label={formatFullDayLabel(focusKey)}>
         <div className="section-head">
           <div>
             <h2 className="section-head__title">{formatFullDayLabel(focusKey)}</h2>
@@ -509,7 +539,7 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
 
       </section>
 
-      <div className="day-side">
+      <div id="day-pane-inbox" className="day-side">
         <TaskInbox
           focusKey={focusKey}
           onEdit={onEdit}
@@ -539,5 +569,6 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
         </section>
       </div>
     </div>
+    </>
   )
 }
