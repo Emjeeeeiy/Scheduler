@@ -263,7 +263,7 @@ no second read, and nothing from the editor leaves its chunk) and answers one
 question: which days have a live note (`notesByDay` in `packages/shared`, which
 agrees with `findNoteForDay` about which note a day means). From it, Day, a month
 day's peek, the palette's agendas and the Dashboard get an **Open journal** /
-**Write in journal** button, and Week, Month and the mini calendar mark the day.
+**Write in journal** button (the Dashboard's is hidden on a phone, where the Journal is a tab in the bottom bar), and Week, Month and the mini calendar mark the day.
 The button leaves an intent (`{ kind: 'day', dayKey }`) that `JournalView` runs
 once its list has loaded — so a day is never given a second note because the list
 was still arriving (Today used to do that if pressed in that moment). A day note

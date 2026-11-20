@@ -87,7 +87,7 @@ export function NotificationBell({ onEdit }) {
       <button
         ref={triggerRef}
         type="button"
-        className="icon-button notif__trigger"
+        className={`icon-button notif__trigger${visible.length > 0 ? ' notif__trigger--unread' : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-label={
           visible.length === 0

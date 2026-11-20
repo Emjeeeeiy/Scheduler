@@ -78,13 +78,20 @@ export function ClockIcon({ live = true, now: nowProp, ...props }) {
   )
 }
 
+/* The `ic-*` classes below are motion hooks and nothing else: they carry no style
+   of their own, so an icon drawn in a button, a menu or a dialog is exactly the
+   static glyph. styles/icon-motion.css moves them, and only inside the shell's
+   own controls (the rail, the tab bar, the top bar). */
+
+/** Four tiles of unequal height, a bento — a dashboard is an arrangement of
+    things of different weight, which four equal squares never said. */
 export function DashboardIcon(props) {
   return (
     <Icon {...props}>
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect className="ic-tile ic-tile--1" x="3.5" y="3.5" width="7" height="9" rx="1.5" />
+      <rect className="ic-tile ic-tile--2" x="13.5" y="3.5" width="7" height="5" rx="1.5" />
+      <rect className="ic-tile ic-tile--3" x="3.5" y="15.5" width="7" height="5" rx="1.5" />
+      <rect className="ic-tile ic-tile--4" x="13.5" y="11.5" width="7" height="9" rx="1.5" />
     </Icon>
   )
 }
@@ -107,15 +114,24 @@ export function WeekIcon(props) {
   )
 }
 
+/* The day dots are filled circles (a 2.5px round-capped dot, drawn as the shape it
+   is) so each can pop on its own; the two binder rings are separate paths for the
+   same reason. */
 export function MonthIcon(props) {
   return (
     <Icon {...props}>
       <rect x="3.5" y="5" width="17" height="15" rx="2" />
-      <path d="M8 3v4M16 3v4M3.5 10h17" />
-      <path
-        d="M7.5 14h.01M12 14h.01M16.5 14h.01M7.5 17.5h.01M12 17.5h.01M16.5 17.5h.01"
-        strokeWidth="2.5"
-      />
+      <path className="ic-ring" d="M8 3v4" />
+      <path className="ic-ring ic-ring--late" d="M16 3v4" />
+      <path d="M3.5 10h17" />
+      <g fill="currentColor" stroke="none">
+        <circle className="ic-dot ic-dot--1" cx="7.5" cy="14" r="1.25" />
+        <circle className="ic-dot ic-dot--2" cx="12" cy="14" r="1.25" />
+        <circle className="ic-dot ic-dot--3" cx="16.5" cy="14" r="1.25" />
+        <circle className="ic-dot ic-dot--4" cx="7.5" cy="17.5" r="1.25" />
+        <circle className="ic-dot ic-dot--5" cx="12" cy="17.5" r="1.25" />
+        <circle className="ic-dot ic-dot--6" cx="16.5" cy="17.5" r="1.25" />
+      </g>
     </Icon>
   )
 }
@@ -201,7 +217,9 @@ export function WarningIcon(props) {
 export function PlusIcon(props) {
   return (
     <Icon {...props}>
-      <path d="M12 5v14M5 12h14" />
+      <g className="ic-plus">
+        <path d="M12 5v14M5 12h14" />
+      </g>
     </Icon>
   )
 }
@@ -242,8 +260,12 @@ export function EyeOffIcon(props) {
 export function ListIcon(props) {
   return (
     <Icon {...props}>
-      <path d="M9 6h11M9 12h11M9 18h11" />
-      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth="2.6" />
+      {[6, 12, 18].map((y, index) => (
+        <g key={y} className={`ic-row ic-row--${index + 1}`}>
+          <path d={`M9 ${y}h11`} />
+          <circle cx="4.5" cy={y} r="1.3" fill="currentColor" stroke="none" />
+        </g>
+      ))}
     </Icon>
   )
 }
@@ -263,8 +285,10 @@ export function LogOutIcon(props) {
 export function InboxIcon(props) {
   return (
     <Icon {...props}>
-      <path d="M4 12h4l1.5 3h5L16 12h4" />
-      <path d="M5.5 6h13L20 12v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6L5.5 6Z" />
+      <g className="ic-tray">
+        <path className="ic-tray__dip" d="M4 12h4l1.5 3h5L16 12h4" />
+        <path d="M5.5 6h13L20 12v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6L5.5 6Z" />
+      </g>
     </Icon>
   )
 }
@@ -329,11 +353,13 @@ export function GoogleIcon(props) {
 }
 
 /* Moved from NotificationBell.jsx so every drawn icon lives in one file. */
+/* The body and the clapper are separate so the body can swing from its top and the
+   clapper lag behind it, the way a bell does. */
 export function BellIcon(props) {
   return (
     <Icon {...props}>
-      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      <path className="ic-bell" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path className="ic-clapper" d="M13.73 21a2 2 0 0 1-3.46 0" />
     </Icon>
   )
 }
@@ -365,14 +391,17 @@ export function UserIcon(props) {
   )
 }
 
-/** Focus Mode's nav icon — a target, for the one thing a Pomodoro round asks
-    you to do. */
+/** Focus Mode's nav icon — a reticle, for the one thing a Pomodoro round asks
+    you to do: a ring with a mark at each side, closing in on a point. */
 export function FocusIcon(props) {
   return (
     <Icon {...props}>
-      <circle cx="12" cy="12" r="8" />
-      <circle cx="12" cy="12" r="4.5" />
-      <circle cx="12" cy="12" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="6.5" />
+      <circle className="ic-pip" cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" />
+      <path className="ic-tick ic-tick--n" d="M12 2.5v4" />
+      <path className="ic-tick ic-tick--s" d="M12 17.5v4" />
+      <path className="ic-tick ic-tick--w" d="M2.5 12h4" />
+      <path className="ic-tick ic-tick--e" d="M17.5 12h4" />
     </Icon>
   )
 }
@@ -752,17 +781,22 @@ export function ScissorsIcon(props) {
 export function SettingsIcon(props) {
   return (
     <Icon {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <g className="ic-gear">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </g>
     </Icon>
   )
 }
 
+/* The whole lens is one group so it can swing from the end of its handle. */
 export function SearchIcon(props) {
   return (
     <Icon {...props}>
-      <circle cx="11" cy="11" r="7" />
-      <path d="M20 20l-4.3-4.3" />
+      <g className="ic-lens">
+        <circle cx="11" cy="11" r="7" />
+        <path d="M20 20l-4.3-4.3" />
+      </g>
     </Icon>
   )
 }
@@ -795,7 +829,8 @@ export function UploadIcon(props) {
   )
 }
 
-/** A ring-bound notebook — the Journal page. */
+/** A ring-bound notebook — the Journal page — with lines of writing on it that
+    can be drawn in again (`pathLength` is 1 so one dash length fits every line). */
 export function JournalIcon(props) {
   return (
     <Icon {...props}>
@@ -803,8 +838,9 @@ export function JournalIcon(props) {
       <path d="M3.5 7H8" />
       <path d="M3.5 12H8" />
       <path d="M3.5 17H8" />
-      <path d="M12 8h4" />
-      <path d="M12 12h4" />
+      <path className="ic-line ic-line--1" pathLength="1" d="M12 8h4" />
+      <path className="ic-line ic-line--2" pathLength="1" d="M12 12h4" />
+      <path className="ic-line ic-line--3" pathLength="1" d="M12 16h2" />
     </Icon>
   )
 }

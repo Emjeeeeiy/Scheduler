@@ -950,15 +950,18 @@
     padding-block: 11px;
   }
 
-  /* Both actions span the width, the primary last — nearest the thumb. */
+  /* The primary spans the width, nearest the thumb. Today's journal button is not
+     drawn here: the Journal is a tab in the bar under the thumb one screen away,
+     and on a phone a second full-width button in the hero read as a second
+     primary. It is `display: none`, not removed from the tree, so the
+     accessibility tree drops it with the eye and wider screens keep it. */
   .hero__actions {
     flex-direction: column;
     align-items: stretch;
   }
 
   .hero__actions .ghost-button {
-    justify-content: center;
-    padding-block: 10px;
+    display: none;
   }
 
   .trends__head .filter-row {

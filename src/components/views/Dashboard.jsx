@@ -189,7 +189,8 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
               </dl>
             )}
             {/* Still one primary action. Today's journal page sits beside it as
-                the quiet second one: the day's freeform side, one tap away. */}
+                the quiet second one: the day's freeform side, one tap away. On a
+                phone dashboard.css hides it — the Journal tab is in the bar. */}
             <div className="hero__actions">
               <DayNoteButton dayKey={now.key} onOpen={onOpenDayNote} small={false} />
               <button

@@ -1,0 +1,349 @@
+/* ============================================================ icon motion == */
+
+/* The shell's icons move: the rail's nav and tools, the phone's bottom tab bar and
+   top bar, the bell. The motion is *inside the glyph* — a tile fills, a ring hops,
+   a gear turns — never on the control: the control's hover stays the plain
+   background step DESIGN.md asks for, with no lift, scale or shadow.
+
+   It plays when a control is hovered, keyboard-focused or pressed (a tap, on a
+   touch screen, which has no hover), and once when a nav entry *becomes* the
+   current one — so on the phone's bar the tab you chose answers the thumb.
+
+   Hooks live in icons.jsx as `ic-*` classes that carry no style; this file is the
+   only thing that gives them any, and only inside the hosts named below, so the
+   same icon in a button, a dialog or a menu row is the static glyph. Everything
+   sits inside `no-preference`: under `reduce` nothing here exists, and the icons
+   are exactly what they were.
+
+   A rule's trigger list is the same each time:
+     host   .sidebar__link (rail, tab bar, tools)   .sidebar__create (the bar's +)
+            .sidebar__new-task (the rail's New task)   .notif__trigger (the bell)
+            .account__item (the phone's menu rows)
+     when   :hover  :focus-visible  :active  .sidebar__link--active
+   Listing `--active` with the others means an animation does not restart while it
+   is still matched, so hovering the page you are already on is quiet. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A swing or a spring can carry a part past the 24-unit box for a few frames. */
+  .sidebar__icon,
+  .sidebar__create-icon,
+  .sidebar__new-task .button-icon,
+  .notif__trigger svg {
+    overflow: visible;
+  }
+
+  /* --- pivots: where each moving part turns from ------------------------------ */
+
+  .ic-tile,
+  .ic-dot,
+  .ic-pip {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .ic-lens {
+    /* The end of the handle, so the lens swings out on it like a hand-held glass. */
+    transform-origin: 20px 20px;
+  }
+
+  .ic-gear,
+  .ic-plus {
+    transform-origin: 12px 12px;
+  }
+
+  .ic-bell {
+    /* The top of the bell: it hangs from there. */
+    transform-origin: 12px 3px;
+  }
+
+  /* --- staggers: set once, read by every animation below as `--ic-delay` ------ */
+
+  .ic-tile--2 {
+    --ic-delay: 90ms;
+  }
+  .ic-tile--3 {
+    --ic-delay: 180ms;
+  }
+  .ic-tile--4 {
+    --ic-delay: 270ms;
+  }
+
+  .ic-ring--late {
+    --ic-delay: 70ms;
+  }
+
+  .ic-dot--1 {
+    --ic-delay: 100ms;
+  }
+  .ic-dot--2 {
+    --ic-delay: 150ms;
+  }
+  .ic-dot--3 {
+    --ic-delay: 200ms;
+  }
+  .ic-dot--4 {
+    --ic-delay: 250ms;
+  }
+  .ic-dot--5 {
+    --ic-delay: 300ms;
+  }
+  .ic-dot--6 {
+    --ic-delay: 350ms;
+  }
+
+  .ic-tick--n {
+    --ic-dx: 0px;
+    --ic-dy: 1.8px;
+  }
+  .ic-tick--s {
+    --ic-dx: 0px;
+    --ic-dy: -1.8px;
+  }
+  .ic-tick--w {
+    --ic-dx: 1.8px;
+    --ic-dy: 0px;
+  }
+  .ic-tick--e {
+    --ic-dx: -1.8px;
+    --ic-dy: 0px;
+  }
+
+  .ic-line--2,
+  .ic-row--2 {
+    --ic-delay: 110ms;
+  }
+  .ic-line--3,
+  .ic-row--3 {
+    --ic-delay: 220ms;
+  }
+
+  /* --- Dashboard: the tiles light in turn ------------------------------------- */
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-tile {
+    animation: ic-tile-fill 700ms ease-out var(--ic-delay, 0ms) backwards;
+  }
+
+  @keyframes ic-tile-fill {
+    0%,
+    100% {
+      fill: currentColor;
+      fill-opacity: 0;
+    }
+    40% {
+      fill: currentColor;
+      fill-opacity: 0.4;
+    }
+  }
+
+  /* --- Schedule: the rings hop, then the days pop in across the month --------- */
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-ring {
+    animation: ic-ring-hop 480ms ease-out var(--ic-delay, 0ms);
+  }
+
+  @keyframes ic-ring-hop {
+    35% {
+      transform: translateY(-1.8px);
+    }
+    65% {
+      transform: translateY(0.5px);
+    }
+  }
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-dot {
+    animation: ic-dot-pop 420ms cubic-bezier(0.25, 1, 0.5, 1) var(--ic-delay, 0ms) backwards;
+  }
+
+  @keyframes ic-dot-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* --- Focus: the reticle closes in on its point ------------------------------ */
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-tick {
+    animation: ic-tick-lock 600ms ease-in-out;
+  }
+
+  @keyframes ic-tick-lock {
+    40% {
+      transform: translate(var(--ic-dx), var(--ic-dy));
+    }
+  }
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-pip {
+    animation: ic-pip-pulse 600ms ease-in-out;
+  }
+
+  @keyframes ic-pip-pulse {
+    40% {
+      transform: scale(1.9);
+    }
+  }
+
+  /* --- Journal: the lines write themselves out again -------------------------- */
+
+  .sidebar__link:is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-line {
+    animation: ic-line-write 380ms ease-out var(--ic-delay, 0ms) backwards;
+  }
+
+  @keyframes ic-line-write {
+    0% {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 0;
+      opacity: 1;
+    }
+  }
+
+  /* --- Search: the glass is swung round on its handle ------------------------- */
+
+  .sidebar__link:is(:hover, :focus-visible, :active) .ic-lens {
+    animation: ic-lens-swing 600ms ease-in-out;
+  }
+
+  @keyframes ic-lens-swing {
+    25% {
+      transform: rotate(-16deg);
+    }
+    55% {
+      transform: rotate(10deg);
+    }
+    80% {
+      transform: rotate(-4deg);
+    }
+  }
+
+  /* --- To-do: something lands in the tray ------------------------------------- */
+
+  :is(.sidebar__link, .account__item):is(:hover, :focus-visible, :active) .ic-tray {
+    animation: ic-tray-drop 520ms ease-out;
+  }
+
+  :is(.sidebar__link, .account__item):is(:hover, :focus-visible, :active) .ic-tray__dip {
+    animation: ic-tray-dip 520ms ease-out;
+  }
+
+  @keyframes ic-tray-drop {
+    30% {
+      transform: translateY(1.4px);
+    }
+    60% {
+      transform: translateY(-0.6px);
+    }
+  }
+
+  @keyframes ic-tray-dip {
+    30% {
+      transform: translateY(1px);
+    }
+    60% {
+      transform: translateY(0);
+    }
+  }
+
+  /* --- All items: the rows file in from the left ------------------------------ */
+
+  :is(.sidebar__link, .account__item):is(:hover, :focus-visible, :active) .ic-row {
+    animation: ic-row-in 380ms ease-out var(--ic-delay, 0ms) backwards;
+  }
+
+  @keyframes ic-row-in {
+    0% {
+      transform: translateX(-4px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* --- Settings: one tooth-width turn ----------------------------------------- */
+
+  :is(.sidebar__link, .account__item):is(:hover, :focus-visible, :active, .sidebar__link--active) .ic-gear {
+    /* The cog has eight-fold symmetry, so a quarter turn that ends where it began
+       reads as a single seamless click of the wheel. */
+    animation: ic-gear-turn 600ms ease-in-out;
+  }
+
+  @keyframes ic-gear-turn {
+    to {
+      transform: rotate(90deg);
+    }
+  }
+
+  /* --- Create: the + spins a quarter and eases to rest ------------------------ */
+
+  :is(.sidebar__create, .sidebar__new-task):is(:hover, :focus-visible, :active) .ic-plus {
+    animation: ic-plus-turn 420ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  @keyframes ic-plus-turn {
+    to {
+      transform: rotate(90deg);
+    }
+  }
+
+  /* --- Bell: it rings from its top and the clapper lags ----------------------- */
+
+  .notif__trigger:is(:hover, :focus-visible, :active) .ic-bell {
+    animation: ic-bell-ring 700ms ease-in-out;
+  }
+
+  .notif__trigger:is(:hover, :focus-visible, :active) .ic-clapper {
+    animation: ic-clapper-swing 700ms ease-in-out 40ms;
+  }
+
+  @keyframes ic-bell-ring {
+    15% {
+      transform: rotate(13deg);
+    }
+    35% {
+      transform: rotate(-11deg);
+    }
+    55% {
+      transform: rotate(7deg);
+    }
+    75% {
+      transform: rotate(-4deg);
+    }
+  }
+
+  @keyframes ic-clapper-swing {
+    20% {
+      transform: translateX(-1.6px);
+    }
+    40% {
+      transform: translateX(1.6px);
+    }
+    60% {
+      transform: translateX(-1px);
+    }
+    80% {
+      transform: translateX(0.5px);
+    }
+  }
+
+  /* When something needs attention the whole bell rings once, a beat after the page
+     settles — the one place the shell moves with nobody touching it. The same
+     keyframes as above, on the <svg> itself, so a hover while it is unread still
+     replays the ring on the bell's own body. */
+  .notif__trigger--unread svg {
+    transform-origin: 50% 20%;
+    animation: ic-bell-ring 900ms ease-in-out 600ms 1;
+  }
+}
