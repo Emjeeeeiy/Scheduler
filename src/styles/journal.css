@@ -115,10 +115,23 @@
 }
 
 .note-list__actions .primary-button,
+.note-list__act,
 .note-list__back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* While choosing, the header is Cancel, how many, and the two things to do with
+   them. The count takes the room between, so the actions keep the right edge
+   where New note was. */
+.note-list__picked {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-label);
+  color: var(--color-text-secondary);
 }
 
 .note-list__search {
@@ -175,6 +188,7 @@
 .note-row {
   display: flex;
   align-items: stretch;
+  position: relative;
   border-bottom: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
 }
@@ -204,6 +218,131 @@
 
 .note-row__open--static {
   cursor: default;
+}
+
+/* ---------------------------------------------------- under a finger -- */
+
+/* A row slides aside to show an action (lib/useRowGestures.js, touch only). The
+   action lies *behind* the row, full width, so the colour follows the pull all the
+   way and there is never a gap beside it; the row on top is opaque while it moves.
+   `pan-y` leaves the page's own vertical scroll alone and sends sideways travel to
+   the row — the one `touch-action` here, and only on this element. */
+.note-row__open {
+  position: relative;
+  z-index: 1;
+  touch-action: pan-y;
+}
+
+.note-row--slid {
+  overflow: hidden;
+}
+
+.note-row--slid .note-row__open {
+  transform: translateX(var(--swipe, 0px));
+  background: var(--color-page);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .note-row__open {
+    transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Following a finger is not an animation, and easing it would lag behind it. */
+  .note-row--dragging .note-row__open {
+    transition: none;
+  }
+}
+
+/* A finger holding a row must start choosing, not start selecting its text. */
+@media (pointer: coarse) {
+  .note-row__open:not(.note-row__open--static) {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+.note-row__reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+/* Pin is the row's one action, so it is the coral fill; delete is the system's
+   critical. Near-black on both: 6.2:1 on coral, 4.1:1 on critical, and the icon
+   is a graphic, which needs 3:1. */
+.note-row__reveal--pin {
+  justify-content: flex-start;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.note-row__reveal--trash {
+  justify-content: flex-end;
+  background: var(--color-critical);
+  color: var(--color-on-accent);
+}
+
+/* 72px wide (the swipe's own action width) and the row's full height: a thumb
+   cannot miss it. */
+.note-row__reveal-button {
+  width: 72px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.note-row__reveal--pin .note-row__reveal-button:hover,
+.note-row__reveal--pin .note-row__reveal-button:active {
+  background: var(--color-accent-hover);
+}
+
+.note-row__reveal--trash .note-row__reveal-button:hover,
+.note-row__reveal--trash .note-row__reveal-button:active {
+  background: color-mix(in srgb, var(--color-on-accent) 14%, var(--color-critical));
+}
+
+.note-row__reveal-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Choosing several: a box at the left of every row, coral when the row is chosen
+   (selection is one of coral's jobs), and the Hover Surface step under a chosen row
+   so it reads as chosen even where the box is off the edge of a long title. */
+.note-row--picking .note-row__open {
+  padding-left: 46px;
+}
+
+.note-row--picked {
+  background: var(--color-surface-2);
+}
+
+.note-row__check {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--color-baseline);
+  border-radius: var(--radius-sm);
+  color: var(--color-on-accent);
+}
+
+.note-row--picked .note-row__check {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.note-row__check-mark {
+  width: 14px;
+  height: 14px;
 }
 
 .note-row__top {
@@ -1806,6 +1945,15 @@ a.ghost-button {
     min-height: 56px;
     align-content: center;
     padding: 10px var(--gutter);
+  }
+
+  /* Edge to edge: the box takes the page's gutter, like the row's own text. */
+  .note-row--picking .note-row__open {
+    padding-left: calc(var(--gutter) + 34px);
+  }
+
+  .note-row__check {
+    left: var(--gutter);
   }
 
   .note-row__excerpt {

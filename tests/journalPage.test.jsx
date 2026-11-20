@@ -377,3 +377,117 @@ describe('day notes', () => {
     })
   })
 })
+
+/* The phone's gestures on the list, through the real page and its store: what
+ * reaches the data, the toast and the Undo — the list's own behaviour is pinned in
+ * noteListTouch.test.jsx. The point here is that choosing several is ONE write and
+ * ONE Undo, not a toast and a restore per note, and that a single note goes down
+ * exactly the path the note's own header already uses. */
+describe('swiping and choosing notes on a phone', () => {
+  const touch = (type, element, init = {}) =>
+    fireEvent[type](element, { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, ...init })
+  const rowFor = (container, title) =>
+    [...container.querySelectorAll('.note-row__open')].find((el) => el.textContent.includes(title))
+  const wait = (ms) =>
+    act(() => {
+      vi.advanceTimersByTime(ms)
+    })
+
+  /** Hold a row until it starts choosing, then let go (and let the click guard pass). */
+  function hold(container, title) {
+    const row = rowFor(container, title)
+    touch('pointerDown', row, { clientX: 200, clientY: 100 })
+    wait(500)
+    touch('pointerUp', row, { clientX: 200, clientY: 100 })
+    wait(400)
+  }
+
+  function swipe(container, title, dx) {
+    const row = rowFor(container, title)
+    touch('pointerDown', row, { clientX: 200, clientY: 100 })
+    touch('pointerMove', row, { clientX: 200 + dx, clientY: 100 })
+    touch('pointerUp', row, { clientX: 200 + dx, clientY: 100 })
+    wait(400)
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('moves several chosen notes to the trash together, with one Undo for all of them', () => {
+    const { container } = page()
+    expect(rowTitles(container)).toEqual(['Trip to Cebu', 'Untitled', 'Reading list'])
+
+    hold(container, 'Reading list')
+    fireEvent.click(rowFor(container, 'Untitled'))
+    expect(screen.getByText('2 selected')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(toast.pushUndo).toHaveBeenCalledTimes(1)
+    expect(toast.pushUndo.mock.calls[0][0]).toBe('Moved 2 notes to the trash.')
+    expect(rowTitles(container)).toEqual(['Trip to Cebu'])
+    expect(screen.getByRole('button', { name: 'Trash · 3' })).toBeTruthy() // the old draft, and these two
+
+    act(() => toast.pushUndo.mock.calls[0][1]())
+    expect(rowTitles(container)).toEqual(['Trip to Cebu', 'Untitled', 'Reading list'])
+    expect(screen.getByRole('button', { name: 'Trash · 1' })).toBeTruthy()
+  })
+
+  it('pins several together, regroups the list, and says how many', () => {
+    const { container } = page()
+    hold(container, 'Reading list')
+    fireEvent.click(rowFor(container, 'Untitled'))
+    fireEvent.click(screen.getByRole('button', { name: 'Pin' }))
+
+    expect(toast.pushSuccess).toHaveBeenCalledExactlyOnceWith('Pinned 2 notes.')
+    expect(container.querySelectorAll('.note-row__pin-mark')).toHaveLength(3)
+    // All three are pinned now, so the list is the one "Pinned" group (and no "Recent").
+    expect([...container.querySelectorAll('.note-list__label')].map((el) => el.textContent)).toEqual(['Pinned'])
+  })
+
+  it('unpins when everything chosen is pinned, and pins the lot when it is not', () => {
+    const { container } = page()
+    hold(container, 'Reading list')
+    fireEvent.click(rowFor(container, 'Untitled'))
+    fireEvent.click(screen.getByRole('button', { name: 'Pin' }))
+    toast.pushSuccess.mockReset()
+
+    hold(container, 'Trip to Cebu')
+    fireEvent.click(rowFor(container, 'Reading list'))
+    fireEvent.click(screen.getByRole('button', { name: 'Unpin' }))
+    expect(toast.pushSuccess).toHaveBeenCalledExactlyOnceWith('Unpinned 2 notes.')
+    expect(container.querySelectorAll('.note-row__pin-mark')).toHaveLength(1) // only Untitled is left pinned
+  })
+
+  it('treats one chosen note as the ordinary case: its own title in the toast, its own Undo', () => {
+    const { container } = page()
+    hold(container, 'Reading list')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(toast.pushUndo.mock.calls[0][0]).toBe('Moved “Reading list” to the trash.')
+    expect(rowTitles(container)).not.toContain('Reading list')
+  })
+
+  it('deletes a note from a swipe, with the same toast and Undo as the note’s own Trash', () => {
+    const { container } = page()
+    swipe(container, 'Reading list', -60)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete “Reading list”' }))
+
+    expect(toast.pushUndo.mock.calls[0][0]).toBe('Moved “Reading list” to the trash.')
+    expect(rowTitles(container)).toEqual(['Trip to Cebu', 'Untitled'])
+    act(() => toast.pushUndo.mock.calls[0][1]())
+    expect(rowTitles(container)).toContain('Reading list')
+  })
+
+  it('pins a note from a swipe, and the list regroups', () => {
+    const { container } = page()
+    swipe(container, 'Reading list', 60)
+    fireEvent.click(screen.getByRole('button', { name: 'Pin “Reading list”' }))
+
+    expect(container.querySelectorAll('.note-row__pin-mark')).toHaveLength(2)
+    expect([...container.querySelectorAll('.note-list__label')].map((el) => el.textContent)).toEqual(['Pinned', 'Recent'])
+    expect(toast.pushError).not.toHaveBeenCalled()
+  })
+})
