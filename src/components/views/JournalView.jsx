@@ -131,6 +131,36 @@ export function JournalView({ intent = null, onIntentHandled, onFocusDay, onEdit
     })
   }
 
+  /* What the list's multi-select does. One note is just the single case, so it
+     goes through pin and trash above and behaves exactly like them. Several are
+     one atomic write (useJournalActions) with one toast: a toast per note, or an
+     Undo that brought back only the last, would make "Delete 4" a lot to clean up. */
+  function pinMany(list) {
+    if (!actions || list.length === 0) return
+    if (list.length === 1) {
+      pin(list[0])
+      return
+    }
+    // All pinned already means the person is undoing that; anything else pins the lot.
+    const pinned = !list.every((note) => note.pinned)
+    actions.pinNotes(list.map((note) => note.id), pinned).catch(failed('Could not pin the notes.'))
+    pushSuccess(`${pinned ? 'Pinned' : 'Unpinned'} ${list.length} notes.`)
+  }
+
+  function trashMany(list) {
+    if (!actions || list.length === 0) return
+    if (list.length === 1) {
+      trash(list[0])
+      return
+    }
+    const ids = list.map((note) => note.id)
+    actions.trashNotes(ids).catch(failed('Could not move the notes to the trash.'))
+    if (ids.includes(selectedId)) setSelectedId(null)
+    pushUndo(`Moved ${ids.length} notes to the trash.`, () => {
+      actions.restoreNotes(ids).catch(failed('Could not restore the notes.'))
+    })
+  }
+
   function restore(note) {
     actions?.restoreNote(note.id).catch(failed('Could not restore the note.'))
   }
@@ -232,6 +262,10 @@ export function JournalView({ intent = null, onIntentHandled, onFocusDay, onEdit
           onSelect={setSelectedId}
           onNew={() => createAndOpen({})}
           onToday={openToday}
+          onPin={pin}
+          onTrash={trash}
+          onPinMany={pinMany}
+          onTrashMany={trashMany}
           onRestore={restore}
           onPurge={purge}
           onEmptyTrash={emptyTrash}

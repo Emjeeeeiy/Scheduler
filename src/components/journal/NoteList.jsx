@@ -1,7 +1,9 @@
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { matchesQuery, noteDisplayTitle } from '@cadence/shared/journal.js'
+import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { formatEdited } from '../../lib/journalFormat.js'
-import { ChevronLeftIcon, PlusIcon, SearchIcon } from '../icons.jsx'
+import { useRowGestures } from '../../lib/useRowGestures.js'
+import { CheckIcon, ChevronLeftIcon, PlusIcon, SearchIcon, TrashIcon } from '../icons.jsx'
 import { DrawingIcon, PushPinIcon } from './journalIcons.jsx'
 
 /* The list of notes. Pure presentation — every action is a callback, so the list
@@ -15,13 +17,117 @@ import { DrawingIcon, PushPinIcon } from './journalIcons.jsx'
    What it no longer has, because the page said each twice: a count under the title
    (the list is the count), a row of All / Pinned / Trash chips (pinned notes already
    sort to the top, so they are a group, and the trash is a place rather than a
-   filter), and a pin button on every row (a note is pinned from its own header). */
+   filter), and a pin button on every row (a note is pinned from its own header).
 
-function NoteRow({ note, selected, onSelect }) {
+   Under a finger a row does two more things, and only for a finger (see
+   lib/useRowGestures.js): swiping it left shows a trash button at its right, and
+   swiping it right shows a pin button at its left; holding it starts choosing
+   several, where the header becomes Cancel, a count, Pin and Delete. A button is
+   never hidden *behind* a swipe's end — the swipe only shows it, so a slip of the
+   thumb cannot delete anything. */
+
+/* How long an action stays under a row that is sliding back, so it does not vanish
+   before the row has covered it. A little over the slide's 180ms. */
+const SETTLE_MS = 200
+
+function NoteRow({
+  note,
+  selected,
+  picking,
+  picked,
+  open,
+  onSelect,
+  onToggle,
+  onOpenChange,
+  onStartSwipe,
+  onHold,
+  onPin,
+  onTrash,
+}) {
   const title = noteDisplayTitle(note)
+  const { offset, dragging, handlers } = useRowGestures({
+    enabled: !picking,
+    open,
+    onOpenChange,
+    onStart: onStartSwipe,
+    onHold,
+  })
+  // Which action the slid-aside row is showing: its trash lies under the right
+  // edge when it has moved left, its pin under the left edge when it has moved right.
+  const side = offset < 0 ? 'trash' : offset > 0 ? 'pin' : null
+
+  // The action is unmounted the moment the row is home, which would leave a blank
+  // strip for the length of the slide. Hold the last one for the slide's duration.
+  const [settling, setSettling] = useState(null)
+  const lastSide = useRef(null)
+  useEffect(() => {
+    if (side) {
+      lastSide.current = side
+      return undefined
+    }
+    const was = lastSide.current
+    if (!was) return undefined
+    lastSide.current = null
+    setSettling(was)
+    const timer = setTimeout(() => setSettling(null), SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [side])
+  const shown = side ?? settling
+
+  function onClick() {
+    if (picking) onToggle(note.id)
+    // A tap on a row that is open shuts it. Opening the note from under an action
+    // the person has just revealed would be a second, unasked thing.
+    else if (open) onOpenChange(null)
+    else onSelect(note.id)
+  }
+
+  const pinLabel = `${note.pinned ? 'Unpin' : 'Pin'} “${title}”`
+
   return (
-    <li className={`note-row${selected ? ' note-row--selected' : ''}`}>
-      <button type="button" className="note-row__open" aria-current={selected ? 'true' : undefined} onClick={() => onSelect(note.id)}>
+    <li
+      className={[
+        'note-row',
+        selected ? 'note-row--selected' : '',
+        picking ? 'note-row--picking' : '',
+        picked ? 'note-row--picked' : '',
+        shown ? 'note-row--slid' : '',
+        dragging ? 'note-row--dragging' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {shown ? (
+        <div className={`note-row__reveal note-row__reveal--${shown}`}>
+          <button
+            type="button"
+            className="note-row__reveal-button"
+            aria-label={shown === 'trash' ? `Delete “${title}”` : pinLabel}
+            onClick={() => {
+              onOpenChange(null)
+              if (shown === 'trash') onTrash(note)
+              else onPin(note)
+            }}
+          >
+            {shown === 'trash' ? <TrashIcon className="note-row__reveal-icon" /> : <PushPinIcon className="note-row__reveal-icon" />}
+          </button>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="note-row__open"
+        role={picking ? 'checkbox' : undefined}
+        aria-checked={picking ? picked : undefined}
+        aria-current={!picking && selected ? 'true' : undefined}
+        style={offset ? { '--swipe': `${offset}px` } : undefined}
+        onClick={onClick}
+        {...handlers}
+      >
+        {picking ? (
+          <span className="note-row__check" aria-hidden="true">
+            {picked ? <CheckIcon className="note-row__check-mark" /> : null}
+          </span>
+        ) : null}
         <span className="note-row__top">
           <span className="note-row__title">
             {note.pinned ? (
@@ -94,6 +200,10 @@ export function NoteList({
   onSelect,
   onNew,
   onToday,
+  onPin,
+  onTrash,
+  onPinMany,
+  onTrashMany,
   onRestore,
   onPurge,
   onEmptyTrash,
@@ -103,6 +213,11 @@ export function NoteList({
   const [trashOpen, setTrashOpen] = useState(false)
   const [confirming, setConfirming] = useState(null)
   const [confirmEmpty, setConfirmEmpty] = useState(false)
+  // The one row showing an action, as { id, side }. Owned here, not by the rows,
+  // so opening one shuts the last and a tap anywhere else can shut it.
+  const [openRow, setOpenRow] = useState(null)
+  // The ids being chosen from, or null while nothing is being chosen.
+  const [chosen, setChosen] = useState(null)
 
   /* Looking at the trash only means something while there is a trash. When the
      last note leaves it (restored, or deleted for good) there is nothing to look
@@ -111,6 +226,59 @@ export function NoteList({
      open by itself. */
   const inTrash = trashOpen && trashed.length > 0
   const lastInTrash = trashed.length <= 1
+
+  // Choosing is over when nothing chosen is left — the last one unticked, or the
+  // notes themselves gone (purged on another device) — and it is not offered in the
+  // trash, whose rows have their own buttons.
+  const chosenNotes = useMemo(
+    () => (chosen && !inTrash ? notes.filter((note) => chosen.includes(note.id)) : []),
+    [chosen, inTrash, notes],
+  )
+  const picking = chosenNotes.length > 0
+  const everyChosenPinned = picking && chosenNotes.every((note) => note.pinned)
+
+  function startPicking(id) {
+    setOpenRow(null)
+    setChosen([id])
+  }
+
+  function togglePick(id) {
+    setChosen((current) => {
+      const next = (current ?? []).includes(id) ? current.filter((other) => other !== id) : [...(current ?? []), id]
+      return next.length > 0 ? next : null
+    })
+  }
+
+  function stopPicking() {
+    setChosen(null)
+  }
+
+  // Back leaves choosing first, the way it closes anything else that is "up"
+  // (lib/backStack.js); so does Escape, for a keyboard.
+  useBackLayer(picking ? 'choosing' : null, stopPicking, BACK_RANK.gesture)
+  useEffect(() => {
+    if (!picking) return undefined
+    const onKey = (event) => {
+      if (event.key === 'Escape') setChosen(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [picking])
+
+  // A row left open shuts on a tap anywhere but on it, and when the list scrolls.
+  useEffect(() => {
+    if (!openRow) return undefined
+    const shut = () => setOpenRow(null)
+    const onPointerDown = (event) => {
+      if (!event.target.closest?.('.note-row--slid')) shut()
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    window.addEventListener('scroll', shut, true)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      window.removeEventListener('scroll', shut, true)
+    }
+  }, [openRow])
 
   const searching = query.trim() !== ''
   const matching = useMemo(
@@ -133,6 +301,8 @@ export function NoteList({
 
   function enterTrash() {
     setTrashOpen(true)
+    setOpenRow(null)
+    setChosen(null)
     setQuery('')
     setConfirming(null)
     setConfirmEmpty(false)
@@ -164,7 +334,21 @@ export function NoteList({
         }}
       />
     ) : (
-      <NoteRow key={note.id} note={note} selected={note.id === selectedId} onSelect={onSelect} />
+      <NoteRow
+        key={note.id}
+        note={note}
+        selected={note.id === selectedId}
+        picking={picking}
+        picked={picking && chosen.includes(note.id)}
+        open={openRow?.id === note.id ? openRow.side : null}
+        onSelect={onSelect}
+        onToggle={togglePick}
+        onOpenChange={(side) => setOpenRow(side ? { id: note.id, side } : null)}
+        onStartSwipe={() => setOpenRow(null)}
+        onHold={() => startPicking(note.id)}
+        onPin={onPin}
+        onTrash={onTrash}
+      />
     )
 
   return (
@@ -174,7 +358,38 @@ export function NoteList({
           carry both off the top of the screen. `display: contents` elsewhere, so
           the two are exactly the loose siblings they were. */}
       <div className="note-list__top">
-      {inTrash ? (
+      {picking ? (
+        <div className="note-list__head note-list__head--picking">
+          <button type="button" className="ghost-button ghost-button--sm" onClick={stopPicking}>
+            Cancel
+          </button>
+          <span className="note-list__picked" role="status">
+            {chosenNotes.length} selected
+          </span>
+          <div className="note-list__actions">
+            <button
+              type="button"
+              className="ghost-button ghost-button--sm note-list__act"
+              onClick={() => {
+                onPinMany(chosenNotes)
+                stopPicking()
+              }}
+            >
+              <PushPinIcon className="button-icon" /> {everyChosenPinned ? 'Unpin' : 'Pin'}
+            </button>
+            <button
+              type="button"
+              className="danger-button danger-button--sm note-list__act"
+              onClick={() => {
+                onTrashMany(chosenNotes)
+                stopPicking()
+              }}
+            >
+              <TrashIcon className="button-icon" /> Delete
+            </button>
+          </div>
+        </div>
+      ) : inTrash ? (
         <div className="note-list__head">
           <button type="button" className="ghost-button ghost-button--sm note-list__back" onClick={leaveTrash}>
             <ChevronLeftIcon className="button-icon" /> Notes

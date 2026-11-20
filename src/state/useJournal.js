@@ -29,6 +29,11 @@ import { useSettings } from './SettingsContext.jsx'
 
 const now = () => Date.now()
 
+/* A Firestore batch holds at most 500 writes; the same margin journalData.js uses
+   for its deletes. A phone selecting notes by hand never gets near it, but "never"
+   is not a bound a write should rest on. */
+const BATCH = 400
+
 /** Notes for the signed-in account: live, trashed, and whether the first
     snapshot has landed. Same "ready for THIS uid" derivation as the schedule —
     a previous account's notes can never flash while a new one loads. */
@@ -113,6 +118,18 @@ export function useJournalActions() {
 
   return useMemo(() => {
     if (!uid) return null
+
+    /** The same metadata patch on every note in `ids`. Each slice commits
+        atomically, so a chosen set is pinned or trashed together or not at all —
+        never half of it, which would leave "3 selected" meaning two. */
+    async function patchMany(ids, patch) {
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = writeBatch(db)
+        for (const id of ids.slice(i, i + BATCH)) batch.update(noteRef(db, uid, id), patch)
+        await batch.commit()
+      }
+    }
+
     return {
       /** Writes the metadata and an empty body together and returns the new id
           straight away — the id is generated locally, so the editor can open
@@ -155,6 +172,13 @@ export function useJournalActions() {
 
       trashNote: (id) => updateDoc(noteRef(db, uid, id), { deletedAt: now() }),
       restoreNote: (id) => updateDoc(noteRef(db, uid, id), { deletedAt: null }),
+
+      /** What a multi-select on the list does: pin or unpin several at once, move
+          several to the trash (a soft delete, one stamp for the lot), and the one
+          write that undoes it. Pinning, like the single case, is not an edit. */
+      pinNotes: (ids, pinned) => patchMany(ids, { pinned }),
+      trashNotes: (ids) => patchMany(ids, { deletedAt: now() }),
+      restoreNotes: (ids) => patchMany(ids, { deletedAt: null }),
       purgeNote: (id) => purgeNote(db, uid, id),
       async emptyTrash(ids) {
         for (const id of ids) await purgeNote(db, uid, id)

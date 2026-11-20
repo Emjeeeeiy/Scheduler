@@ -182,6 +182,26 @@ export function useJournalActions() {
         commit({ ...state, notes: { ...state.notes, [id]: { ...state.notes[id], deletedAt: null } } })
         return Promise.resolve()
       },
+      // The multi-select writes (useJournal.js): one commit for the whole set.
+      pinNotes(ids, pinned) {
+        const notes = { ...state.notes }
+        for (const id of ids) notes[id] = normalizeNote(id, { ...notes[id], pinned })
+        commit({ ...state, notes })
+        return Promise.resolve()
+      },
+      trashNotes(ids) {
+        const stamp = Date.now()
+        const notes = { ...state.notes }
+        for (const id of ids) notes[id] = { ...notes[id], deletedAt: stamp }
+        commit({ ...state, notes })
+        return Promise.resolve()
+      },
+      restoreNotes(ids) {
+        const notes = { ...state.notes }
+        for (const id of ids) notes[id] = { ...notes[id], deletedAt: null }
+        commit({ ...state, notes })
+        return Promise.resolve()
+      },
       purgeNote(id) {
         const { [id]: _note, ...notes } = state.notes
         const { [id]: _body, ...bodies } = state.bodies
