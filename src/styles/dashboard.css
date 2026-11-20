@@ -394,6 +394,20 @@
   flex-wrap: wrap;
 }
 
+/* The range switch keeps the Ink Invert fill it had before coral (Ink fill, Paper
+   text: black on white in dark, white on black in light) — the one filter chip that
+   does not take the coral selected fill. It is a quiet view setting beside a heading,
+   not a choice the page is waiting on, and a coral pill beside the Trends figures
+   out-shouted them. Scoped to the band so every other chip stays coral; the hover
+   rule is as long as the app-wide `.filter-chip--on:hover` it has to beat, which
+   would otherwise step this chip to coral. */
+.trends__head .filter-chip--on,
+.trends__head .filter-chip--on:hover:not(:disabled) {
+  background: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  color: var(--color-page);
+}
+
 .trends__intro {
   display: grid;
   gap: 4px;
