@@ -55,15 +55,42 @@
   --color-good-text:       #006300;
   --color-critical-text:   #b02b2b;
 
-  --color-focus:           var(--color-text-primary);
+  /* accent — Coral, the system's one hue for chrome. It marks what you act on
+     (a primary button, the + button), what is selected (a chip, a tab, the
+     current nav item) and what is now (today's badge, the now-line, the done
+     series) — never data, never a meter, never a frame. Four roles, because one
+     hex cannot do all of them in both themes:
+     - accent: the fill. The same coral in both themes.
+     - on-accent: whatever sits on that fill. Always near-black, in BOTH themes —
+       white on #f95c4b is 3.15:1 and fails; black is 6.24:1. Declared once on
+       purpose: it must not flip with Ink at the theme boundary.
+     - accent-text: coral as text or an icon beside text. #f95c4b on light
+       Paper is 2.99:1, so light takes a deeper step (5.38:1 on Paper, 5.02:1 on
+       the hover surface); dark keeps the coral itself.
+     - accent-line: coral as a line, ring, border or stroke — the focus ring, the
+       now-line, the dial's arc. A graphic needs 3:1, not text's 4.5:1, so light
+       can stay much nearer coral (3.53:1 on Paper, 3.14:1 on the sunken
+       surface) instead of the text step's brick red; dark keeps the coral.
+     - accent-wash: a tinted background under a drop target while something is
+       dragged over it. Only for a passing state — at rest, a faint coral over
+       the dark panel reads as brown, not coral.
+     tests/accentTokens.test.js recomputes every one of these ratios. */
+  --color-accent:          #f95c4b;
+  --color-accent-hover:    #e8503f;
+  --color-on-accent:       #0b0b0b;
+  --color-accent-text:     #c22e1b;
+  --color-accent-line:     #e8503f;
+  --color-accent-wash:     rgba(249, 92, 75, 0.12);
+
+  --color-focus:           var(--color-accent-line);
   --shadow-sm:              0 1px 2px rgba(11, 11, 11, 0.06);
   /* Reserved for content that floats above the page's own stacking order —
      the modal panel, the notification dropdown, the day-peek popover, the
      chart tooltip. Nothing that merely groups content on the page gets a
      shadow any more; a hairline border does that job instead. */
   --shadow-md:              0 6px 24px rgba(11, 11, 11, 0.08);
-  /* The Dashboard hero card's glow — a low-alpha step of Ink, not a hue,
-     since there is no accent left to echo. */
+  /* The Dashboard hero card's glow — a low-alpha step of Ink, not a hue: the
+     hero is a surface at rest, and coral is for action, selection and now. */
   --color-glow-neutral:    rgba(11, 11, 11, 0.05);
   /* The dim behind a floating layer — a modal, and a bottom sheet's scrim. The same
      black wash in both themes (a darkening, not a surface), so it is declared once;
@@ -136,7 +163,9 @@
   --spacing-lg: 16px;
   --spacing-xl: 24px;
 
-  --color-now-line: #d03b3b;
+  /* "Now" is the accent's, so the line reads as coral rather than as the
+     critical red it used to borrow: critical only ever means a problem. */
+  --color-now-line: var(--color-accent-line);
 
   /* Tag palette — the validated categorical order, in slot order. Verified with
      the data-viz validator against both surfaces: every check passes in light
@@ -195,13 +224,17 @@
     --color-baseline:        #2e2e2e;
     --color-good-text:       #0ca30c;
     --color-critical-text:   #e66767;
-    --color-focus:           var(--color-text-primary);
+    --color-accent-hover:    #fb7a6b;
+    --color-accent-text:     #f95c4b;
+    --color-accent-line:     #f95c4b;
+    --color-accent-wash:     rgba(249, 92, 75, 0.18);
+    --color-focus:           var(--color-accent-line);
     --shadow-sm:              0 1px 2px rgba(0, 0, 0, 0.5);
     --shadow-md:              0 6px 24px rgba(0, 0, 0, 0.45);
     --color-glow-neutral:    rgba(255, 255, 255, 0.10);
     --color-dot:             rgba(255, 255, 255, 0.16);
 
-    --color-now-line:        #e66767;
+    --color-now-line:        var(--color-accent-line);
     --color-tag-blue:        #3987e5;
     --color-tag-orange:      #d95926;
     --color-tag-aqua:        #199e70;
@@ -231,13 +264,17 @@
   --color-baseline:        #2e2e2e;
   --color-good-text:       #0ca30c;
   --color-critical-text:   #e66767;
-  --color-focus:           var(--color-text-primary);
+  --color-accent-hover:    #fb7a6b;
+  --color-accent-text:     #f95c4b;
+  --color-accent-line:     #f95c4b;
+  --color-accent-wash:     rgba(249, 92, 75, 0.18);
+  --color-focus:           var(--color-accent-line);
   --shadow-sm:              0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md:              0 6px 24px rgba(0, 0, 0, 0.45);
   --color-glow-neutral:    rgba(255, 255, 255, 0.10);
   --color-dot:             rgba(255, 255, 255, 0.16);
 
-  --color-now-line:        #e66767;
+  --color-now-line:        var(--color-accent-line);
   --color-tag-blue:        #3987e5;
   --color-tag-orange:      #d95926;
   --color-tag-aqua:        #199e70;

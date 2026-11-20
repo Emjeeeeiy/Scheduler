@@ -1,8 +1,8 @@
 /* The Journal page. Imported by JournalView, so it ships with the lazy Journal
    chunk and costs the rest of the app nothing.
 
-   Chrome (the list, the toolbar, the menus) follows the app's neutral system:
-   hairlines, Hover Surface, Ink Invert for "on", a shadow only on floating
+   Chrome (the list, the toolbar, the menus) follows the app's system:
+   hairlines, Hover Surface, a coral fill for "on", a shadow only on floating
    panels. The SHEET is different on purpose — its colours, fonts and patterns are
    the writer's own content, the same carve-out tag colours have, and are drawn
    from --paper / --note-ink / --pattern-* custom properties set per note by
@@ -307,20 +307,18 @@
   color: var(--color-text-primary);
 }
 
-/* The app-wide `.filter-chip:hover` rule out-ranks `.filter-chip--on`, so a
-   selected chip goes dark-on-dark while the pointer is over it. Within the
-   Journal it steps to Soft Ink instead, as every other filled control does. */
-.paper-chips .filter-chip--on:hover:not(:disabled) {
-  background: var(--color-text-secondary);
-}
-
+/* Chrome, not the sheet: the pin and list toggles take the accent's selected
+   fill like every other "on" control. */
 .icon-button--on {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .icon-button--on:hover {
-  background: var(--color-text-secondary);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: var(--color-on-accent);
 }
 
 /* ============================================================= note page == */
@@ -627,15 +625,16 @@
   color: var(--color-text-primary);
 }
 
-/* "On" is the system's one selected idiom: Ink fill, Paper text. */
+/* "On" is the system's one selected idiom: coral fill, near-black mark. The
+   toolbar is chrome — the sheet's own paper and ink are untouched. */
 .tb-btn--on {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .tb-btn--on:hover:not(:disabled) {
-  background: var(--color-text-secondary);
-  color: var(--color-page);
+  background: var(--color-accent-hover);
+  color: var(--color-on-accent);
 }
 
 .tb-btn:disabled {
@@ -759,6 +758,7 @@
   width: 14px;
   height: 14px;
   flex: none;
+  color: var(--color-accent-line);
 }
 
 .picker {
@@ -801,6 +801,8 @@
   cursor: pointer;
 }
 
+/* Ink, not coral: the ring frames an ink colour, and a coral ring would vanish
+   round the red and orange ones. */
 .swatch--on {
   outline: 2px solid var(--color-text-primary);
   outline-offset: 1px;
@@ -888,13 +890,15 @@ a.ghost-button {
   cursor: pointer;
 }
 
+/* A preset is a paper, not an ink colour, so a coral ring reads round any of
+   them (unlike the ink swatches' ring, which stays Ink). */
 .paper-preset--on {
-  color: var(--color-text-primary);
+  color: var(--color-accent-text);
   font-weight: var(--font-weight-item);
 }
 
 .paper-preset--on .note-sheet--thumb {
-  outline: 2px solid var(--color-text-primary);
+  outline: 2px solid var(--color-accent-line);
   outline-offset: 1px;
 }
 
@@ -913,7 +917,7 @@ a.ghost-button {
 
 .paper-slider input {
   width: 100%;
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
 }
 
 .paper-slider output {
@@ -930,7 +934,7 @@ a.ghost-button {
 }
 
 .paper-check input {
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
 }
 
 .paper-actions {

@@ -31,14 +31,14 @@ Adding a field to a task, event, tag or note, or a new write to Firestore, is `c
 - **Errors surface as a toast and a log:** `catch (caught) { console.error('Could not X.', caught); pushError('Could not X. Try again.') }`. Never swallow, never `alert()`.
 - **A destructive action offers Undo** through `pushUndo`, which restores by clearing the soft-delete stamp (see the dialogs reference).
 - **Phones change CSS, not the tree.** One DOM; breakpoints are `900px` and `640px`; the touch behaviour (hold to arm a drag) is deliberate. Do not branch on viewport in JS.
-- **Labels over colour.** A tag colour never appears without its text label; selected state is an Ink fill or a surface step, never a hue.
+- **Labels over colour.** A tag colour never appears without its text label; selected state is the coral fill, coral text or a surface step, never any other hue.
 - **Comments say why.** The codebase's comments record the alternative that was rejected and the bug that prompted the choice; match that, and do not narrate what the code plainly does.
 
 ## The design rules that are easy to break
 
 From DESIGN.md "Do's and Don'ts" (the full list is there):
 
-- **Zero accent colour.** The only colour is a user's tag colour or a system status. No new hue, ever.
+- **One accent: coral.** It marks action, selection and now, nothing else, and is always one of the six `--color-accent*` tokens: `accent` (a fill) with `on-accent` (black) on it, `accent-hover`, `accent-text` (coral as text; light needs this deeper step for 4.5:1), `accent-line` (a ring, border, stroke, 2px line or lone icon; 3:1 is enough, so it stays nearer coral), `accent-wash` (a passing tint, a drop target). Never white on coral, never coral on a meter, a surface at rest or a ring round a tag colour. Every other colour is a user's tag colour or a system status. No new hue, ever.
 - **Tokens, never hex.** A tag colour is `style={{ '--tag': tag.color }}` and `var(--tag)` in CSS. Any new colour is a token declared in three places (see styling).
 - **Two fonts only.** Inter for everything, Space Mono (`--font-mono`) for a *bare numeral* only (a count, a time, a duration), never mixed within one text run. `--font-pixel` is the Dashboard hero's alone.
 - **Hover is a background step**, never a shadow, lift, scale or new border. **Shadows are for floating layers only** (modal, dropdown, popover).

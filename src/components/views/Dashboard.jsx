@@ -194,7 +194,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
               <DayNoteButton dayKey={now.key} onOpen={onOpenDayNote} small={false} />
               <button
                 type="button"
-                className="primary-button"
+                className="primary-button primary-button--outlined"
                 onClick={() => onCreate?.({ date: now.key })}
               >
                 Plan something for today

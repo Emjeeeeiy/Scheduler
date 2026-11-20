@@ -310,7 +310,8 @@ switching notes, closing, and the tab being hidden.
 hexagons, music staff, handwriting, Cornell…) is a small SVG tile used as a CSS
 `mask-image` painted with `--pattern-color`, so one mechanism covers every shape
 and every colour change is live. Paper, dot, line and margin colours are the
-writer's content, like a tag's colour; the toolbar around them stays neutral.
+writer's content, like a tag's colour; the toolbar around them keeps the app's
+own colours (neutral, with the coral accent only for a pressed button).
 Text can optionally snap to the lines (`line-height: round(up, …)`).
 
 **A drawing is strokes, not a bitmap.** It is a block inside the note (so it

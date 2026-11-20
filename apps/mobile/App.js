@@ -102,5 +102,5 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.faintInk },
   tab: { flex: 1, alignItems: 'center', padding: 12 },
   link: { color: colors.softInk },
-  active: { color: colors.ink, fontWeight: '600' },
+  active: { color: colors.accentText, fontWeight: '600' },
 })

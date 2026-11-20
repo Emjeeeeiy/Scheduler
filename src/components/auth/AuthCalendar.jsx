@@ -31,7 +31,7 @@ const PLAN_BY_POSITION = new Map(PLAN.map((day, order) => [day.at, { ...day, ord
 
 /**
  * A month drawn like the Dashboard's own calendar — the same mono numerals, the
- * same weekday header, an ink circle for today, a lighter circle on event days,
+ * same weekday header, a coral circle for today, a lighter circle on event days,
  * load dots under busy ones — standing in for a screenshot on the sign-in screen,
  * and quietly planning itself: the days fade in, then the planned ones fill in
  * one after another and clear again, a slow loop.

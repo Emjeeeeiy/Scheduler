@@ -327,7 +327,7 @@ code {
 
 /* ------------------------------------------------------ the preview calendar -- */
 
-/* The same calendar the Dashboard draws (mono numerals, an ink circle for today,
+/* The same calendar the Dashboard draws (mono numerals, a coral circle for today,
    a lighter one for event days, load dots), in the frame the photograph had: a
    bordered, shadowed card on the dotted field. It plays a slow loop —
    `--i` is a day's place in the grid, `--t` its place in the planning order, `--d`
@@ -439,8 +439,8 @@ code {
 }
 
 .auth-cal__day--today .auth-cal__num {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .auth-cal__dots {
@@ -559,8 +559,8 @@ code {
 }
 
 .auth-week__day--today .auth-week__date {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 /* The grid: an hour line across the five columns, and a hairline between them,
@@ -809,10 +809,11 @@ code {
   text-align: center;
 }
 
-/* The one deliberate exception to the app's monochrome rule is Google's own
-   four-colour mark, kept as its real brand renders rather than folded into the
-   icon grammar. The button around it is the app's ordinary bordered surface
-   button, so it follows the theme like everything else on this screen. */
+/* Google's own four-colour mark is kept as its real brand renders rather than
+   folded into the icon grammar — the one colour on this screen that is neither
+   coral nor neutral. The button around it is the app's ordinary bordered surface
+   button, not coral (that is the primary action's), so it follows the theme like
+   everything else on this screen. */
 .google-button {
   width: 100%;
   display: flex;
@@ -967,7 +968,7 @@ code {
   background: transparent;
   border: none;
   padding: 0;
-  color: var(--color-text-primary);
+  color: var(--color-accent-text);
   font: inherit;
   font-weight: var(--font-weight-item);
   text-decoration: underline;
@@ -1004,7 +1005,7 @@ code {
 }
 
 .auth-form__remember input[type='checkbox'] {
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
   width: 15px;
   height: 15px;
@@ -1016,7 +1017,6 @@ code {
   margin: -6px 0 14px auto;
   font-size: var(--text-label);
   font-weight: var(--font-weight-label);
-  color: var(--color-text-secondary);
 }
 
 .auth-form__options .link-button.auth-form__forgot {

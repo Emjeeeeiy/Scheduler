@@ -157,7 +157,7 @@
 }
 
 .checkbox-row input {
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
@@ -385,6 +385,8 @@
   padding: 0;
 }
 
+/* Ink, not coral: the ring frames a tag colour, and a coral ring would vanish
+   round the red and orange slots. */
 .tag-colors__dot--on {
   border-color: var(--color-text-primary);
 }
@@ -422,8 +424,8 @@
 }
 
 .tag-icons__btn--on {
-  border-color: var(--color-text-primary);
-  color: var(--color-text-primary);
+  border-color: var(--color-accent-line);
+  color: var(--color-accent-line);
   background: var(--color-surface-2);
 }
 
@@ -643,7 +645,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
@@ -970,7 +972,7 @@
 }
 
 .subtasks__row input[type='checkbox'] {
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
   flex: none;
 }
@@ -1077,10 +1079,16 @@
 }
 
 .weekday-picker__day--on {
-  background: var(--color-text-primary);
-  border-color: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
   font-weight: var(--font-weight-title);
+}
+
+.weekday-picker__day--on:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  color: var(--color-on-accent);
 }
 
 /* One day of a series, opened on its own. Kept as a quiet ledge rather than an
@@ -1308,15 +1316,15 @@
   min-width: 0;
 }
 
-/* You: the filled Ink treatment the app already has for its one loud thing
-   (Ink Invert), as a bubble — the system has no accent to tell two speakers
-   apart with, and this is its one existing "filled" look. */
+/* You: a coral bubble with the near-black on-accent text (6.24:1 — body-text
+   contrast, in both themes). Not the accent's wash: a faint coral over the dark
+   panel reads as a muddy brown, not as coral. */
 .ai-chat__bubble {
   margin: 0;
   padding: 9px 14px;
   border-radius: var(--radius-lg);
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: var(--text-body);
   line-height: 1.5;
   white-space: pre-wrap;
@@ -1620,9 +1628,14 @@
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.ai-chat__send:hover:not(:disabled) {
+  background: var(--color-accent-hover);
 }
 
 .ai-chat__send svg {
@@ -1830,6 +1843,10 @@
 
 .palette__item--active {
   background: var(--color-surface-2);
+}
+
+.palette__item--active .palette__item-icon {
+  color: var(--color-accent-line);
 }
 
 .palette__item-icon {

@@ -919,7 +919,7 @@ function AppShell() {
             a need for a second door into the same room. */}
         <button
           type="button"
-          className="primary-button sidebar__new-task"
+          className="primary-button primary-button--outlined sidebar__new-task"
           onClick={() => openCreate({})}
         >
           <PlusIcon className="button-icon" />
