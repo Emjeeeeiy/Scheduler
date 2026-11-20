@@ -10,6 +10,7 @@
   ],
   "functions": {
     "api/push/tick.js": { "maxDuration": 30 },
+    "api/ai-schedule.js": { "maxDuration": 30 },
     "api/mcp.js": { "maxDuration": 30 }
   },
   "headers": [

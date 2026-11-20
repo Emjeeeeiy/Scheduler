@@ -53,10 +53,25 @@ let mockDayItems = []
 // confirmed account.
 let mockEmailVerified = true
 const resendVerification = vi.fn(async () => true)
+// The account's display name (null: signed in with none), and the minute of the
+// day "now" is — pinned, because the empty state greets by the time of day.
+let mockDisplayName = null
+let mockMin = 19 * 60
 
 vi.mock('../src/state/AuthContext.jsx', () => ({
-  useAuth: () => ({ emailVerified: mockEmailVerified, resendVerification }),
+  useAuth: () => ({
+    emailVerified: mockEmailVerified,
+    resendVerification,
+    user: mockDisplayName === null ? null : { displayName: mockDisplayName },
+  }),
 }))
+
+// The real day key (the day labels in these tests are judged against it), with the
+// minute pinned.
+vi.mock('../src/lib/useNow.js', async () => {
+  const { todayKey } = await import('@cadence/shared/date.js')
+  return { useNow: () => ({ key: todayKey(), min: mockMin }) }
+})
 
 vi.mock('../src/state/ToastContext.jsx', () => ({
   useToast: () => ({ pushUndo, pushError, pushSuccess: vi.fn(), dismiss: vi.fn() }),
@@ -86,13 +101,15 @@ beforeEach(() => {
   mockTasks = []
   mockDayItems = []
   mockEmailVerified = true
+  mockDisplayName = null
+  mockMin = 19 * 60
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const type = (value) => fireEvent.change(screen.getByPlaceholderText('Describe what to schedule…'), { target: { value } })
+const type = (value) => fireEvent.change(screen.getByPlaceholderText('Ask about your day…'), { target: { value } })
 const send = () => fireEvent.click(screen.getByRole('button', { name: 'Send' }))
 const confirmRemoval = () =>
   act(async () => {
@@ -101,7 +118,7 @@ const confirmRemoval = () =>
 
 describe('AiChatModal', () => {
   it('an "ask" reply shows the question and does nothing else', async () => {
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Which day did you mean?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Which day did you mean?', items: [] })
     render(<AiChatModal onClose={vi.fn()} />)
 
     type('team meeting')
@@ -121,7 +138,7 @@ describe('AiChatModal', () => {
       { id: 'a', title: 'Old gym session', tagId: 'health', durationMin: 45, startMin: 420, createdAt: 100, done: false, date: null },
       { id: 'b', title: 'Recent gym session', tagId: 'health', durationMin: 60, startMin: 450, createdAt: 200, done: false, date: null },
     ]
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'What time?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'What time?', items: [] })
     render(<AiChatModal onClose={vi.fn()} />)
 
     type('gym')
@@ -141,7 +158,7 @@ describe('AiChatModal', () => {
       { id: 'open-1', title: 'Gym', date: '2026-08-25', startMin: 420, durationMin: 60, tagId: 'health', done: false, createdAt: 1 },
       { id: 'done-1', title: 'Old finished thing', date: '2026-08-20', startMin: null, durationMin: 30, tagId: null, done: true, createdAt: 1 },
     ]
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Which one?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Which one?', items: [] })
     render(<AiChatModal onClose={vi.fn()} />)
 
     type('cancel the gym thing')
@@ -159,7 +176,7 @@ describe('AiChatModal', () => {
   it('an "act" reply with a create item writes a task, stays open, and offers one Undo in the message', async () => {
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       items: [
         {
           action: 'create',
@@ -199,7 +216,7 @@ describe('AiChatModal', () => {
   it('undoing a create removes it, and the message then says so', async () => {
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       items: [{ action: 'create', taskId: null, title: 'Gym', date: '2026-08-25', startMin: 420, durationMin: 60, tagId: null, notes: null, priority: 'normal' }],
     })
     render(<AiChatModal onClose={vi.fn()} />)
@@ -220,7 +237,7 @@ describe('AiChatModal', () => {
     mockTasks = [{ id: 'task-1', title: 'Dentist', date: '2026-08-26', startMin: 900, durationMin: 30, tagId: null, done: false, createdAt: 1 }]
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       items: [{ action: 'remove', taskId: 'task-1' }],
     })
     render(<AiChatModal onClose={vi.fn()} />)
@@ -248,7 +265,7 @@ describe('AiChatModal', () => {
     mockTasks = [{ id: 'task-1', title: 'Gym', date: '2026-08-25', startMin: 420, durationMin: 60, tagId: 'health', done: false, createdAt: 1 }]
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       // The server (api/ai-schedule.js's sanitizeUpdate) returns an
       // already-built patch of only the fields actually changing, not the
       // raw flat fields a create item carries — this is what the client
@@ -276,7 +293,7 @@ describe('AiChatModal', () => {
     mockTasks = [{ id: 'task-2', title: 'Old thing', date: null, startMin: null, durationMin: null, tagId: null, done: false, createdAt: 1 }]
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       items: [
         {
           action: 'create',
@@ -319,7 +336,7 @@ describe('AiChatModal', () => {
 
   it('if an undo cannot be finished, says so and keeps the button — it is not "Undone"', async () => {
     mockTasks = [{ id: 'task-1', title: 'Dentist', date: '2026-08-26', startMin: 900, durationMin: 30, tagId: null, done: false, createdAt: 1 }]
-    aiScheduleAi.mockResolvedValue({ status: 'act', question: null, items: [{ action: 'remove', taskId: 'task-1' }] })
+    aiScheduleAi.mockResolvedValue({ status: 'act', reply: null, items: [{ action: 'remove', taskId: 'task-1' }] })
     restoreItem.mockRejectedValueOnce(new Error('offline'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
     render(<AiChatModal onClose={vi.fn()} />)
@@ -341,7 +358,7 @@ describe('AiChatModal', () => {
     mockTasks = [{ id: 'task-1', title: 'Dentist', date: null, startMin: null, durationMin: null, tagId: null, done: false, createdAt: 1 }]
     aiScheduleAi.mockResolvedValue({
       status: 'act',
-      question: null,
+      reply: null,
       items: [
         { action: 'remove', taskId: 'task-1' },
         { action: 'create', taskId: null, title: 'Gym', date: null, startMin: null, durationMin: null, tagId: null, notes: null, priority: 'normal' },
@@ -436,7 +453,7 @@ describe('AiChatModal', () => {
     render(<AiChatModal onClose={vi.fn()} />)
     expect(document.getElementById('verify-ai-chat')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Resend email' })).toBeNull()
-    expect(screen.getByText(/Tasks only\./)).toBeTruthy()
+    expect(screen.getByText(/Ask me to add, move or clear tasks/)).toBeTruthy()
     const box = screen.getByRole('textbox', { name: 'Message' })
     expect(box.disabled).toBe(false)
     expect(box.getAttribute('aria-describedby')).toBeNull()
@@ -457,7 +474,8 @@ describe('AiChatModal', () => {
       send()
     })
 
-    expect(await screen.findByText(/Couldn't reach AI/)).toBeTruthy()
+    expect(await screen.findByText("Sorry, I couldn't get an answer just now.")).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
     expect(addTask).not.toHaveBeenCalled()
   })
 })
@@ -465,22 +483,24 @@ describe('AiChatModal', () => {
 describe('the chat layout', () => {
   const input = () => screen.getByRole('textbox', { name: 'Message' })
 
-  it('opens on an empty state: what it is, what it will not do silently, and three examples', () => {
+  it('opens on an empty state: a greeting, what it can do, and three examples', () => {
     const { container } = render(<AiChatModal onClose={vi.fn()} />)
     expect(screen.getByRole('dialog', { name: 'Ask AI' })).toBeTruthy()
-    expect(screen.getByRole('heading', { level: 3, name: 'What should I schedule?' })).toBeTruthy()
-    expect(screen.getByText(/Tasks only\. If something is vague, I'll ask before doing anything, and I'll check before deleting\./)).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 3, name: 'Good evening' })).toBeTruthy()
+    expect(
+      screen.getByText(/Ask me to add, move or clear tasks — or for ideas when you're stuck\. I'll check before deleting anything\./),
+    ).toBeTruthy()
     const examples = within(screen.getByRole('list', { name: 'Examples' })).getAllByRole('button')
-    expect(examples.map((el) => el.textContent)).toEqual(['Gym Monday 7am', 'Move dentist to 4pm', 'Cancel the groceries task'])
+    expect(examples.map((el) => el.textContent)).toEqual(['What should I do today?', 'Gym Monday 7am', 'Move dentist to 4pm'])
     // The paragraph, the field label and the placeholder used to say this three times.
     expect(screen.queryByText('What do you need?')).toBeNull()
     expect(container.querySelector('label')).toBeNull()
   })
 
-  it('fills the composer from an example but does not send it — it could delete a real task', () => {
+  it('fills the composer from an example but does not send it — a message can change real tasks', () => {
     render(<AiChatModal onClose={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel the groceries task' }))
-    expect(input().value).toBe('Cancel the groceries task')
+    fireEvent.click(screen.getByRole('button', { name: 'Move dentist to 4pm' }))
+    expect(input().value).toBe('Move dentist to 4pm')
     expect(document.activeElement).toBe(input())
     expect(aiScheduleAi).not.toHaveBeenCalled()
     expect(removeTask).not.toHaveBeenCalled()
@@ -505,7 +525,7 @@ describe('the chat layout', () => {
   })
 
   it('sends on Enter, and writes a new line on Shift+Enter', async () => {
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'What time?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'What time?', items: [] })
     render(<AiChatModal onClose={vi.fn()} />)
     type('gym monday')
     fireEvent.keyDown(input(), { key: 'Enter', shiftKey: true })
@@ -517,13 +537,13 @@ describe('the chat layout', () => {
   })
 
   it('shows you as a bubble and the assistant as plain text, and drops the empty state', async () => {
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Which day did you mean?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Which day did you mean?', items: [] })
     const { container } = render(<AiChatModal onClose={vi.fn()} />)
     type('team meeting')
     await act(async () => {
       send()
     })
-    expect(screen.queryByRole('heading', { name: 'What should I schedule?' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Good evening' })).toBeNull()
     expect(container.querySelector('.ai-chat__turn--user .ai-chat__bubble').textContent).toBe('team meeting')
     expect(container.querySelector('.ai-chat__turn--assistant .ai-chat__text').textContent).toBe('Which day did you mean?')
     // The assistant has no box of its own; only you do.
@@ -554,14 +574,14 @@ describe('the chat layout', () => {
     expect(aiScheduleAi).toHaveBeenCalledTimes(1)
 
     await act(async () => {
-      finish({ status: 'ask', question: 'What time?', items: [] })
+      finish({ status: 'reply', reply: 'What time?', items: [] })
     })
     expect(screen.queryByRole('status')).toBeNull()
     expect(await screen.findByText('What time?')).toBeTruthy()
   })
 
   it('scrolls to the newest message', async () => {
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'What time?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'What time?', items: [] })
     const { container } = render(<AiChatModal onClose={vi.fn()} />)
     const scroller = container.querySelector('.ai-chat__scroll')
     Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1234 })
@@ -573,7 +593,7 @@ describe('the chat layout', () => {
   })
 
   it('starts a new chat: only once there is one, and not while a reply is on its way', async () => {
-    aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'What time?', items: [] })
+    aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'What time?', items: [] })
     render(<AiChatModal onClose={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull()
     type('gym')
@@ -582,7 +602,7 @@ describe('the chat layout', () => {
     })
     await screen.findByText('What time?')
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }))
-    expect(screen.getByRole('heading', { name: 'What should I schedule?' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Good evening' })).toBeTruthy()
     expect(screen.queryByText('What time?')).toBeNull()
     expect(input().value).toBe('')
     expect(screen.queryByRole('button', { name: 'New chat' })).toBeNull()
@@ -616,9 +636,9 @@ describe('what the reply reports', () => {
     issues: [],
   }
   // Not called `act`: that is Testing Library's, used below to flush a send.
-  const acts = (items, extra = {}) => ({ status: 'act', question: null, items, skipped: 0, ...extra })
+  const acts = (items, extra = {}) => ({ status: 'act', reply: null, items, skipped: 0, ...extra })
   const changes = () => screen.getByRole('list', { name: 'Changes' })
-  const sendText = async (value, placeholder = 'Describe what to schedule…') => {
+  const sendText = async (value, placeholder = 'Ask about your day…') => {
     fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } })
     await act(async () => {
       send()
@@ -723,7 +743,7 @@ describe('what the reply reports', () => {
 
   describe('what the model is told next turn', () => {
     const second = async () => {
-      aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Sure.', items: [] })
+      aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Sure.', items: [] })
       await sendText('make that 8pm instead', 'Reply…')
     }
 
@@ -755,7 +775,7 @@ describe('what the reply reports', () => {
     })
 
     it('sends a plain question as it was asked', async () => {
-      aiScheduleAi.mockResolvedValueOnce({ status: 'ask', question: 'Which day?', items: [] })
+      aiScheduleAi.mockResolvedValueOnce({ status: 'reply', reply: 'Which day?', items: [] })
       render(<AiChatModal onClose={vi.fn()} />)
       await sendText('gym')
       await second()
@@ -764,7 +784,7 @@ describe('what the reply reports', () => {
   })
 
   describe('the box', () => {
-    const box = () => screen.getByPlaceholderText('Describe what to schedule…')
+    const box = () => screen.getByPlaceholderText('Ask about your day…')
 
     // Regression: the server used to clip a message at 2000 characters without a
     // word, so the end of a detailed message — often where the times are — never
@@ -782,6 +802,338 @@ describe('what the reply reports', () => {
       expect(screen.getByText('250 characters left')).toBeTruthy()
       fireEvent.change(box(), { target: { value: 'x'.repeat(3999) } })
       expect(screen.getByText('1 character left')).toBeTruthy()
+    })
+  })
+})
+
+/* The chat as a companion: it greets by name, answers in words, offers ideas that
+ * only become tasks on a tap, says what it did in its own sentence, and when no
+ * answer comes back it says so kindly and offers to ask again — without that error
+ * line ever being passed to the model as something the assistant said. */
+describe('talking, suggesting and recovering', () => {
+  const idea = (title, startMin) => ({
+    action: 'create',
+    taskId: null,
+    title,
+    date: '2026-08-25',
+    startMin,
+    durationMin: 30,
+    tagId: null,
+    notes: 'Quick and easy.',
+    priority: 'normal',
+    issues: [],
+  })
+  const offered = () => ({
+    status: 'suggest',
+    reply: 'Here are a few ideas.',
+    items: [idea('Read', 540), idea('Tidy desk', 600), idea('Plan tomorrow', 660)],
+    skipped: 0,
+  })
+  const sendText = async (value, placeholder = 'Ask about your day…') => {
+    fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } })
+    await act(async () => {
+      send()
+    })
+  }
+  const press = (name) =>
+    act(async () => {
+      fireEvent.click(screen.getByRole('button', { name }))
+    })
+
+  describe('the greeting', () => {
+    it('is by the time of day, with the first name when the account has one', () => {
+      mockDisplayName = 'Sam Rivera'
+      const { unmount } = render(<AiChatModal onClose={vi.fn()} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Good evening, Sam' })).toBeTruthy()
+      expect(screen.queryByText(/Rivera/)).toBeNull()
+      unmount()
+
+      mockMin = 8 * 60
+      render(<AiChatModal onClose={vi.fn()} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Good morning, Sam' })).toBeTruthy()
+    })
+
+    it('is plain without a name, and "Hello" in the small hours', () => {
+      mockMin = 2 * 60
+      render(<AiChatModal onClose={vi.fn()} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Hello' })).toBeTruthy()
+    })
+
+    it('never greets by an email address a display name was set to', () => {
+      mockDisplayName = 'sam@example.com'
+      render(<AiChatModal onClose={vi.fn()} />)
+      expect(screen.getByRole('heading', { level: 3, name: 'Good evening' })).toBeTruthy()
+    })
+  })
+
+  describe('what is sent about the person', () => {
+    it('is the first word of the name, never the whole of it', async () => {
+      mockDisplayName = 'Sam Rivera'
+      aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Hi Sam!', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('hi')
+
+      const payload = aiScheduleAi.mock.calls[0][0]
+      expect(payload.firstName).toBe('Sam')
+      expect(JSON.stringify(payload)).not.toContain('Rivera')
+    })
+
+    it('is an empty name when the account has none', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Hi!', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('hi')
+      expect(aiScheduleAi.mock.calls[0][0].firstName).toBe('')
+    })
+  })
+
+  describe('a reply', () => {
+    it('is words, and changes nothing', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'reply', reply: 'Hi Sam! What shall we plan?', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('hi')
+
+      expect(await screen.findByText('Hi Sam! What shall we plan?')).toBeTruthy()
+      expect(addTask).not.toHaveBeenCalled()
+      expect(updateTask).not.toHaveBeenCalled()
+      expect(removeTask).not.toHaveBeenCalled()
+      expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+    })
+
+    it('still shows the question an older server called "question"', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'ask', question: 'Which day did you mean?', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym')
+      expect(await screen.findByText('Which day did you mean?')).toBeTruthy()
+    })
+
+    it('with nothing to say is a failure with a way to try again, not an empty bubble', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'reply', reply: '  ', items: [] })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('hi')
+      expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy()
+    })
+  })
+
+  describe('ideas', () => {
+    it('are listed with an Add each, and nothing is created until one is tapped', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('anything you suggest')
+
+      expect(screen.getByText('Here are a few ideas.')).toBeTruthy()
+      const list = within(screen.getByRole('list', { name: 'Ideas' }))
+      expect(list.getAllByText('Idea')).toHaveLength(3)
+      expect(list.getByText('Read')).toBeTruthy()
+      for (const title of ['Read', 'Tidy desk', 'Plan tomorrow']) {
+        expect(list.getByRole('button', { name: `Add ${title}` })).toBeTruthy()
+      }
+      expect(screen.getByRole('button', { name: 'Add all' })).toBeTruthy()
+      // Not shown a second time as a list of changes made.
+      expect(screen.queryByRole('list', { name: 'Changes' })).toBeNull()
+      expect(addTask).not.toHaveBeenCalled()
+    })
+
+    it('Add creates exactly that one, reports it with an Undo, and marks the row as added', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('anything you suggest')
+      await press('Add Tidy desk')
+
+      expect(addTask).toHaveBeenCalledTimes(1)
+      expect(addTask).toHaveBeenCalledWith(expect.objectContaining({ title: 'Tidy desk', startMin: 600, durationMin: 30 }))
+      expect(screen.getByText('Added “Tidy desk”.')).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+
+      const list = within(screen.getByRole('list', { name: 'Ideas' }))
+      expect(list.queryByRole('button', { name: 'Add Tidy desk' })).toBeNull()
+      expect(list.getByText('Added')).toBeTruthy()
+      // The others are still there to take.
+      expect(list.getByRole('button', { name: 'Add Read' })).toBeTruthy()
+      expect(list.getByRole('button', { name: 'Add Plan tomorrow' })).toBeTruthy()
+    })
+
+    it('Add all makes every one in one batch, with one Undo', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      await press('Add all')
+
+      expect(addTask).toHaveBeenCalledTimes(3)
+      expect(screen.getAllByText('Done — created 3.')).toHaveLength(1)
+      expect(screen.getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
+      expect(screen.queryByRole('button', { name: 'Add all' })).toBeNull()
+      expect(within(screen.getByRole('list', { name: 'Ideas' })).getAllByText('Added')).toHaveLength(3)
+    })
+
+    it('after one is added, the button takes only the rest', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      await press('Add Read')
+      expect(screen.getByRole('button', { name: 'Add the rest' })).toBeTruthy()
+
+      await press('Add the rest')
+      expect(addTask).toHaveBeenCalledTimes(3)
+      expect(addTask.mock.calls.map(([draft]) => draft.title)).toEqual(['Read', 'Tidy desk', 'Plan tomorrow'])
+    })
+
+    it('stop offering "Add all" when only one is left to add', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      await press('Add Read')
+      await press('Add Tidy desk')
+      expect(screen.queryByRole('button', { name: /Add (all|the rest)/ })).toBeNull()
+    })
+
+    it('can be taken again after the Add is undone', async () => {
+      aiScheduleAi.mockResolvedValue(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      await press('Add Read')
+      expect(screen.queryByRole('button', { name: 'Add Read' })).toBeNull()
+
+      await press('Undo')
+      expect(removeTask).toHaveBeenCalledWith('task-Read')
+      expect(screen.getByRole('button', { name: 'Add Read' })).toBeTruthy()
+    })
+
+    it('go back to the model as words, marked as not added yet', async () => {
+      aiScheduleAi.mockResolvedValueOnce(offered())
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      aiScheduleAi.mockResolvedValueOnce({ status: 'reply', reply: 'Sure.', items: [] })
+      await sendText('hm, maybe', 'Reply…')
+
+      expect(aiScheduleAi.mock.calls[1][0].messages[1]).toEqual({
+        role: 'assistant',
+        content: [
+          'Here are a few ideas.',
+          'Suggested "Read" on 2026-08-25 at 09:00 for 30 min (not added yet).',
+          'Suggested "Tidy desk" on 2026-08-25 at 10:00 for 30 min (not added yet).',
+          'Suggested "Plan tomorrow" on 2026-08-25 at 11:00 for 30 min (not added yet).',
+        ].join('\n'),
+      })
+    })
+  })
+
+  describe('what it did, said in its own words', () => {
+    const gym = {
+      action: 'create',
+      taskId: null,
+      title: 'Gym',
+      date: '2026-08-25',
+      startMin: 420,
+      durationMin: 60,
+      tagId: null,
+      notes: null,
+      priority: 'normal',
+      issues: [],
+    }
+
+    it('is its sentence when everything landed, with the same rows and Undo under it', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'act', reply: 'Done! Gym is on your list for 7 AM.', items: [gym], skipped: 0 })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym monday 7am')
+
+      expect(screen.getByText('Done! Gym is on your list for 7 AM.')).toBeTruthy()
+      expect(screen.queryByText('Done — created 1.')).toBeNull()
+      expect(screen.getByRole('list', { name: 'Changes' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeTruthy()
+    })
+
+    it('is the plain count when there was no sentence', async () => {
+      aiScheduleAi.mockResolvedValue({ status: 'act', reply: null, items: [gym], skipped: 0 })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym monday 7am')
+      expect(screen.getByText('Done — created 1.')).toBeTruthy()
+    })
+
+    it('is the count, not its sentence, when the batch stopped part way — the sentence was for all of it', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      addTask.mockImplementationOnce(async (draft) => ({ id: `task-${draft.title}` }))
+      addTask.mockRejectedValueOnce(new Error('offline'))
+      aiScheduleAi.mockResolvedValue({
+        status: 'act',
+        reply: 'All set, both are on your list!',
+        items: [gym, { ...gym, title: 'Swim' }],
+        skipped: 0,
+      })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('gym and swim')
+
+      expect(screen.queryByText('All set, both are on your list!')).toBeNull()
+      expect(screen.getByText('Done — created 1.')).toBeTruthy()
+    })
+
+    it("does not replace the question before a removal: that sentence is the app's own", async () => {
+      mockTasks = [{ id: 'task-1', title: 'Dentist', date: '2026-08-26', startMin: 900, durationMin: 30, tagId: null, done: false, createdAt: 1 }]
+      aiScheduleAi.mockResolvedValue({
+        status: 'act',
+        reply: 'Sure, gone!',
+        items: [{ action: 'remove', taskId: 'task-1', issues: [] }],
+        skipped: 0,
+      })
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('cancel the dentist')
+
+      expect(screen.getByText('Remove 1 task: “Dentist”?')).toBeTruthy()
+      expect(screen.queryByText('Sure, gone!')).toBeNull()
+      expect(removeTask).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('when no answer comes back', () => {
+    it('says so kindly, and Try again asks the same thing a second time', async () => {
+      aiScheduleAi.mockResolvedValueOnce(null)
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      expect(await screen.findByText("Sorry, I couldn't get an answer just now.")).toBeTruthy()
+
+      aiScheduleAi.mockResolvedValueOnce(offered())
+      await press('Try again')
+
+      expect(aiScheduleAi).toHaveBeenCalledTimes(2)
+      expect(aiScheduleAi.mock.calls[1][0].messages).toEqual(aiScheduleAi.mock.calls[0][0].messages)
+      expect(aiScheduleAi.mock.calls[1][0].messages).toEqual([{ role: 'user', content: 'give me a list' }])
+      expect(await screen.findByText('Here are a few ideas.')).toBeTruthy()
+      // Used once: the button does not linger under a failure that has been retried.
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    })
+
+    it('never tells the model the failure line was something it said', async () => {
+      aiScheduleAi.mockResolvedValueOnce(null)
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('anything you suggest')
+      await screen.findByText("Sorry, I couldn't get an answer just now.")
+
+      aiScheduleAi.mockResolvedValueOnce({ status: 'reply', reply: 'Sure.', items: [] })
+      await sendText('hm?', 'Reply…')
+
+      expect(aiScheduleAi.mock.calls[1][0].messages).toEqual([
+        { role: 'user', content: 'anything you suggest' },
+        { role: 'user', content: 'hm?' },
+      ])
+    })
+
+    it('offers Try again only under the newest line', async () => {
+      aiScheduleAi.mockResolvedValueOnce(null)
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('anything you suggest')
+      await screen.findByRole('button', { name: 'Try again' })
+
+      aiScheduleAi.mockResolvedValueOnce({ status: 'reply', reply: 'Sure.', items: [] })
+      await sendText('hm?', 'Reply…')
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    })
+
+    it('a second failure offers Try again again', async () => {
+      aiScheduleAi.mockResolvedValue(null)
+      render(<AiChatModal onClose={vi.fn()} />)
+      await sendText('give me a list')
+      await press('Try again')
+      expect(screen.getAllByText("Sorry, I couldn't get an answer just now.")).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1)
     })
   })
 })

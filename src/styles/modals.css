@@ -1491,6 +1491,31 @@
   text-decoration: line-through;
 }
 
+/* An idea is the same hairline row with its own action beside it: the detail on
+   the left, one Add on the right. Once added, a muted word takes the button's
+   place, so the row reads as settled without a colour or a strike-through. */
+.ai-chat__change--idea {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+}
+
+.ai-chat__change-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-chat__idea-add {
+  align-self: start;
+}
+
+.ai-chat__idea-added {
+  padding-top: 2px;
+  font-size: var(--text-label);
+  color: var(--color-text-muted);
+}
+
 /* The line under a reply that left some of its items out. */
 .ai-chat__skipped {
   margin: 0;

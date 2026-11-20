@@ -10,7 +10,7 @@ import { aiScheduleAi } from '../../lib/aiClient.js'
 import { AI_DISCLOSURE } from '../../lib/aiDisclosure.js'
 import { ArrowUpIcon, ClockIcon, CloseIcon, WarningIcon } from '../icons.jsx'
 import { TagGlyph } from '../editors/TagGlyph.jsx'
-import { changesContext, describeChanges, skippedNote } from './aiChatChanges.js'
+import { changesContext, describeChanges, firstNameOf, greetingFor, ideasContext, skippedNote } from './aiChatChanges.js'
 import { VerifyNotice } from './VerifyNotice.jsx'
 
 // How far ahead real free time is offered to the model, and how many
@@ -46,8 +46,14 @@ const MAX_HISTORY = 15
 // real update/remove targets — see api/ai-schedule.js's own MAX_EXISTING.
 const MAX_EXISTING = 40
 
-const UNREACHABLE_MESSAGE = "Couldn't reach AI — try again in a moment."
+// Said when no answer came back (offline, a timeout, Gemini busy), with a Try
+// again button under it. It is marked `failed` and never sent back to the model as
+// something the assistant said: it used to be, and the next reply then carried on
+// from an error as if it had been part of the conversation.
+const FAILED_MESSAGE = "Sorry, I couldn't get an answer just now."
 
+// What an idea's row says where a change's row says Added / Changed / Removed.
+const IDEA_VERB = 'Idea'
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -69,51 +75,75 @@ function modelMessage(message) {
 const VERIFY_NOTICE_ID = 'verify-ai-chat'
 
 // What the empty state offers. They are examples to start from, not actions: they
-// fill the composer and wait, because "cancel the groceries task" is a real
-// delete and should be read (and perhaps changed) before it is sent.
-const SUGGESTIONS = ['Gym Monday 7am', 'Move dentist to 4pm', 'Cancel the groceries task']
+// fill the composer and wait, because a message can be a real change (or a delete)
+// and should be read, and perhaps changed, before it is sent.
+const SUGGESTIONS = ['What should I do today?', 'Gym Monday 7am', 'Move dentist to 4pm']
 
 /** What the assistant did, one row per change (see aiChatChanges.js). Words carry
     every distinction — a verb, a day, a time, a tag's name beside its dot, and a
     warning's icon alongside its sentence — never colour alone. */
-function ChangeList({ rows, undone = false }) {
+function ChangeList({ rows, undone = false, idea = null }) {
   return (
-    <ul className={`ai-chat__changes${undone ? ' ai-chat__changes--undone' : ''}`} aria-label="Changes">
-      {rows.map((row, i) => (
-        // Append-only for the life of one message, like the transcript itself.
-        // eslint-disable-next-line react/no-array-index-key
-        <li key={i} className="ai-chat__change">
-          <p className="ai-chat__change-head">
-            <span className="ai-chat__change-verb">{CHANGE_VERBS[row.action]}</span>
-            <span className="ai-chat__change-title">{row.title}</span>
-          </p>
-          {(row.meta.length > 0 || row.tag) && (
-            <p className="ai-chat__change-line">
-              {row.meta.join(' · ')}
-              {row.tag && (
-                <>
-                  {row.meta.length > 0 && ' · '}
-                  <span className="ai-chat__change-tag">
-                    <TagGlyph tag={row.tag} className="ai-chat__change-dot" />
-                    {row.tag.name}
-                  </span>
-                </>
-              )}
+    <ul
+      className={`ai-chat__changes${undone ? ' ai-chat__changes--undone' : ''}`}
+      aria-label={idea ? 'Ideas' : 'Changes'}
+    >
+      {rows.map((row, i) => {
+        const detail = (
+          <>
+            <p className="ai-chat__change-head">
+              <span className="ai-chat__change-verb">{idea ? IDEA_VERB : CHANGE_VERBS[row.action]}</span>
+              <span className="ai-chat__change-title">{row.title}</span>
             </p>
-          )}
-          {row.changes.map((line) => (
-            <p key={line} className="ai-chat__change-line">
-              {line}
-            </p>
-          ))}
-          {row.note && <p className="ai-chat__change-line">{row.note}</p>}
-          {row.warnings.map((warning) => (
-            <p key={warning} className="ai-chat__change-warn">
-              <WarningIcon className="ai-chat__change-warn-icon" /> {warning}
-            </p>
-          ))}
-        </li>
-      ))}
+            {(row.meta.length > 0 || row.tag) && (
+              <p className="ai-chat__change-line">
+                {row.meta.join(' · ')}
+                {row.tag && (
+                  <>
+                    {row.meta.length > 0 && ' · '}
+                    <span className="ai-chat__change-tag">
+                      <TagGlyph tag={row.tag} className="ai-chat__change-dot" />
+                      {row.tag.name}
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
+            {row.changes.map((line) => (
+              <p key={line} className="ai-chat__change-line">
+                {line}
+              </p>
+            ))}
+            {row.note && <p className="ai-chat__change-line">{row.note}</p>}
+            {row.warnings.map((warning) => (
+              <p key={warning} className="ai-chat__change-warn">
+                <WarningIcon className="ai-chat__change-warn-icon" /> {warning}
+              </p>
+            ))}
+          </>
+        )
+        return (
+          // Append-only for the life of one message, like the transcript itself.
+          // eslint-disable-next-line react/no-array-index-key
+          <li key={i} className={`ai-chat__change${idea ? ' ai-chat__change--idea' : ''}`}>
+            {idea ? <div className="ai-chat__change-main">{detail}</div> : detail}
+            {idea &&
+              (idea.added.includes(i) ? (
+                <span className="ai-chat__idea-added">Added</span>
+              ) : (
+                <button
+                  type="button"
+                  className="ghost-button ghost-button--sm ai-chat__idea-add"
+                  aria-label={`Add ${row.title}`}
+                  onClick={() => idea.onAdd(i)}
+                  disabled={idea.disabled}
+                >
+                  Add
+                </button>
+              ))}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -128,11 +158,13 @@ function Mark({ large = false }) {
   )
 }
 
-/** The command palette's "AI" entry point: a small chat, not a form. One or
-    several TASKS (no events — see api/ai-schedule.js) can be created,
-    changed, or removed directly from a plain-language prompt, without ever
-    opening the create-task modal — a second, separate door from
-    TaskEditor's own AI enrichment (Phase 8), which stays untouched.
+/** The command palette's "AI" entry point: a small chat, not a form. It talks about
+    the day, and one or several TASKS (no events — see api/ai-schedule.js) can be
+    created, changed, or removed directly from a plain-language prompt, without
+    ever opening the create-task modal — a second, separate door from
+    TaskEditor's own AI enrichment (Phase 8), which stays untouched. When someone
+    is stuck it offers a few ideas, each of which becomes a task only on its own
+    Add.
 
     Follows the app's one modal convention exactly: useModalA11y owns the
     focus trap, initial focus, Escape, and body scroll lock on its own — see
@@ -142,7 +174,9 @@ export function AiChatModal({ onClose }) {
   const { addTask, updateTask, removeTask, restoreItem, tags, tasks, tasksOn, eventsOn } = useSchedule()
   const { pushError } = useToast()
   // The AI route only serves confirmed addresses (api/_lib/auth.js).
-  const { emailVerified } = useAuth()
+  const { emailVerified, user } = useAuth()
+  // Only this one word of the account's name is ever sent, to greet someone by.
+  const firstName = firstNameOf(user?.displayName)
   const now = useNow()
 
   const panelRef = useRef(null)
@@ -282,6 +316,13 @@ export function AiChatModal({ onClose }) {
       .map((t) => ({ id: t.id, title: t.title, date: t.date, startMin: t.startMin, durationMin: t.durationMin, tagId: t.tagId }))
   }
 
+  /** The reply's items as rows (aiChatChanges.js), judged against the plan as it is
+      right now — so an idea added a minute after it was offered is checked for a
+      clash with what is on the day by then, not when it was suggested. */
+  function rowsFor(items) {
+    return describeChanges(items, { tasks, tags, dayItems: timedItemsOn, today: now.key, nowMin: now.min })
+  }
+
   /** Sequential, not Promise.all — a partial failure part-way through is far
       easier to reason about (and to undo) than an unknown subset of
       concurrent writes having landed, the same choice acceptPlan already
@@ -334,8 +375,14 @@ export function AiChatModal({ onClose }) {
 
   /** Applies a batch and reports it: one line saying how many, the rows saying
       what, and one Undo for all of it. `rows` and `skipped` describe the reply
-      (aiChatChanges.js); both are optional so a caller with only items still works. */
-  async function applyAndReport(items, rows = [], skipped = 0) {
+      (aiChatChanges.js); both are optional so a caller with only items still works.
+
+      `text` is the assistant's own sentence about what it did, shown as the line
+      when EVERYTHING landed; a batch that stopped part way is described by the
+      count instead, because the sentence was written for all of it. `onUndone`
+      runs after a successful Undo (an idea that was added becomes addable again).
+      Returns how many changes landed. */
+  async function applyAndReport(items, rows = [], skipped = 0, text = null, onUndone = null) {
     const outcome = { created: [], removed: [], updated: [] }
     try {
       await applyItems(items, outcome)
@@ -362,7 +409,7 @@ export function AiChatModal({ onClose }) {
       // is the first `total` of them: the list never claims more than happened.
       const applied = rows.slice(0, total)
 
-      say('assistant', summary, {
+      say('assistant', text && total === items.length ? text : summary, {
         rows: applied,
         skipped,
         // What the assistant did, in words, for the NEXT request: without it the
@@ -375,6 +422,7 @@ export function AiChatModal({ onClose }) {
             for (const id of created) await removeTask(id)
             for (const id of removed) await restoreItem('task', id)
             for (const { id, reverse } of updated) await updateTask(id, reverse)
+            onUndone?.()
             return true
           } catch (caught) {
             console.error('Could not undo the AI-applied changes.', caught)
@@ -384,6 +432,16 @@ export function AiChatModal({ onClose }) {
         },
       })
     }
+    return total
+  }
+
+  /** What the route reads of a conversation: words only. The messages in state also
+      carry rows, undo functions, ideas and the batch awaiting a yes, none of which
+      the route reads — and an assistant turn says what it DID (its context), not
+      just that it did. A line that only reported a failure is left out entirely:
+      it is not something the assistant said. */
+  function conversationOf(list) {
+    return list.filter((m) => !m.failed).map(modelMessage)
   }
 
   async function send(event) {
@@ -394,14 +452,19 @@ export function AiChatModal({ onClose }) {
     const nextMessages = [...messages, { role: 'user', content: text }]
     setMessages(nextMessages)
     setDraft('')
+    await ask(nextMessages)
+  }
+
+  /** Puts a conversation to the route and shows what comes back: words (a reply), a
+      change (an act), or a few ideas to choose from (a suggestion). Used by Send
+      and by Try again, which asks the same thing a second time. */
+  async function ask(conversation) {
     setBusy(true)
 
     try {
       const result = await aiScheduleAi({
-        // Words only. The messages in state also carry rows, undo functions and
-        // the batch awaiting a yes, none of which the route reads — and an
-        // assistant turn says what it DID (its context), not just that it did.
-        messages: nextMessages.map(modelMessage),
+        messages: conversationOf(conversation),
+        firstName,
         today: now.key,
         nowMin: now.min,
         tags: tags.map((t) => ({ id: t.id, name: t.name })),
@@ -410,47 +473,105 @@ export function AiChatModal({ onClose }) {
         existingTasks: buildExistingTasks(),
       })
 
+      // Nothing came back (offline, a timeout, Gemini busy). Said as a person
+      // would, with a way to ask again — not as a status line, and not sent to the
+      // model next turn (see conversationOf).
       if (!result) {
-        say('assistant', UNREACHABLE_MESSAGE)
+        say('assistant', FAILED_MESSAGE, { failed: true })
         return
       }
 
-      if (result.status === 'ask') {
-        say('assistant', result.question)
+      // `question` is what a server from before replies had a clarifying question
+      // called; a page and the API can be different versions for a moment around a
+      // deploy, so it is still read rather than shown as a failure.
+      const text = [result.reply, result.question].find((value) => typeof value === 'string' && value.trim()) ?? ''
+      const items = Array.isArray(result.items) ? result.items : []
+
+      if (result.status === 'suggest' && items.length > 0) {
+        // Ideas change nothing: they wait, each with its own Add. What was offered
+        // goes back to the model as words, marked as not added yet.
+        const rows = rowsFor(items)
+        const intro = text || 'Here are a few ideas for you.'
+        say('assistant', intro, {
+          suggestions: items,
+          rows,
+          added: [],
+          context: [intro, ideasContext(rows)].join('\n'),
+        })
+        return
+      }
+
+      if (result.status !== 'act' || items.length === 0) {
+        if (text) say('assistant', text)
+        else say('assistant', FAILED_MESSAGE, { failed: true })
         return
       }
 
       // Described BEFORE anything is applied: an update shows what a task was
       // from the task as it is now, and a clash is judged against today's plan.
       const skipped = Number.isInteger(result.skipped) ? result.skipped : 0
-      const rows = describeChanges(result.items, {
-        tasks,
-        tags,
-        dayItems: timedItemsOn,
-        today: now.key,
-        nowMin: now.min,
-      })
+      const rows = rowsFor(items)
 
       /* Deleting is the one thing a misread request (or a task title that
          reads like an instruction) can do that matters, so a batch with any
          removal waits for a yes. Everything else applies straight away, with
          Undo. The same list that will report the change is shown first, so the
          yes is to what is about to happen, not to a count. */
-      const removals = result.items.filter((item) => item.action === 'remove')
+      const removals = items.filter((item) => item.action === 'remove')
       if (removals.length > 0) {
         const names = removals.map((item) => `“${tasks.find((t) => t.id === item.taskId)?.title ?? 'a task'}”`)
-        const others = result.items.length - removals.length
+        const others = items.length - removals.length
         say(
           'assistant',
           `Remove ${plural(removals.length, 'task')}: ${names.join(', ')}?${
             others > 0 ? ` I’ll also make the ${plural(others, 'other change')} you asked for.` : ''
           }`,
-          { pending: result.items, rows, skipped },
+          { pending: items, rows, skipped },
         )
         return
       }
 
-      await applyAndReport(result.items, rows, skipped)
+      await applyAndReport(items, rows, skipped, text || null)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Try again under a failure: the same conversation, asked a second time. Only the
+      newest line offers it — an older one's moment has passed. */
+  async function retry(index) {
+    const target = messages[index]
+    if (!target?.failed || target.retried || busy || !emailVerified) return
+    patchMessage(index, { retried: true })
+    await ask(messages.slice(0, index))
+  }
+
+  /** Which of a message's ideas have been added: marked when added, and unmarked if
+      that Add is undone, so an idea taken back can be taken again. */
+  function setAdded(index, ids, added) {
+    setMessages((prev) =>
+      prev.map((m, i) => {
+        if (i !== index) return m
+        return { ...m, added: added ? [...new Set([...m.added, ...ids])] : m.added.filter((n) => !ids.includes(n)) }
+      }),
+    )
+  }
+
+  /** Add one idea, or several (Add all). Each becomes a real task only here, on a
+      tap, reported and undoable like any other change. */
+  async function addIdeas(index, which) {
+    const target = messages[index]
+    if (!target?.suggestions || busy) return
+    const todo = which.filter((n) => !target.added.includes(n))
+    if (todo.length === 0) return
+    const items = todo.map((n) => target.suggestions[n])
+
+    setBusy(true)
+    try {
+      const text = items.length === 1 ? `Added “${items[0].title}”.` : null
+      const landed = await applyAndReport(items, rowsFor(items), 0, text, () => setAdded(index, todo, false))
+      // Items land in order and a failure stops the loop, so the first `landed`.
+      setAdded(index, todo.slice(0, landed), true)
     } finally {
       setBusy(false)
     }
@@ -483,10 +604,11 @@ export function AiChatModal({ onClose }) {
           {messages.length === 0 && (
             <div className="ai-chat__empty">
               <Mark large />
-              <h3 className="ai-chat__greeting">What should I schedule?</h3>
+              <h3 className="ai-chat__greeting">{greetingFor(now.min, firstName)}</h3>
               {emailVerified ? (
                 <p className="ai-chat__sub">
-                  Tasks only. If something is vague, I'll ask before doing anything, and I'll check before deleting.
+                  Ask me to add, move or clear tasks — or for ideas when you're stuck. I'll check before deleting
+                  anything.
                 </p>
               ) : (
                 /* In place of the sentence above, and in a warning's clothes
@@ -533,7 +655,35 @@ export function AiChatModal({ onClose }) {
                   <Mark />
                   <div className="ai-chat__body">
                     <p className="ai-chat__text">{m.content}</p>
-                    {m.rows?.length > 0 && <ChangeList rows={m.rows} undone={m.undone} />}
+                    {m.rows?.length > 0 && !m.suggestions && <ChangeList rows={m.rows} undone={m.undone} />}
+                    {m.suggestions && (
+                      <>
+                        <ChangeList
+                          rows={m.rows}
+                          idea={{ added: m.added, disabled: busy, onAdd: (n) => addIdeas(i, [n]) }}
+                        />
+                        {m.suggestions.length - m.added.length >= 2 && (
+                          <button
+                            type="button"
+                            className="ghost-button ghost-button--sm"
+                            onClick={() => addIdeas(i, m.suggestions.map((_, n) => n))}
+                            disabled={busy}
+                          >
+                            {m.added.length === 0 ? 'Add all' : 'Add the rest'}
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {m.failed && !m.retried && i === messages.length - 1 && (
+                      <button
+                        type="button"
+                        className="ghost-button ghost-button--sm"
+                        onClick={() => retry(i)}
+                        disabled={busy || !emailVerified}
+                      >
+                        Try again
+                      </button>
+                    )}
                     {skippedNote(m.skipped) && <p className="ai-chat__skipped">{skippedNote(m.skipped)}</p>}
                     {m.pending &&
                       (m.resolved ? null : (
@@ -615,7 +765,7 @@ export function AiChatModal({ onClose }) {
                 !emailVerified
                   ? 'Confirm your email address first'
                   : messages.length === 0
-                    ? 'Describe what to schedule…'
+                    ? 'Ask about your day…'
                     : 'Reply…'
               }
               aria-label="Message"

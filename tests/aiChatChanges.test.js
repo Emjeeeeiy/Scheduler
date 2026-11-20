@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { changesContext, describeChanges, skippedNote } from '../src/components/shell/aiChatChanges.js'
+import {
+  changesContext,
+  describeChanges,
+  firstNameOf,
+  greetingFor,
+  ideasContext,
+  skippedNote,
+} from '../src/components/shell/aiChatChanges.js'
 
 // 2026-08-24 is a Monday, so 2026-08-25 reads "Tomorrow" and 2026-08-27 "Thu, Aug 27".
 const TODAY = '2026-08-24'
@@ -248,5 +255,90 @@ describe('changesContext', () => {
       text,
       ['Created "Study" on 2026-08-25 at 19:00 for 90 min.', 'Changed "Gym": start to 16:00.', 'Removed "a task".'].join('\n'),
     )
+  })
+})
+
+describe('a created row — when', () => {
+  it('is the phrase its context is built from, so an idea can say what it would be', () => {
+    const row = one(create())
+    assert.equal(row.when, 'on 2026-08-25 at 19:00 for 90 min')
+    assert.equal(row.context, `Created "Study" ${row.when}.`)
+  })
+
+  it('says "with no day" for one that has none, and leaves out a time it does not have', () => {
+    const row = one(create({ date: null, startMin: null, durationMin: null }))
+    assert.equal(row.when, 'with no day')
+  })
+})
+
+describe('ideasContext', () => {
+  it('lists each idea as suggested and not added yet, one line each', () => {
+    const text = ideasContext(rows([create(), create({ title: 'Read', startMin: 9 * 60, durationMin: 30 })]))
+    assert.equal(
+      text,
+      [
+        'Suggested "Study" on 2026-08-25 at 19:00 for 90 min (not added yet).',
+        'Suggested "Read" on 2026-08-25 at 09:00 for 30 min (not added yet).',
+      ].join('\n'),
+    )
+  })
+
+  it('never calls an idea created: that is for a change that happened', () => {
+    assert.doesNotMatch(ideasContext(rows([create()])), /Created/)
+  })
+
+  it('is empty for no ideas', () => {
+    assert.equal(ideasContext([]), '')
+  })
+
+  it('copes with a row that has no `when`', () => {
+    assert.equal(ideasContext([{ title: 'Read' }]), 'Suggested "Read" (not added yet).')
+  })
+})
+
+describe('firstNameOf', () => {
+  it('is the first word of a display name', () => {
+    assert.equal(firstNameOf('Sam Rivera'), 'Sam')
+    assert.equal(firstNameOf('  Åsa   Lind '), 'Åsa')
+    assert.equal(firstNameOf('Sam'), 'Sam')
+  })
+
+  it('is empty when there is no name to use', () => {
+    for (const value of [null, undefined, '', '   ', 42, {}]) assert.equal(firstNameOf(value), '')
+  })
+
+  it('is empty for an email address, which is not a name to greet someone by', () => {
+    assert.equal(firstNameOf('sam@example.com'), '')
+    assert.equal(firstNameOf('sam@example.com Rivera'), '')
+  })
+})
+
+describe('greetingFor', () => {
+  const at = (hour, minute = 0) => hour * 60 + minute
+
+  it('follows the time of day', () => {
+    assert.equal(greetingFor(at(5), ''), 'Good morning')
+    assert.equal(greetingFor(at(11, 59), ''), 'Good morning')
+    assert.equal(greetingFor(at(12), ''), 'Good afternoon')
+    assert.equal(greetingFor(at(16, 59), ''), 'Good afternoon')
+    assert.equal(greetingFor(at(17), ''), 'Good evening')
+    assert.equal(greetingFor(at(21, 59), ''), 'Good evening')
+  })
+
+  it('says a plain "Hello" in the small hours, where "good evening" reads as a slip', () => {
+    assert.equal(greetingFor(at(22), ''), 'Hello')
+    assert.equal(greetingFor(at(0), ''), 'Hello')
+    assert.equal(greetingFor(at(4, 59), ''), 'Hello')
+  })
+
+  it('adds the name after a comma, when there is one', () => {
+    assert.equal(greetingFor(at(19), 'Sam'), 'Good evening, Sam')
+    assert.equal(greetingFor(at(8), 'Sam'), 'Good morning, Sam')
+  })
+
+  it('says "Hello" when the time is not known', () => {
+    assert.equal(greetingFor(null, ''), 'Hello')
+    assert.equal(greetingFor(undefined, 'Sam'), 'Hello, Sam')
+    assert.equal(greetingFor(NaN, ''), 'Hello')
   })
 })

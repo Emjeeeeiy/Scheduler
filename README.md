@@ -487,8 +487,10 @@ What the app relies on, and where it's enforced:
   tooltip, and a line in the proposal) and in `src/lib/aiDisclosure.js`. A
   verified email and a connection are required; without them Plan it still
   proposes the note's checklist lines, and sends nothing. Ask AI (`/api/ai-schedule`)
-  sends the conversation, tag names, the next week's free windows, a sample of
-  recent task titles and the open tasks. What the assistant did in earlier turns
+  sends the conversation, the first word of the account's display name (so it can
+  greet you; never the whole name, and never an email address), tag names, the
+  next week's free windows, a sample of recent task titles and the open tasks.
+  Events are not sent. What the assistant did in earlier turns
   goes back as plain words — `Created "Gym" on 2026-08-25 at 07:00 for 60 min.` —
   so "make that 8pm instead" has something to point at; those are task titles,
   days and times already covered above, not a new kind of data.
