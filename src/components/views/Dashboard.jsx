@@ -28,6 +28,7 @@ import {
 } from '@cadence/shared/date.js'
 import { BarChart } from '../stats/BarChart.jsx'
 import { TagBars } from '../stats/TagBars.jsx'
+import { GoalBars } from '../stats/GoalBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
 import { DayNoteButton } from '../calendar/DayNoteButton.jsx'
@@ -379,36 +380,16 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
 
               <div className="trends__aside">
                 {goalTags.length > 0 && (
-                  <figure className="chart">
-                    <figcaption className="chart__title">Weekly goals — this week</figcaption>
-                    <ul className="tag-bars">
-                      {goalTags.map((tag) => {
-                        const plannedMin = weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0
-                        const pct = Math.min(100, Math.round((plannedMin / tag.goalMinutes) * 100))
-                        return (
-                          <li key={tag.id} className="tag-bars__row">
-                            <span className="tag-bars__name">
-                              <span
-                                className="tag-bars__dot"
-                                style={{ background: tag.color }}
-                                aria-hidden="true"
-                              />
-                              {tag.name}
-                            </span>
-                            <span className="tag-bars__track">
-                              <span
-                                className="tag-bars__fill"
-                                style={{ width: `${pct}%`, background: tag.color }}
-                              />
-                            </span>
-                            <span className="tag-bars__value">
-                              {toHours(plannedMin)}h / {toHours(tag.goalMinutes)}h
-                            </span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  </figure>
+                  <GoalBars
+                    label="Weekly goals — this week"
+                    rows={goalTags.map((tag) => ({
+                      id: tag.id,
+                      name: tag.name,
+                      color: tag.color,
+                      goalMinutes: tag.goalMinutes,
+                      plannedMin: weekByTag.find((row) => row.id === tag.id)?.plannedMin ?? 0,
+                    }))}
+                  />
                 )}
 
                 <TagBars rows={rangeByTag} label="Time by tag" maxRows={TREND_TAG_ROWS} />

@@ -1,0 +1,218 @@
+/* ============================================================ chart motion == */
+
+/* The bar charts come in when they are looked at: the columns grow from the
+   baseline one after another, the done fill rises inside each as its bar settles,
+   the busiest column's value fades in last; the tag bars fill from the left in
+   order. Nothing plays on page load for a chart that is below the fold — see
+   useRevealOnView, which puts `chart--idle` on the figure until it has scrolled
+   into view and `chart--in` from then on.
+
+   Three ways in, kept apart on purpose:
+     - A chart that is *held* (`chart--idle`) stands at the baseline; the component
+       then mounts its bars afresh under `chart--in`, and a new element is what
+       plays the `from`-only keyframes below, each with its own stagger delay.
+     - A chart that is already showing and gets *new numbers* for the same days (a
+       task was ticked off) keeps its elements, so the same bars ease to their new
+       heights with a transition.
+     - A chart that is already showing and *changes range* (the 7 / 30 day switch)
+       is a different set of columns, not the same ones moved: the old set is kept
+       for a moment as a ghost layer (`.chart__columns--leaving`) that shrinks to
+       the baseline and fades, while the new set is mounted afresh and grows in a
+       beat behind it (`--lead`). Nothing slides sideways to a position it has no
+       way to get to smoothly — a 7-column layout and a 30-column one share no
+       column centres — and the tag bars beside it, whose rows are the same
+       elements, simply ease their widths.
+
+   Both read the same custom properties, set inline by the component: `--h` and
+   `--w` are the target size, `--delay` a column's stagger, `--i` a row's index.
+
+   Everything is inside `no-preference` and `screen`: under `reduce`, and on paper,
+   there is no hold, no grow and no transition, and the chart is simply drawn.
+   The loading skeleton shares the `.chart__*` classes but never carries
+   `chart--idle` or `chart--in`, so none of this reaches it. */
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* --- held: not yet looked at ----------------------------------------------- */
+
+  /* The minimums (a 2px sliver for a day with almost nothing, so it is never
+     invisible) are lifted too, or every bar would show a stub before its turn. */
+  .chart--idle .chart__bar,
+  .chart--idle .chart__fill {
+    height: 0;
+    min-height: 0;
+  }
+
+  .chart--idle .tag-bars__fill {
+    width: 0;
+    min-width: 0;
+  }
+
+  .chart--idle .chart__value,
+  .chart--idle .tag-bars__value {
+    opacity: 0;
+  }
+
+  .chart--idle .chart__gridline,
+  .chart--in .chart__gridline {
+    transform-origin: left center;
+  }
+
+  .chart--idle .chart__gridline {
+    transform: scaleX(0);
+  }
+
+  /* --- column chart ----------------------------------------------------------- */
+
+  /* The bar is the planned time, so it leads; the done fill follows once it has
+     taken shape, which is the order a reader reads them in (the plan, then how
+     much of it was kept). */
+  /* `--lead` is 0 for the first reveal and a beat on a change of range, so the new
+     columns start after the old ones have begun to clear (see below). */
+  .chart--in .chart__bar {
+    animation: chart-grow 620ms cubic-bezier(0.25, 1, 0.5, 1) calc(var(--lead, 0ms) + var(--delay, 0ms)) backwards;
+    transition:
+      height 500ms cubic-bezier(0.25, 1, 0.5, 1),
+      opacity 150ms ease;
+  }
+
+  .chart--in .chart__fill {
+    animation: chart-grow 520ms cubic-bezier(0.25, 1, 0.5, 1) calc(var(--lead, 0ms) + var(--delay, 0ms) + 260ms) backwards;
+    transition: height 500ms cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  .chart--in .chart__value {
+    animation: chart-fade 380ms ease-out calc(var(--lead, 0ms) + var(--delay, 0ms) + 620ms) backwards;
+  }
+
+  /* The day labels and the axis figures belong to the bars they sit under, so they
+     are held with them and arrive with them — and, because the columns and the rules
+     are re-mounted on a change of range, they fade in again for the new one. */
+  .chart--idle .chart__label,
+  .chart--idle .chart__tick {
+    opacity: 0;
+  }
+
+  .chart--in .chart__label {
+    animation: chart-fade 320ms ease-out calc(var(--lead, 0ms) + 140ms) backwards;
+  }
+
+  .chart--in .chart__tick {
+    animation: chart-fade 320ms ease-out 100ms backwards;
+  }
+
+  /* --- changing range: the bars that were showing shrink away --------------------- */
+
+  /* Drawn only here, where motion is allowed (dashboard.css hides it otherwise),
+     and sitting over the live columns: the new range grows in underneath as this
+     one goes. It ends faster than the new one begins, and eases *in* — a bar
+     leaving should accelerate away, where one arriving decelerates to rest. */
+  .chart--in .chart__columns--leaving {
+    display: flex;
+  }
+
+  .chart--in .chart__columns--leaving .chart__bar {
+    animation: chart-leave 240ms cubic-bezier(0.32, 0, 0.67, 0) forwards;
+    transition: none;
+  }
+
+  /* The fill is inside the bar and goes with it; it must not also play its entrance. */
+  .chart--in .chart__columns--leaving .chart__fill {
+    animation: none;
+    transition: none;
+  }
+
+  .chart--in .chart__columns--leaving .chart__label {
+    animation: chart-vanish 160ms ease-in forwards;
+  }
+
+  /* The rules the bars stand against draw in first, left to right, top to bottom. */
+  .chart--in .chart__gridline {
+    animation: chart-rule 700ms cubic-bezier(0.25, 1, 0.5, 1) backwards;
+  }
+
+  .chart--in .chart__gridline:nth-child(2) {
+    animation-delay: 70ms;
+  }
+
+  .chart--in .chart__gridline:nth-child(3) {
+    animation-delay: 140ms;
+  }
+
+  .chart__band::before {
+    transition: opacity 140ms ease;
+  }
+
+  .chart__tooltip {
+    animation: chart-tip-in 140ms ease-out;
+  }
+
+  /* --- tag bars and goals ----------------------------------------------------- */
+
+  .chart--in .tag-bars__fill {
+    animation: chart-run 680ms cubic-bezier(0.25, 1, 0.5, 1) calc(var(--i, 0) * 70ms) backwards;
+    transition:
+      width 500ms cubic-bezier(0.25, 1, 0.5, 1),
+      opacity 150ms ease;
+  }
+
+  .chart--in .tag-bars__value {
+    animation: chart-fade 380ms ease-out calc(var(--i, 0) * 70ms + 320ms) backwards;
+  }
+
+  .tag-bars__row {
+    transition: background 120ms ease;
+  }
+
+  /* --- keyframes -------------------------------------------------------------- */
+
+  /* `from` alone: the end state is whatever the stylesheet says the bar is. */
+  @keyframes chart-grow {
+    from {
+      height: 0;
+      min-height: 0;
+    }
+  }
+
+  @keyframes chart-run {
+    from {
+      width: 0;
+      min-width: 0;
+    }
+  }
+
+  @keyframes chart-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* Down to the baseline and out; `forwards` so a bar does not flash back to full
+     height in the gap before the ghost is removed. */
+  @keyframes chart-leave {
+    to {
+      height: 0;
+      min-height: 0;
+      opacity: 0;
+    }
+  }
+
+  @keyframes chart-vanish {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes chart-rule {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  /* `translate`, not `transform`: the tooltip's own transform is what centres it. */
+  @keyframes chart-tip-in {
+    from {
+      opacity: 0;
+      translate: 0 4px;
+    }
+  }
+}

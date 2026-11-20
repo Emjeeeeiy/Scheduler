@@ -620,6 +620,12 @@
   background: var(--color-gridline);
 }
 
+/* The zero line is the one the bars stand on: a step firmer than the rules above
+   it, so the columns read as rising from something rather than floating. */
+.chart__gridline--base {
+  background: var(--color-border);
+}
+
 .chart__columns {
   position: absolute;
   inset: 0;
@@ -628,6 +634,15 @@
   /* 2px of surface between neighbouring bars — the gap does the separating,
      never a stroke around the mark. */
   gap: 2px;
+}
+
+/* The range that has just been switched away from, held for a moment so it can
+   leave (see BarChart). Not drawn at all unless chart-motion.css says motion is
+   allowed — under `reduce` and on paper the old bars simply go, and nobody sees two
+   sets at once. */
+.chart__columns--leaving {
+  display: none;
+  pointer-events: none;
 }
 
 .chart__band {
@@ -641,16 +656,37 @@
   min-width: 0;
 }
 
+/* The wash behind a column the pointer or keyboard is on: a Hover Surface step the
+   full height of the plot, so the target is the whole column and not the sliver of
+   a short bar. Semi-transparent so the gridlines still show through it. */
+.chart__band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chart__band--hover::before {
+  opacity: 0.6;
+}
+
 .chart__bar {
   position: relative;
   width: 100%;
   max-width: 24px;
+  /* The height arrives as a custom property so the stylesheet can hold a bar at the
+     baseline until the chart is looked at (chart-motion.css). The loading skeleton
+     sets `height` inline, which wins. */
+  height: var(--h, auto);
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   padding: 0;
   cursor: pointer;
   /* Rounded at the data end, square at the baseline. */
-  border-radius: 3px 3px 0 0;
+  border-radius: 4px 4px 0 0;
   min-height: 2px;
 }
 
@@ -659,18 +695,26 @@
   left: 0;
   right: 0;
   bottom: 0;
+  height: var(--h, 0);
   /* Done is solid coral against the hollow planned bar: the series still part
      by fill versus outline, and the legend swatch above uses the same pair. */
   background: var(--color-accent);
   border-radius: 0;
 }
 
+/* A finished day fills its bar to the top, so the fill takes the bar's own corners
+   (a pixel inside its border); a part-done one is a level, and stays flat. */
 .chart__fill--complete {
   border-radius: 3px 3px 0 0;
 }
 
-.chart__band--hover .chart__bar {
-  filter: brightness(1.06);
+/* With a pointer, the column under it stays full strength and its neighbours step
+   back: the eye lands where the tooltip is. Touch has no hover to end, so it would
+   leave the others dimmed after a tap, and does not get this. */
+@media (hover: hover) {
+  .chart__columns:has(.chart__band--hover) .chart__band:not(.chart__band--hover) .chart__bar {
+    opacity: 0.6;
+  }
 }
 
 .chart__label {
@@ -700,9 +744,9 @@
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   border-radius: var(--radius-sm);
-  padding: 8px 10px;
+  padding: 9px 11px;
   display: grid;
-  gap: 1px;
+  gap: 4px;
   font-size: var(--text-meta);
   color: var(--color-text-secondary);
   white-space: nowrap;
@@ -710,9 +754,41 @@
   pointer-events: none;
 }
 
+/* Near either end of the plot the tooltip lines up with that edge of the column
+   instead of centring on it, where it would hang off the card. */
+.chart__tooltip--start {
+  left: 0;
+  transform: none;
+}
+
+.chart__tooltip--end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 .chart__tooltip strong {
   color: var(--color-text-primary);
   font-size: var(--text-meta);
+  margin-bottom: 1px;
+}
+
+.chart__tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The value leads: the reader already has the day and wants the number. */
+.chart__tip-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-title);
+}
+
+.chart__tip-meta {
+  color: var(--color-text-muted);
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
 }
 
 .chart__table-toggle {
@@ -751,15 +827,33 @@
 
 .tag-bars {
   display: grid;
-  gap: 9px;
+  gap: 3px;
 }
 
+/* A row is a hover target the width of the list, not just its thin bar: it takes a
+   Hover Surface step, and the padding that gives the step somewhere to show is
+   pulled back out with the matching negative margin, so the names and bars stay
+   exactly where they were. */
 .tag-bars__row {
   display: grid;
   grid-template-columns: minmax(80px, 128px) 1fr auto;
   align-items: center;
   gap: 10px;
+  padding: 4px 6px;
+  margin-inline: -6px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-label);
+}
+
+.tag-bars__row:hover {
+  background: var(--color-surface-2);
+}
+
+/* With a pointer, the other tags step back from the one under it. */
+@media (hover: hover) {
+  .tag-bars:has(.tag-bars__row:hover) .tag-bars__row:not(:hover) .tag-bars__fill {
+    opacity: 0.6;
+  }
 }
 
 .tag-bars__name {
@@ -781,13 +875,17 @@
 
 .tag-bars__track {
   background: var(--color-surface-sunken);
-  border-radius: 3px;
+  border-radius: 4px;
   height: 12px;
   overflow: hidden;
 }
 
 .tag-bars__fill {
   display: block;
+  /* The width arrives as a custom property so the stylesheet can hold the bar at
+     zero until the chart is looked at (chart-motion.css). The loading skeleton sets
+     `width` inline, which wins. */
+  width: var(--w, 0);
   height: 100%;
   border-radius: 0 4px 4px 0;
   min-width: 2px;

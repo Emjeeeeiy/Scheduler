@@ -1,4 +1,6 @@
 import { durationLabel } from '@cadence/shared/date.js'
+import { useRevealOnView } from '../../lib/useRevealOnView.js'
+import { TagBarRow } from './TagBarRow.jsx'
 
 const MAX_ROWS = 7
 
@@ -10,6 +12,7 @@ const MAX_ROWS = 7
  * which would break the palette's ordering guarantee.
  */
 export function TagBars({ rows, label, emptyText = 'No tagged time in this range.', maxRows = MAX_ROWS }) {
+  const [revealRef, seen] = useRevealOnView()
   const scored = rows.filter((row) => row.plannedMin > 0)
 
   if (scored.length === 0) {
@@ -39,30 +42,20 @@ export function TagBars({ rows, label, emptyText = 'No tagged time in this range
   const peak = Math.max(...display.map((r) => r.plannedMin))
 
   return (
-    <figure className="chart">
+    <figure ref={revealRef} className={`chart ${seen ? 'chart--in' : 'chart--idle'}`}>
       <figcaption className="chart__title">{label}</figcaption>
-      <ul className="tag-bars">
-        {display.map((row) => (
-          <li key={row.id ?? row.tag.id} className="tag-bars__row">
-            <span className="tag-bars__name">
-              <span
-                className="tag-bars__dot"
-                style={{ background: row.tag.color }}
-                aria-hidden="true"
-              />
-              {row.tag.name}
-            </span>
-            <span className="tag-bars__track">
-              <span
-                className="tag-bars__fill"
-                style={{
-                  width: `${(row.plannedMin / peak) * 100}%`,
-                  background: row.tag.color,
-                }}
-              />
-            </span>
-            <span className="tag-bars__value">{durationLabel(row.plannedMin)}</span>
-          </li>
+      {/* Keyed by `seen` so the rows mount afresh, already in their entering state,
+          the moment the chart is looked at (see BarChart for why). */}
+      <ul className="tag-bars" key={seen ? 'in' : 'idle'}>
+        {display.map((row, index) => (
+          <TagBarRow
+            key={row.id ?? row.tag.id}
+            index={index}
+            name={row.tag.name}
+            color={row.tag.color}
+            percent={(row.plannedMin / peak) * 100}
+            value={durationLabel(row.plannedMin)}
+          />
         ))}
       </ul>
     </figure>
