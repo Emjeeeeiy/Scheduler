@@ -8,8 +8,8 @@
  * - the button, Get started, Back and Escape each do what they say, and focus
  *   follows — into the form when it opens, back to the button when it closes;
  * - an error is never left behind the hero, and a stray Escape does not dismiss one;
- * - the chips are decoration (no controls, hidden from assistive tech), and the
- *   calendar and week previews are gone;
+ * - the headline has two drawn o's (the clock mark, a boxy o), named in words for
+ *   assistive tech; the floating chips and the calendar and week previews are gone;
  * - the reminders note is outside the form's panel, so it is on the hero too.
  *
  * Whether the hero or the panel is DRAWN is the stylesheet's, keyed off `data-view`
@@ -75,11 +75,56 @@ describe('the hero', () => {
     const { container } = render(<SignIn />)
     expect(shell(container).dataset.view).toBe('hero')
     expect(action(container).textContent).toBe('Log in')
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Plan your rhythm. Find your flow.')
+    expect(screen.getByRole('heading', { level: 1, name: 'Plan your rhythm. Find your flow.' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Get started' })).toBeTruthy()
     // One DOM at every width: the form is hidden by CSS on a desktop, never removed.
     expect(container.querySelector('.auth-panel')).toBeTruthy()
     expect(screen.getByText('Forgot password?')).toBeTruthy()
+  })
+
+  it('draws two of the headline\'s o\'s: the clock mark in "your" and a boxy o in "flow"', () => {
+    render(<SignIn />)
+    const title = screen.getByRole('heading', { level: 1 })
+    const words = [...title.querySelectorAll('.auth-hero__word')]
+    expect(words).toHaveLength(2)
+    const [yours, flow] = words
+    // The letters either side of the drawn one stay text, in order.
+    expect(yours.firstChild.textContent).toBe('y')
+    expect(yours.lastChild.textContent).toBe('ur')
+    expect(flow.firstChild.textContent).toBe('fl')
+    expect(flow.lastChild.textContent).toBe('w')
+    // "your" gets the app's mark (a face with hands), "flow" a rounded square.
+    expect(yours.querySelectorAll('svg')).toHaveLength(1)
+    expect(yours.querySelector('svg circle')).toBeTruthy()
+    expect(yours.querySelectorAll('svg line').length).toBeGreaterThanOrEqual(2)
+    const box = flow.querySelector('svg rect')
+    expect(box).toBeTruthy()
+    expect(Number(box.getAttribute('rx'))).toBeGreaterThan(0)
+    expect(box.getAttribute('width')).toBe(box.getAttribute('height'))
+    // Only those two: the other o ("your" in the second sentence) is a plain letter.
+    expect(title.querySelectorAll('svg')).toHaveLength(2)
+    expect(title.textContent).toBe('Plan yur rhythm. Find your flw.')
+  })
+
+  it('names the headline in words and hides the drawn letters from assistive tech', () => {
+    render(<SignIn />)
+    const title = screen.getByRole('heading', { level: 1 })
+    expect(title.getAttribute('aria-label')).toBe('Plan your rhythm. Find your flow.')
+    for (const svg of title.querySelectorAll('svg')) {
+      expect(svg.getAttribute('aria-hidden')).toBe('true')
+      expect(svg.getAttribute('class')).toContain('auth-hero__glyph')
+    }
+  })
+
+  it('says what the app is under the headline, in one plain line', () => {
+    const { container } = render(<SignIn />)
+    const lead = container.querySelector('.auth-hero__lead')
+    expect(lead.textContent).toBe('Personal Time-Blocking Planner & Focus Tracker')
+    // Plain words: the drawn letters belong to the headline alone.
+    expect(lead.querySelector('svg')).toBeNull()
+    // It sits between the headline and Get started, in the hero's one column.
+    const content = container.querySelector('.auth-hero__content')
+    expect([...content.children].map((el) => el.tagName)).toEqual(['H1', 'P', 'BUTTON'])
   })
 
   it('has no floating words around the headline any more', () => {
@@ -423,6 +468,19 @@ describe('the sign-in stylesheet', () => {
     expect(css).not.toMatch(/auth-chip/)
     // Nothing is ruled off from anything else: the divider between columns is gone.
     expect(css).not.toMatch(/\.auth-hero\s*\{[^}]*border/)
+  })
+
+  it('sizes the drawn o\'s in em, keeps them inline, and never breaks a word at one', () => {
+    const glyph = css.match(/\.auth-hero__glyph\s*\{([^}]*)\}/)
+    expect(glyph, 'no rule for the drawn letters').toBeTruthy()
+    // Tailwind's preflight makes an svg a block, which would put each on its own line.
+    expect(glyph[1]).toMatch(/display:\s*inline-block/)
+    // In em, so each is the letter it replaces at every step of the headline.
+    expect(glyph[1]).toMatch(/width:\s*[\d.]+em/)
+    expect(glyph[1]).toMatch(/height:\s*[\d.]+em/)
+    expect(glyph[1]).toMatch(/vertical-align:\s*-[\d.]+em/)
+    // A word with one in it is held together: a line may end at an svg, as at an image.
+    expect(css).toMatch(/\.auth-hero__word\s*\{[^}]*white-space:\s*nowrap/)
   })
 
   it('puts no rule under the topbar (the 404 page, which shares it, draws its own)', () => {

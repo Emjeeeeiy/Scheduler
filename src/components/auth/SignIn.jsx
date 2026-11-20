@@ -8,7 +8,18 @@ import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
 import { rememberMeChoice } from '../../lib/sessionHint.js'
 import { DotField } from '../shell/DotField.jsx'
 import { PaneTabs } from '../shell/PaneTabs.jsx'
-import { ClockIcon, GoogleIcon, WarningIcon } from '../icons.jsx'
+import { ClockIcon, GoogleIcon, Icon, WarningIcon } from '../icons.jsx'
+
+/* A squarish "o", for the headline's "flow": a rounded square outlined in the same
+   stroke grammar as the app's icons, on the same footprint as the clock mark in
+   "your" so the two sit on the line alike. A letter, not an icon, so it lives here. */
+function BoxO(props) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="5.5" />
+    </Icon>
+  )
+}
 
 /** The entry screen. On a desktop it is one centred stage over the dot field: a
     hero (headline, lead, one button) and, when someone asks for it, the sign-in
@@ -183,11 +194,21 @@ export function SignIn() {
 
         <div className="auth-hero">
           <div className="auth-hero__content" ref={heroContentRef}>
-            <h1 className="auth-hero__title">Plan your rhythm. Find your flow.</h1>
-            <p className="auth-hero__lead">
-              Capture what needs doing, give it a real slot on your calendar, and see afterward
-              exactly where the hours went.
-            </p>
+            {/* Two of the o's are drawn: the app's own mark in "your" and a squarish
+                one in "flow". They are decoration, so the heading is named in words. */}
+            <h1 className="auth-hero__title" aria-label="Plan your rhythm. Find your flow.">
+              Plan{' '}
+              <span className="auth-hero__word">
+                y<ClockIcon className="auth-hero__glyph" />
+                ur
+              </span>{' '}
+              rhythm. Find your{' '}
+              <span className="auth-hero__word">
+                fl<BoxO className="auth-hero__glyph" />w
+              </span>
+              .
+            </h1>
+            <p className="auth-hero__lead">Personal Time-Blocking Planner &amp; Focus Tracker</p>
             <button
               type="button"
               className="primary-button primary-button--lg auth-hero__cta"

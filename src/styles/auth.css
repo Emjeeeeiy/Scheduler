@@ -234,6 +234,30 @@ code {
   text-wrap: balance;
 }
 
+/* A word with a drawn letter in it ("your", "flow") never breaks in the middle: a line
+   may end at an icon the way it may at an image, which would strand half a word. */
+.auth-hero__word {
+  white-space: nowrap;
+}
+
+/* The o's that are drawn: the clock mark in "your" and a rounded square in "flow".
+   Sized in `em` so each is the letter it replaces at every step of the headline, ink
+   like the words around them, and heavier than an icon's usual 2px to keep up with a
+   650-weight letter. Both draw their outline from 3 to 21 of a 24-unit box, so one
+   set of numbers fits them: each side is pulled back over the 3 empty units to close
+   the gap an o's own sidebearing would have left, and the box is dropped by the 3 under
+   it so that its lowest edge, like an o's, rests on the baseline. */
+.auth-hero__glyph {
+  /* Tailwind's preflight makes every svg a block, which would put each one on a
+     line of its own. */
+  display: inline-block;
+  width: 0.74em;
+  height: 0.74em;
+  margin: 0 -0.04em;
+  vertical-align: -0.1em;
+  stroke-width: 3;
+}
+
 .auth-hero__lead {
   max-width: 54ch;
   margin: 22px 0 30px;

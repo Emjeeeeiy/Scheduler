@@ -4,7 +4,8 @@
    Reading. The page is not captured as a picture. Its words are drawn, one at a
    time, into a scratch canvas in their own font, size and colour and sampled on a
    grid; its filled boxes (a button) become a grid of dots in their fill; its
-   borders (an input's outline) become a ring of dots in the border colour. The
+   borders (an input's outline) become a ring of dots in the border colour; its
+   icons (inline SVG) are traced shape by shape and sampled the same way. The
    result is a cloud of coloured points that sit where the letters and boxes are,
    so when the dots gather again they land exactly where the real thing is and the
    hand-off to it is not a change of place.
@@ -147,6 +148,132 @@ function readWords(root, push, palette, scratch) {
   }
 }
 
+const SHAPES = 'circle, ellipse, line, rect, path, polyline, polygon'
+
+/** One SVG shape as a path in its own user units, or null for one this does not
+    know how to trace. */
+function shapePath(el) {
+  const path = new Path2D()
+  switch (el.localName) {
+    case 'circle':
+      path.arc(el.cx.baseVal.value, el.cy.baseVal.value, el.r.baseVal.value, 0, Math.PI * 2)
+      return path
+    case 'ellipse':
+      path.ellipse(el.cx.baseVal.value, el.cy.baseVal.value, el.rx.baseVal.value, el.ry.baseVal.value, 0, 0, Math.PI * 2)
+      return path
+    case 'line':
+      path.moveTo(el.x1.baseVal.value, el.y1.baseVal.value)
+      path.lineTo(el.x2.baseVal.value, el.y2.baseVal.value)
+      return path
+    case 'rect': {
+      const x = el.x.baseVal.value
+      const y = el.y.baseVal.value
+      const w = el.width.baseVal.value
+      const h = el.height.baseVal.value
+      const r = Math.max(el.rx.baseVal.value, el.ry.baseVal.value)
+      if (r > 0 && path.roundRect) path.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2))
+      else path.rect(x, y, w, h)
+      return path
+    }
+    case 'path':
+      return new Path2D(el.getAttribute('d') ?? '')
+    case 'polyline':
+    case 'polygon': {
+      const points = el.points
+      for (let i = 0; i < points.numberOfItems; i += 1) {
+        const { x, y } = points.getItem(i)
+        if (i === 0) path.moveTo(x, y)
+        else path.lineTo(x, y)
+      }
+      if (el.localName === 'polygon') path.closePath()
+      return path
+    }
+    default:
+      return null
+  }
+}
+
+/** The colour a paint (`fill` or `stroke`) computed to, with the shape's opacity
+    folded in — or null for none, or for a gradient or pattern, which this does not
+    draw (it would only come out black). */
+function paintColour(css, opacity, palette) {
+  if (!css || css === 'none' || css.startsWith('url(')) return null
+  const [r, g, b, a] = palette.rgba(css)
+  const alpha = a * opacity
+  if (alpha <= 0.02) return null
+  return opacity === 1 ? palette.id(css) : palette.id(`rgba(${r},${g},${b},${alpha.toFixed(3)})`)
+}
+
+const number = (value, fallback = 1) => {
+  const n = Number.parseFloat(value)
+  return Number.isFinite(n) ? n : fallback
+}
+
+/** Every drawn icon under `root` (an inline `<svg>` of strokes and fills), as dots.
+    Each shape is traced onto the scratch canvas through the matrix the browser
+    itself has for it — the viewBox's scale, where the icon sits on the page, and any
+    rotation on the shape (a clock's hands) — in the colour it computes to, and
+    sampled on a grid like a word is. Icons used to be skipped, which left a hole in
+    any line of type that has one in it. */
+function readShapes(root, push, palette, scratch) {
+  for (const svg of root.querySelectorAll('svg')) {
+    const box = svg.getBoundingClientRect()
+    if (box.width < 2 || box.height < 2) continue
+    const w = Math.ceil(box.width) + PAD * 2
+    const h = Math.ceil(box.height) + PAD * 2
+    if (w > scratch.canvas.width) scratch.canvas.width = w
+    if (h > scratch.canvas.height) scratch.canvas.height = h
+    const { ctx } = scratch
+    // The same grid as type of that size, so an icon in a line of words is as dense
+    // as the letters beside it.
+    const step = textStep(box.height)
+
+    for (const el of svg.querySelectorAll(SHAPES)) {
+      if (el.closest('defs, clipPath, mask, symbol')) continue
+      const matrix = el.getScreenCTM()
+      const path = matrix && shapePath(el)
+      if (!path) continue
+      const style = getComputedStyle(el)
+      if (style.display === 'none') continue
+      const opacity = number(style.opacity)
+      const fill = paintColour(style.fill, opacity * number(style.fillOpacity), palette)
+      const stroke = paintColour(style.stroke, opacity * number(style.strokeOpacity), palette)
+      const strokeWidth = number(style.strokeWidth, 0)
+
+      // A shape is its fill, its outline, or both — each its own colour, so each its
+      // own pass.
+      const passes = []
+      if (fill !== null) passes.push([fill, false])
+      if (stroke !== null && strokeWidth > 0) passes.push([stroke, true])
+
+      for (const [colour, stroked] of passes) {
+        ctx.save()
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.clearRect(0, 0, w, h)
+        ctx.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e - box.left + PAD, matrix.f - box.top + PAD)
+        ctx.fillStyle = '#000'
+        ctx.strokeStyle = '#000'
+        if (stroked) {
+          ctx.lineWidth = strokeWidth
+          ctx.lineCap = style.strokeLinecap
+          ctx.lineJoin = style.strokeLinejoin
+          ctx.stroke(path)
+        } else {
+          ctx.fill(path)
+        }
+        ctx.restore()
+
+        const { data } = ctx.getImageData(0, 0, w, h)
+        for (let y = 0; y < h; y += step) {
+          for (let x = 0; x < w; x += step) {
+            if (data[(y * w + x) * 4 + 3] > COVERAGE) push(box.left - PAD + x, box.top - PAD + y, colour)
+          }
+        }
+      }
+    }
+  }
+}
+
 /** Every element's filled box and border, as dots. */
 function readBoxes(root, push, palette, pageColour) {
   for (const element of [root, ...root.querySelectorAll('*')]) {
@@ -192,6 +319,7 @@ function readDots(root, stage, palette, scratch, pageColour) {
   }
   readBoxes(root, push, palette, pageColour)
   readWords(root, push, palette, scratch)
+  readShapes(root, push, palette, scratch)
   return cloud(xs, ys, cs)
 }
 
