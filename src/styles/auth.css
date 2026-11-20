@@ -62,11 +62,13 @@ code {
    theme the app is set to: ThemeProvider sits above the auth gate and stamps
    data-theme on <html> (index.html stamps it again before first paint), so this
    screen is light, dark, or follows the OS exactly as Settings → Appearance says,
-   with no colour of its own. What marks it as its own moment is line, not fill:
-   a topbar rule and one hairline column divider — no panel ever carries a
-   background colour of its own, so nothing here reads as a card. (It used to
-   re-declare every token at its light value to stay a fixed light frame behind
-   a light boot splash; the splash is gone, and so is the pin.) */
+   with no colour of its own. Nothing here is boxed or ruled: no panel carries a
+   fill, and the only lines on the screen are the form controls' own.
+
+   One DOM and one layout, at every width. The screen is one centred stage over the
+   dot field that shows either the hero or the form, and `data-view` (set by SignIn)
+   says which. A phone differs from a desktop in size and nothing else: smaller type,
+   a full-width button, a form that scrolls inside the stage when the keyboard is up. */
 .auth-shell {
   display: flex;
   flex-direction: column;
@@ -74,13 +76,22 @@ code {
   background: var(--color-page);
 }
 
+/* The sign-in screen (the only one with a `data-view`; the 404 page shares the shell
+   and keeps growing with its content) is exactly the screen tall. Its stage never
+   grows with what is in it: the hero and the form each scroll inside it, which is
+   what lets both stay laid out all the time (see below). */
+.auth-shell[data-view] {
+  height: 100dvh;
+}
+
+/* No rule under it: the hero is a page, not a frame. The 404 page, which shares
+   this bar, draws its own (not-found.css). */
 .auth-topbar {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 20px 28px;
-  border-bottom: 1px solid var(--color-border);
 }
 
 .auth-topbar__brand {
@@ -98,106 +109,125 @@ code {
   flex: none;
 }
 
-/* The frame below the topbar — hero and form as two plain columns split by one
-   hairline. Inset from the sides but not from the top or bottom: the hero's
-   hatched strips, its two vertical rules and the column divider all run from
-   the topbar's own rule down to the bottom of the screen, so the lines read as
-   one drawing hung from the topbar rather than as marks floating in a box.
-   (The form column keeps the spacing the body's vertical padding used to give
-   it — see `.auth-panel`.) */
+/* The way in and the way back, at the far right: Log in on the hero, Back while the
+   form is showing. Ink Invert — the Ink fill with a Paper label, black on white in
+   dark and white on black in light — the same pairing the Trends range switch uses.
+   It is not coral: coral is the action the page is waiting on, and here that is
+   Get started. Hover is a background step. */
+.auth-topbar__action {
+  background: var(--color-text-primary);
+  color: var(--color-page);
+  border: 1px solid var(--color-text-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 18px;
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+/* Only where there is something to hover with: a touch screen keeps :hover on the
+   last thing tapped, which left Back stuck grey after every tap. */
+@media (hover: hover) {
+  .auth-topbar__action:hover {
+    background: color-mix(in srgb, var(--color-text-primary) 86%, var(--color-page));
+    border-color: color-mix(in srgb, var(--color-text-primary) 86%, var(--color-page));
+  }
+}
+
+/* ------------------------------------------------------------- the stage -- */
+
+/* Everything under the topbar: one grid cell, so the hero and the form sit in the
+   same place and swapping them moves nothing, with the dot field behind both and the
+   swap's own canvas in front. The row is exactly the cell's height (`minmax(0, 1fr)`),
+   and each side scrolls inside it if it has to be taller.
+
+   Both sides are *always laid out* and the one that is not asked for is only
+   `visibility: hidden` — which still takes it out of the tab order and the
+   accessibility tree, as `display: none` would. It is not `display: none` because the
+   dot transition reads where every word and box on both sides is, at the moment of
+   the tap, and laying out a whole side from nothing at that moment was the longest
+   single stall in it (about a second on a phone's CPU). With both already laid out,
+   a tap changes only what is drawn. */
 .auth-body {
   position: relative;
   flex: 1;
-  display: flex;
-  padding: 0 28px;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
-/* The hero takes whatever the panel doesn't: the form is a fixed-ish column
-   sized to its own 360px content plus a gutter, not a percentage that keeps
-   growing past anything the form has to put in it. */
+.auth-hero,
+.auth-panel {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  overflow-y: auto;
+}
+
+.auth-shell[data-view='hero'] .auth-panel,
+.auth-shell[data-view='form'] .auth-hero {
+  visibility: hidden;
+}
+
+/* While the dots are in the air neither side is seen: the canvas shows the dots, and
+   nothing but them. After the rule above, at the same weight, so it wins. */
+.auth-shell[data-morph] .auth-hero,
+.auth-shell[data-morph] .auth-panel {
+  visibility: hidden;
+}
+
+/* The field is the 404 page's own (`.dot-field`, not-found.css): the app's dot grid
+   with a ribbon of dots twisting across it that parts around the cursor. It steps
+   back behind the form — the ribbon is for the hero to sit in, not for a form's
+   labels to compete with — and answers to where the screen is headed
+   (`data-target`), so it eases at the tap and not when the dots have landed. */
+.auth-shell[data-target='form'] .dot-field {
+  opacity: 0.35;
+}
+
+/* The dots' canvas: over the whole stage, above the hero and the form, and never a
+   target. The swap draws on it (SignIn, dotMorphRun.js); the rest of the time it is
+   empty. */
+.auth-morph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* --- the hero ------------------------------------------------------------- */
+
 .auth-hero {
-  flex: 1;
-  position: relative;
-  display: flex;
+  padding: 48px 28px;
   color: var(--color-text-primary);
-  border-right: 1px solid var(--color-border);
 }
 
-/* The full-bleed blueprint grid: two hairline verticals run the entire
-   height of the hero column, and each row rules itself off from the next
-   with a border-bottom that spans edge-to-edge between them — no boxed
-   card, just lines crossing the whole pane the way the reference site's
-   grid does. Content is left-aligned inside the bounded column instead of
-   centered, matching that reference rather than the rest of this screen. */
-.auth-hero__grid {
+/* `margin: auto` and not `align-items: center` on the container: it centres while
+   there is room and, when there is not (a phone on its side), lets the hero start at
+   the top and scroll, where centring would cut off its first lines. */
+.auth-hero__content {
   position: relative;
-  flex: 1;
+  max-width: 760px;
+  margin: auto;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 0 48px;
-  text-align: left;
-}
-
-.auth-hero__vline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--color-border);
-  pointer-events: none;
-}
-
-.auth-hero__vline--l {
-  left: 48px;
-}
-
-.auth-hero__vline--r {
-  right: 48px;
-}
-
-/* The margin outside each vertical rule — reuses the exact diagonal-hatch
-   technique .month__cell--outside already draws for "outside the active
-   month", just relocated: 45°, 1px lines on an 8px pitch, in --color-gridline. */
-.auth-hero__hatch {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 48px;
-  background-image: repeating-linear-gradient(45deg, var(--color-gridline) 0 1px, transparent 1px 8px);
-  pointer-events: none;
-}
-
-.auth-hero__hatch--l {
-  left: 0;
-}
-
-.auth-hero__hatch--r {
-  right: 0;
-}
-
-.auth-hero__row {
-  padding: 22px 40px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-/* Vertical padding moves off the row and onto each `.auth-hero__stat`
-   below, the same connected-grid trade `.stack`/`.divided-row` make for the
-   Dashboard: with the row itself unpadded on top, a stat's own border-left
-   stretches (grid's default align-items) all the way to this row's own top
-   edge — which is exactly where the preview row's border-bottom already
-   sits — so the column dividers touch that hairline instead of floating
-   22px below it. */
-.auth-hero__row--last {
-  padding-top: 0;
-  border-bottom: none;
+  align-items: center;
+  text-align: center;
 }
 
 .auth-hero__title {
-  font-size: clamp(36px, 4vw, 52px);
+  font-size: clamp(44px, 5.4vw, 76px);
   font-weight: 650;
   letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: 1.04;
   /* However wide the column is, break the two sentences evenly — "Plan your
      rhythm." over "Find your flow." — rather than letting a wide column run the
      first line on into the second sentence and strand "flow." alone. */
@@ -205,583 +235,27 @@ code {
 }
 
 .auth-hero__lead {
+  max-width: 54ch;
+  margin: 22px 0 30px;
   font-size: var(--text-icon);
   line-height: 1.6;
   color: var(--color-text-secondary);
+  text-wrap: balance;
 }
 
-/* The "one calendar" the badge and lead promise, shown rather than described.
-   Framed the way the reference site frames its own preview panels: a dotted
-   field around bordered, shadowed cards rather than the cards running edge to
-   edge. The caption sits at the left over the dots, plain text with no border of
-   its own; the week and the month sit together at the right, close, the week
-   taking whatever width the row has left and the month a near-fixed one.
-
-   The field runs the full width between the hero's two vertical rules (the row
-   drops its side padding), which is what lets caption and both calendars share one
-   row at a laptop's width. Where they still do not all fit, the week is dropped and
-   the caption and the month sit side by side as they always did: a container
-   query, on the field's own width rather than the viewport's, since the column the
-   field lives in is what actually runs out. */
-.auth-hero__row.auth-hero__preview-row {
-  padding-top: 0;
-  padding-inline: 0;
-}
-
-.auth-hero__preview {
-  padding: 12px;
-  background-image: radial-gradient(var(--color-baseline) 1px, transparent 1px);
-  background-size: 16px 16px;
-  container-type: inline-size;
-}
-
-.auth-hero__preview-inner {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.auth-hero__preview-text {
-  flex: 0 0 auto;
-  /* Off the field's left edge a little, so it reads as sitting in the field and not
-     against its side. */
-  padding-left: 16px;
-  /* Halfway between Subtitle (18px) and Headline (22px): a little bigger than it was,
-     still well short of the "Log in" heading. One line — see the container query
-     below for the narrow widths where it has to give that up. */
-  font-size: calc((var(--text-subtitle) + var(--text-headline)) / 2);
-  font-weight: var(--font-weight-title);
-  line-height: 1.3;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-}
-
-.auth-hero__demo {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  /* Centred, not top-aligned: the month shrinks with its width (square cells) and
-     the week does not, so at a laptop's width one is a little shorter, and an even
-     margin above and below reads better than one hanging from the top. */
-  align-items: center;
-  justify-content: flex-end;
-  /* A little off the right edge, and a little air between the two cards — as much
-     as the field can spare. The room it has is `100cqw` (the field's own width):
-     at a wide screen 24px in from the edge and 16px between, easing down to 0 and
-     8px as the field narrows toward where the week stops fitting at all. The plain
-     values first are for a browser that does not know `cqw`. */
-  padding-right: 16px;
-  gap: 12px;
-  padding-right: clamp(0px, calc((100cqw - 480px) * 0.27), 24px);
-  gap: clamp(8px, calc(8px + (100cqw - 480px) * 0.09), 16px);
-}
-
-/* No room for the caption (206px), the week (196px at least), the month (160px at
-   least) and the space between: the week goes. (Two classes, because `.auth-week`'s
-   own `display` is declared further down this sheet and, at one class, would win.) */
-@container (max-width: 583px) {
-  .auth-hero__demo .auth-week {
-    display: none;
-  }
-}
-
-/* Under about 236px the week's columns are too narrow for a mono time line or for a
-   four-letter title at full size: the time goes, and the title tightens, so nothing
-   is ever cut mid-letter. The blocks keep everything that matters — the colour, the
-   length, the name. (236px of week is what the field has left, once the caption, the
-   month, the gap and the inset are paid for, at 692px.) */
-@container (max-width: 691px) {
-  .auth-hero__demo .auth-week__time {
-    display: none;
-  }
-
-  .auth-hero__demo .auth-week__title {
-    font-size: 9px;
-    letter-spacing: -0.02em;
-  }
-
-  .auth-hero__demo .auth-week__block {
-    padding-inline: 1px;
-  }
-}
-
-/* With the week gone the caption and the month are all that is left, and the
-   caption keeps its one line until even they do not fit (380px). Then it wraps, as
-   it used to, and loses its indent. */
-@container (max-width: 379px) {
-  .auth-hero__preview-text {
-    flex: 0 1 104px;
-    padding-left: 0;
-    white-space: normal;
-  }
-}
-
-/* The very narrowest a desktop window gets (the 860px breakpoint hides the whole
-   hero below it): the month may shrink past its usual floor rather than push out of
-   the field. */
-@container (max-width: 299px) {
-  .auth-hero__demo .auth-cal {
-    min-width: 128px;
-  }
-}
-
-/* ------------------------------------------------------ the preview calendar -- */
-
-/* The same calendar the Dashboard draws (mono numerals, a coral circle for today,
-   a lighter one for event days, load dots), in the frame the photograph had: a
-   bordered, shadowed card on the dotted field. It plays a slow loop —
-   `--i` is a day's place in the grid, `--t` its place in the planning order, `--d`
-   a dot's place in its day — all of it CSS, so there are no timers, and
-   `prefers-reduced-motion` (below) takes the lot away and leaves the planned month
-   standing. The states a day rests in are the plain ones; the keyframes only ever
-   describe getting there. */
-.auth-cal {
-  flex: 0 1 196px;
-  min-width: 160px;
-  display: grid;
-  align-content: start;
-  gap: 5px;
-  padding: 10px;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  animation: auth-cal-rise 640ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-.auth-cal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 4px;
-}
-
-.auth-cal__label {
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-title);
-  color: var(--color-text-primary);
-}
-
-.auth-cal__nav {
-  display: flex;
-  gap: 8px;
-  color: var(--color-text-muted);
-}
-
-.auth-cal__dow,
-.auth-cal__grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 2px;
-}
-
-.auth-cal__dow span {
-  text-align: center;
-  font-size: var(--text-nano);
-  font-weight: var(--font-weight-label);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-}
-
-.auth-cal__day {
-  position: relative;
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-meta);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-  /* Every day arrives, left to right and top to bottom, a few milliseconds
-     apart — the grid is drawn, not dropped. */
-  animation: auth-cal-in 480ms ease both;
-  animation-delay: calc(240ms + var(--i) * 16ms);
-}
-
-.auth-cal__day--outside {
-  color: var(--color-text-muted);
-}
-
-.auth-cal__num {
-  position: relative;
-  /* Its own stacking context, so the event circle behind the numeral (z-index -1
-     below) stays between the numeral and the card, whatever the day above it is
-     doing. */
-  isolation: isolate;
-  line-height: 1;
-}
-
-/* An event day's numeral sits on a lighter circle, today's on an ink one — the
-   Dashboard calendar's own two marks. The event circle is a layer of its own so
-   it can fill in during the loop; today's is plain and always there. */
-.auth-cal__day--event .auth-cal__num,
-.auth-cal__day--today .auth-cal__num {
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  font-weight: var(--font-weight-title);
-}
-
-.auth-cal__day--event .auth-cal__num::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: 999px;
-  background: var(--color-surface-2);
-  /* `both`: until its delay is up a day must already be in the loop's starting
-     state (hidden), not in its resting one, or it shows, vanishes and returns. */
-  animation: auth-cal-plan 10s ease-in-out infinite both;
-  animation-delay: calc(1.3s + var(--t, 0) * 0.42s);
-}
-
-.auth-cal__day--today .auth-cal__num {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-
-.auth-cal__dots {
-  position: absolute;
-  /* Lower than the Dashboard calendar's 2px: these cells are about two thirds
-     the size, and a 17px numeral circle would otherwise run into the dots. */
-  bottom: 1px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 2px;
-  height: 3px;
-}
-
-.auth-cal__dot {
-  width: 3px;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--color-text-primary);
-  animation: auth-cal-plan 10s ease-in-out infinite both;
-  animation-delay: calc(1.3s + var(--t, 0) * 0.42s + var(--d, 0) * 0.12s);
-}
-
-/* ---------------------------------------------------- the preview week -- */
-
-/* The Schedule page's week in miniature, beside the month: day columns on an hour
-   grid and blocks drawn the way the real time grid draws them — a 3px left edge in
-   the tag colour, a 15% tint of it, 3px corners, a mono time line. `--at` and
-   `--len` are a block's start and length in hours from the top of the grid, `--b`
-   its place in the planning order, `--c` a column's place, `--h` an hour mark's.
-   The loop is the month's (ten seconds, starting at 1.3s) so the two plan
-   together; each block is drawn downward from its top edge, held, then fades. */
-.auth-week {
-  --hour: 22.5px;
-  flex: 1 1 212px;
-  min-width: 196px;
-  max-width: 250px;
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  padding: 10px;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  animation: auth-cal-rise 640ms cubic-bezier(0.2, 0.7, 0.2, 1) 120ms both;
-}
-
-.auth-week__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 4px;
-}
-
-.auth-week__label {
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-title);
-  color: var(--color-text-primary);
-}
-
-.auth-week__nav {
-  display: flex;
-  gap: 8px;
-  color: var(--color-text-muted);
-}
-
-/* Day headers and the grid share one template: a narrow gutter for the hour
-   marks, then five equal columns. */
-.auth-week__days,
-.auth-week__body {
-  display: grid;
-  grid-template-columns: 16px repeat(5, minmax(0, 1fr));
-}
-
-.auth-week__days {
-  padding-left: 0;
-}
-
-.auth-week__day {
-  grid-column: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 2px 0 2px;
-  animation: auth-cal-in 480ms ease both;
-  animation-delay: calc(300ms + var(--c) * 60ms);
-}
-
-/* The first day header sits over the first column, not the gutter. */
-.auth-week__day:first-child {
-  grid-column: 2;
-}
-
-.auth-week__dow {
-  font-size: var(--text-nano);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.auth-week__date {
-  display: grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: var(--text-meta);
-  font-weight: var(--font-weight-title);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-
-.auth-week__day--today .auth-week__date {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-}
-
-/* The grid: an hour line across the five columns, and a hairline between them,
-   as the real time grid draws both. */
-.auth-week__body {
-  position: relative;
-  height: calc(var(--hour) * 6);
-  background-image: linear-gradient(to bottom, var(--color-gridline) 1px, transparent 1px);
-  background-size: calc(100% - 16px) var(--hour);
-  background-position: right top;
-  background-repeat: repeat-y;
-}
-
-.auth-week__gutter {
-  position: relative;
-}
-
-.auth-week__mark {
-  position: absolute;
-  right: 3px;
-  top: calc(var(--h) * var(--hour));
-  transform: translateY(-50%);
-  font-family: var(--font-mono);
-  font-size: var(--text-nano);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-muted);
-  line-height: 1;
-}
-
-/* The first mark would sit half above the grid; nudged inside it. */
-.auth-week__mark:first-child {
-  transform: translateY(2px);
-}
-
-.auth-week__col {
-  position: relative;
-  border-left: 1px solid var(--color-gridline);
-  animation: auth-cal-in 480ms ease both;
-  animation-delay: calc(360ms + var(--c) * 60ms);
-}
-
-.auth-week__block {
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  top: calc(var(--at) * var(--hour) + 1px);
-  height: calc(var(--len) * var(--hour) - 1px);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 2px 2px;
-  overflow: hidden;
-  border-left: 3px solid var(--tag);
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--tag) 15%, var(--color-surface-1));
-  color: var(--color-text-primary);
-  /* Drawn downward from its top edge — the way a block is dragged out in the real
-     grid. `both`, so until its turn it is already in the starting state. */
-  animation: auth-week-block 10s ease-in-out infinite both;
-  animation-delay: calc(1.3s + var(--b, 0) * 0.26s);
-}
-
-/* A block under 45 minutes has no room for padding above its one line. */
-.auth-week__block--short {
-  justify-content: center;
-  padding-block: 0;
-}
-
-.auth-week__block--short .auth-week__title {
-  line-height: 1;
-}
-
-.auth-week__title {
-  font-size: var(--text-nano);
-  font-weight: var(--font-weight-item);
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.auth-week__time {
-  font-family: var(--font-mono);
-  font-size: var(--text-nano);
-  line-height: 1.2;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-@keyframes auth-week-block {
-  0% {
-    opacity: 0;
-    clip-path: inset(0 0 100% 0);
-  }
-  7% {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-  }
-  80% {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-  }
-  90%,
-  100% {
-    opacity: 0;
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes auth-cal-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
-@keyframes auth-cal-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-}
-
-/* Planned in, held for most of the loop, cleared again. Because every day shares
-   the period and only the start is staggered, the planning travels through the
-   month in order and the clearing follows it in the same order. */
-@keyframes auth-cal-plan {
-  0% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  6% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  80% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  90%,
-  100% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-cal,
-  .auth-cal__day,
-  .auth-cal__day--event .auth-cal__num::before,
-  .auth-cal__dot,
-  .auth-week,
-  .auth-week__day,
-  .auth-week__col,
-  .auth-week__block {
-    animation: none;
-  }
-}
-
-/* How the product works, in three beats — echoing the lead paragraph's own
-   three clauses so the row reads as a summary, not new information. A grid
-   of three equal columns with hairline rules between them, rather than a
-   loosely-spaced row, so the beats read as divided cells the way the
-   reference site's own feature grid does. */
-.auth-hero__stats {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.auth-hero__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 22px 20px 0;
-  border-left: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-}
-
-.auth-hero__stat:first-child {
-  padding-left: 0;
-  border-left: none;
-}
-
-.auth-hero__stat-icon {
-  width: 18px;
-  height: 18px;
-  flex: none;
-  color: var(--color-text-muted);
-}
-
-.auth-hero__stat-term {
-  font-size: var(--text-label);
-  font-weight: var(--font-weight-item);
-  color: var(--color-text-primary);
-}
-
-.auth-hero__stat-detail {
-  font-size: var(--text-meta);
-  color: var(--color-text-muted);
-}
+/* --- the form ------------------------------------------------------------- */
 
 .auth-panel {
-  /* 40%, not half: its content is a 380px form, and the hero beside it now has a
-     caption, a week and a month to fit on one row. At 40% the hero is the 60% of
-     the screen the design always described. */
-  flex: 0 0 clamp(480px, 40%, 700px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* 40px of its own plus the 28px `.auth-body` no longer adds above and below. */
-  padding: 68px 24px;
+  padding: 48px 24px;
 }
 
 /* 380px rather than 360: register's password and confirm sit side by side,
-   and each now gives up 36px of its width to the reveal toggle. */
+   and each now gives up 36px of its width to the reveal toggle. Centred by
+   `margin: auto` for the same reason as the hero's content. */
 .auth-panel__inner {
   width: 100%;
   max-width: 380px;
+  margin: auto;
 }
 
 .auth-panel__head {
@@ -809,6 +283,95 @@ code {
   text-align: center;
 }
 
+/* Reminders that are still arriving on this device, and the way to stop them. Kept
+   out of the form's panel so it is on the screen you land on after signing out
+   whichever of the hero and the form is showing. */
+.auth-notice {
+  flex: none;
+  position: relative;
+  z-index: 1;
+  padding: 12px 24px 20px;
+  text-align: center;
+  font-size: var(--text-label);
+  color: var(--color-text-muted);
+}
+
+/* The topbar's own padding tightens a little as the window does. */
+@media (max-width: 1080px) {
+  .auth-topbar {
+    padding: 16px 20px;
+  }
+}
+
+/* A phone. The same screen, sized for a thumb: the headline steps down so "Plan your
+   rhythm." stays on one line at 390px, Get started spans the width at a thumb's
+   height (as the Dashboard's action does), the topbar button is a 40px target, and
+   the form gives up a little of its padding. */
+@media (max-width: 640px) {
+  .auth-topbar__action {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+
+  .auth-hero {
+    padding: 32px 20px;
+  }
+
+  .auth-hero__title {
+    font-size: clamp(32px, 9.4vw, 44px);
+  }
+
+  .auth-hero__lead {
+    margin: 16px 0 26px;
+  }
+
+  .auth-hero__cta {
+    width: 100%;
+    max-width: 320px;
+    min-height: 48px;
+  }
+
+  .auth-panel {
+    padding: 24px 20px 40px;
+  }
+}
+
+/* Motion is opt-in. The hero rises a few pixels as the page first loads — and not
+   again once anyone has asked for the swap (`data-touched`), because the dots are
+   the entrance from then on, and a rise running under them would put the content
+   somewhere else when they are read. The swap itself: while the dots are landing
+   (`data-settling`) the side they are landing on comes up beneath them as they fade
+   (opacity only), and the field eases behind the form. Under `reduce` none of it
+   exists: everything is simply there, and the swap is made at once. */
+@media (prefers-reduced-motion: no-preference) {
+  .auth-shell:not([data-touched]) .auth-hero__content {
+    animation: auth-rise 300ms cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+
+  .auth-shell[data-morph='to-form'][data-settling] .auth-panel,
+  .auth-shell[data-morph='to-hero'][data-settling] .auth-hero {
+    visibility: visible;
+    animation: auth-materialise 220ms ease-out both;
+  }
+
+  .auth-body .dot-field {
+    transition: opacity 240ms ease;
+  }
+
+  @keyframes auth-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes auth-materialise {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
 /* Google's own four-colour mark is kept as its real brand renders rather than
    folded into the icon grammar — the one colour on this screen that is neither
    coral nor neutral. The button around it is the app's ordinary bordered surface
@@ -833,74 +396,6 @@ code {
 
 .google-button:hover {
   background: var(--color-surface-2);
-}
-
-/* The panel holds half the viewport now, so just above the 860px breakpoint
-   the hero is the narrower of the two columns — give its 380px pitch back the
-   room 48px of side padding was taking, rather than let it wrap to four-word
-   lines in the one band where space is tightest. */
-@media (max-width: 1080px) {
-  .auth-topbar {
-    padding: 16px 20px;
-  }
-
-  .auth-body {
-    padding: 0 20px;
-  }
-
-  .auth-panel {
-    /* 40px of its own plus the 20px the body gives the sides at this width. */
-    padding-block: 60px;
-  }
-
-  .auth-hero__grid {
-    padding: 0 24px;
-  }
-
-  .auth-hero__vline--l {
-    left: 24px;
-  }
-
-  .auth-hero__vline--r {
-    right: 24px;
-  }
-
-  .auth-hero__hatch {
-    width: 24px;
-  }
-
-  .auth-hero__row {
-    padding: 18px 22px;
-  }
-
-  .auth-hero__row--last {
-    padding-top: 0;
-  }
-
-  .auth-hero__stat {
-    padding-top: 18px;
-  }
-}
-
-@media (max-width: 860px) {
-  /* Hero and its divider are gone below this width, so the frame drops back
-     to edge-to-edge — inset padding on a single column would eat into a
-     phone's already-tight width for no reason. */
-  .auth-body {
-    padding: 0;
-  }
-
-  .auth-hero {
-    display: none;
-  }
-
-  /* Sole occupant now, so it drops the fixed column width. It already
-     stretches to fill .auth-body's height via flex's default align-items:
-     stretch — no explicit height needed. */
-  .auth-panel {
-    flex: 1 1 auto;
-    padding: 40px 24px;
-  }
 }
 
 /* Log in | Sign up as a switch at the top of the form, on a phone (PaneTabs, in
@@ -1022,4 +517,3 @@ code {
 .auth-form__options .link-button.auth-form__forgot {
   margin: 0;
 }
-

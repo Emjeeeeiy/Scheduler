@@ -9,7 +9,7 @@
  * `data-tabs` (checked by eye); that attribute is pinned, since it is what stops
  * the reset screen losing its only link.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const auth = vi.hoisted(() => ({ clearError: vi.fn() }))
@@ -80,10 +80,12 @@ describe('Log in | Sign up', () => {
   })
 
   it('still offers the link at the foot of each form, for a desktop that has no tab row', () => {
-    render(<SignIn />)
+    const { container } = render(<SignIn />)
     expect(screen.getByRole('button', { name: 'Create one' })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Sign up' }))
-    expect(screen.getByRole('button', { name: 'Log in' })).toBeTruthy()
+    // Scoped to the form's own link: the topbar's button is also called "Log in".
+    const foot = container.querySelector('.auth-form__switch')
+    expect(within(foot).getByRole('button', { name: 'Log in' })).toBeTruthy()
   })
 })
 

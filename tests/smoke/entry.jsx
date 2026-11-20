@@ -34,8 +34,6 @@ import { ShortcutsHelp } from '../../src/components/journal/ShortcutsHelp.jsx'
 import { ViewSkeleton } from '../../src/components/shell/ViewSkeleton.jsx'
 import { normalizeNote } from '@cadence/shared/journal.js'
 import { SignIn } from '../../src/components/auth/SignIn.jsx'
-import { AuthCalendar } from '../../src/components/auth/AuthCalendar.jsx'
-import { AuthWeek } from '../../src/components/auth/AuthWeek.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
@@ -130,8 +128,6 @@ const cases = [
   ],
   ['MiniCalendar', <MiniCalendar onFocusDay={noop} onFocusMonth={noop} />],
   ['NotificationBell', <NotificationBell onEdit={noop} />],
-  ['AuthCalendar', <AuthCalendar />],
-  ['AuthWeek', <AuthWeek />],
   ['SettingsView (general)', <SettingsView section="general" />],
   ['SettingsView (appearance)', <SettingsView section="appearance" />],
   ['SettingsView (account)', <SettingsView section="account" />],
@@ -226,6 +222,9 @@ expect('Sign-in screen keeps the Google button', signIn.includes('Sign in with G
 expect('Sign-in screen defaults to the login form', signIn.includes('Forgot password?'))
 expect('Sign-in is by email, not a public username lookup', signIn.includes('autoComplete="email"') || signIn.includes('autocomplete="email"'))
 expect('Sign-in no longer offers username login', !signIn.includes('Username or email'))
+expect('Sign-in opens on the hero, with its one action', signIn.includes('data-view="hero"') && signIn.includes('Get started'))
+expect('Sign-in topbar offers Log in at the far right', signIn.includes('auth-topbar__action'))
+expect('Sign-in no longer draws the calendar or week previews', !signIn.includes('auth-cal') && !signIn.includes('auth-week'))
 const register = render(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))

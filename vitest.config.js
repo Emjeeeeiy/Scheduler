@@ -40,6 +40,7 @@ export default defineConfig({
           name: 'dom',
           environment: 'jsdom',
           pool: 'vmThreads',
+          setupFiles: ['tests/setup/jsdomCanvas.js'],
           include: testFiles,
           exclude: [...configDefaults.exclude, ...apiTests],
         },

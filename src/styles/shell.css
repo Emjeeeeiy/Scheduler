@@ -979,7 +979,7 @@
 }
 
 /* A vertical stack whose children separate with a hairline instead of a
-   gap — the same device as the Auth Shell's `.auth-hero__row`, generalised.
+   gap — the device the sign-in screen's old ruled rows began, generalised.
    Direct children only (`>`), so a nested `.stack` doesn't inherit its
    parent's rule. Every child after the first gets the rule (the general-sibling
    combinator, not `+`). `:not([hidden])` is not decoration: a hidden child is
@@ -1025,7 +1025,7 @@
 }
 
 /* A horizontal row whose children separate with a hairline instead of a
-   gap — the same device as the Auth Shell's `.auth-hero__stats`, used for
+   gap — the device the sign-in screen's old stats row began, used for
    Dashboard's stat-tile and card rows once they stopped being individually
    boxed. `auto-fit` still gives the row itself its columns; this only draws
    the rule between them: every child but the first gets the divider and its

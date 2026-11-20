@@ -358,6 +358,8 @@ src/
     useBackLayer.js      how a dialog, popover, note or screen joins that stack
     appPath.js           which addresses are the app (`/`); anything else is the 404 page
     dotField.js          the 404 page's dot grid and ribbon — pure geometry, no canvas
+    dotMorph.js          the sign-in screen's dot transition — pure motion maths, no canvas
+    dotMorphRun.js       reads a screen's words and boxes into dots, and draws them flying
     usePersistentState.js
     useModalA11y.js       shared focus-trap/restore/Escape contract for every dialog
     journalPaper.js      paper patterns, presets and the CSS they become
@@ -386,7 +388,8 @@ src/
     stats/               Dashboard's data display — StatTile, BarChart, TagBars
     shell/               chrome that belongs to no one view — NotificationBell,
                          SetupNotice, ToastStack, ErrorBoundary, NotFound (the 404
-                         page) and its DotField canvas backdrop, CreateSheet (the
+                         page) and its DotField canvas backdrop (also the sign-in
+                         hero's), CreateSheet (the
                          phone's centre +), PaneTabs (a phone's tab row over a
                          page's panes) and DockedLayer (a bottom sheet on <body>)
     journal/             the Journal: NoteList, NoteSurface (the open note),

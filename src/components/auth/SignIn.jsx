@@ -1,34 +1,62 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { usePushNotifications } from '../../lib/usePushNotifications.js'
+import { startDotMorph } from '../../lib/dotMorphRun.js'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
 import { rememberMeChoice } from '../../lib/sessionHint.js'
-import { AuthCalendar } from './AuthCalendar.jsx'
-import { AuthWeek } from './AuthWeek.jsx'
+import { DotField } from '../shell/DotField.jsx'
 import { PaneTabs } from '../shell/PaneTabs.jsx'
-import { ClockIcon, GoogleIcon, ListIcon, TrendIcon, WarningIcon } from '../icons.jsx'
+import { ClockIcon, GoogleIcon, WarningIcon } from '../icons.jsx'
 
-const HOW_IT_WORKS = [
-  { icon: ListIcon, term: 'Capture', detail: 'what needs doing' },
-  { icon: ClockIcon, term: 'Schedule', detail: 'a real time slot' },
-  { icon: TrendIcon, term: 'Review', detail: 'where the hours went' },
-]
+/** The entry screen. On a desktop it is one centred stage over the dot field: a
+    hero (headline, lead, one button) and, when someone asks for it, the sign-in
+    form in the same place — a button at the far right of the topbar swaps one for
+    the other, and the same button reads "Back" while the form is showing. The swap
+    is a dot transition: what is on screen breaks into dots, they scatter, and they
+    gather into what comes next (dotMorph.js, dotMorphRun.js). On a phone there is
+    no hero: the form is the screen, as it always was. That is the stylesheet's
+    doing, not this file's — both are always in the tree, and `data-view` is only
+    read by the desktop rules in auth.css.
 
-/** A two-column entry screen — brand and pitch on the left, the actual form
-    on the right — built entirely from lines, not boxes: a top bar rules off
-    the brand, a single hairline divides the two columns, and a drawn cross
-    marks each corner of the content frame. No panel ever gets a fill color of
-    its own. It uses the app's ordinary tokens, so it is in whatever theme
-    Settings → Appearance has chosen (Light, Dark, or System, which follows the
-    OS) — including after signing out, because the theme is held above the
-    auth gate. It offers no toggle of its own: Settings owns the choice. */
+    No panel gets a fill and no rule is drawn between things; the only lines are
+    the form controls' own. It uses the app's ordinary tokens, so it is in whatever
+    theme Settings → Appearance has chosen (Light, Dark, or System, which follows
+    the OS) — including after signing out, because the theme is held above the auth
+    gate. It offers no toggle of its own: Settings owns the choice. */
 export function SignIn() {
   const { signIn, error, clearError } = useAuth()
   const [mode, setMode] = useState('login')
+  /* Where the screen is (`hero` | `form`). While a dot transition runs it is still
+     where it is *leaving*; `morph` says where it is going. */
+  const [view, setView] = useState('hero')
+  /* `null`, or `{ to, settling }` while the dots are in the air. `settling` is the
+     last moment of it, when the real content comes up under the dots as they go. */
+  const [morph, setMorph] = useState(null)
+  /* Whether anyone has asked for the swap yet — the hero's own rise on load stops
+     applying from then on, so it can never replay under a transition. */
+  const [touched, setTouched] = useState(false)
+  /* Bumped each time the form is shown, so focus moves to it then — and not on a
+     first render that is showing it only because there is an error to read. */
+  const [focusTick, setFocusTick] = useState(0)
   const isRegister = mode === 'register'
   const isForgot = mode === 'forgot'
+  /* An error is never left behind the hero: a failed Google redirect, say, arrives
+     before anyone has pressed anything, and has to be where it can be read. */
+  const showForm = view === 'form' || Boolean(error)
+  /* Where the screen is headed: what the topbar button and the field behind it
+     answer to, so they change at the click rather than at the end of the dots. */
+  const toward = morph ? morph.to : showForm ? 'form' : 'hero'
+
+  const actionRef = useRef(null)
+  const panelRef = useRef(null)
+  const heroContentRef = useRef(null)
+  const panelInnerRef = useRef(null)
+  const morphCanvasRef = useRef(null)
+  /* A transition in flight, readable synchronously: a second click, or Escape, in
+     the middle of one must do nothing, and state would not be up to date yet. */
+  const busyRef = useRef(false)
 
   /* Signing out deliberately leaves this device's push subscription alone, so
      reminders already scheduled keep arriving while logged out. That is only
@@ -46,62 +74,132 @@ export function SignIn() {
     setMode(nextMode)
   }
 
+  /* The swap lands: the new view is the real one, the dots are gone. */
+  const commit = useCallback((to) => {
+    busyRef.current = false
+    setMorph(null)
+    setView(to)
+    if (to === 'form') setFocusTick((tick) => tick + 1)
+  }, [])
+
+  const go = useCallback(
+    (to) => {
+      if (busyRef.current) return
+      setTouched(true)
+      // Someone who has asked for less motion gets the swap without the dots.
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) {
+        commit(to)
+        return
+      }
+      busyRef.current = true
+      setMorph({ to, settling: false })
+    },
+    [commit],
+  )
+
+  function openForm(nextMode) {
+    if (busyRef.current) return
+    switchTo(nextMode)
+    go('form')
+  }
+
+  const closeForm = useCallback(() => {
+    if (busyRef.current) return
+    clearError()
+    go('hero')
+    actionRef.current?.focus()
+  }, [clearError, go])
+
+  /* The dots. A layout effect, so the first frame of them is on the canvas before
+     the browser paints the one in which the real content has gone — there is never
+     a frame with neither. Keyed on where it is going and nothing else: `settling`
+     changing mid-run must not restart it. Where it cannot run (no canvas, nothing
+     to draw) the swap is simply made. */
+  const target = morph?.to ?? null
+  useLayoutEffect(() => {
+    if (!target) return undefined
+    const leaving = target === 'form' ? heroContentRef.current : panelInnerRef.current
+    const arriving = target === 'form' ? panelInnerRef.current : heroContentRef.current
+    const run = startDotMorph({
+      canvas: morphCanvasRef.current,
+      from: leaving,
+      to: arriving,
+      onSettle: () => setMorph((current) => (current ? { ...current, settling: true } : current)),
+      onDone: () => commit(target),
+    })
+    if (!run) {
+      commit(target)
+      return undefined
+    }
+    return () => run.cancel()
+  }, [target, commit])
+
+  useEffect(() => {
+    if (focusTick === 0) return
+    panelRef.current?.querySelector('input')?.focus()
+  }, [focusTick])
+
+  /* Escape goes back — but only from a form that was asked for. An error that put
+     the form there is not something to dismiss by accident with a stray key. */
+  useEffect(() => {
+    if (view !== 'form') return undefined
+    function onKeyDown(event) {
+      if (event.key === 'Escape') closeForm()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [view, closeForm])
+
   return (
-    <div className="auth-shell">
+    <div
+      className="auth-shell"
+      data-view={showForm ? 'form' : 'hero'}
+      data-target={toward}
+      data-morph={morph ? `to-${morph.to}` : undefined}
+      data-settling={morph?.settling ? '' : undefined}
+      data-touched={touched ? '' : undefined}
+    >
       <header className="auth-topbar">
         <div className="auth-topbar__brand">
           <ClockIcon className="auth-hero__mark" />
           <span className="auth-hero__name">Cadence</span>
         </div>
+
+        {/* Desktop only (auth.css): a phone is already looking at the form. One
+            button for both directions, so there is a single way in and the same
+            place to find the way out. */}
+        <button
+          type="button"
+          ref={actionRef}
+          className="auth-topbar__action"
+          onClick={toward === 'form' ? closeForm : () => openForm('login')}
+        >
+          {toward === 'form' ? 'Back' : 'Log in'}
+        </button>
       </header>
 
       <div className="auth-body">
+        <DotField />
+
         <div className="auth-hero">
-          <div className="auth-hero__grid">
-            <span className="auth-hero__hatch auth-hero__hatch--l" aria-hidden="true" />
-            <span className="auth-hero__hatch auth-hero__hatch--r" aria-hidden="true" />
-            <span className="auth-hero__vline auth-hero__vline--l" aria-hidden="true" />
-            <span className="auth-hero__vline auth-hero__vline--r" aria-hidden="true" />
-
-            <div className="auth-hero__row">
-              <h1 className="auth-hero__title">Plan your rhythm. Find your flow.</h1>
-            </div>
-
-            <div className="auth-hero__row">
-              <p className="auth-hero__lead">
-                Capture what needs doing, give it a real slot on your calendar, and see afterward
-                exactly where the hours went.
-              </p>
-            </div>
-
-            <div className="auth-hero__row auth-hero__preview-row">
-              <div className="auth-hero__preview">
-                <div className="auth-hero__preview-inner">
-                  <p className="auth-hero__preview-text">Your time, in rhythm.</p>
-                  <div className="auth-hero__demo">
-                    <AuthWeek />
-                    <AuthCalendar />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="auth-hero__row auth-hero__row--last">
-              <ul className="auth-hero__stats">
-                {HOW_IT_WORKS.map(({ icon: StepIcon, term, detail }) => (
-                  <li className="auth-hero__stat" key={term}>
-                    <StepIcon className="auth-hero__stat-icon" />
-                    <strong className="auth-hero__stat-term">{term}</strong>
-                    <span className="auth-hero__stat-detail">{detail}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="auth-hero__content" ref={heroContentRef}>
+            <h1 className="auth-hero__title">Plan your rhythm. Find your flow.</h1>
+            <p className="auth-hero__lead">
+              Capture what needs doing, give it a real slot on your calendar, and see afterward
+              exactly where the hours went.
+            </p>
+            <button
+              type="button"
+              className="primary-button primary-button--lg auth-hero__cta"
+              onClick={() => openForm('register')}
+            >
+              Get started
+            </button>
           </div>
         </div>
 
-        <div className="auth-panel">
-          <div className="auth-panel__inner" data-tabs={isForgot ? undefined : 'true'}>
+        <div className="auth-panel" ref={panelRef}>
+          <div className="auth-panel__inner" ref={panelInnerRef} data-tabs={isForgot ? undefined : 'true'}>
             {/* On a phone: Log in | Sign up as a switch at the top of the form, where
                 a thumb starts, instead of a link at its very foot under a keyboard.
                 Not drawn on a desktop, where that link stays. The reset form has its
@@ -168,24 +266,32 @@ export function SignIn() {
               </p>
             )}
 
-            {push.subscribed && (
-              <p className="auth-panel__note" role="status">
-                Reminders are still on for this device.{' '}
-                <button type="button" className="link-button" onClick={turnOffReminders} disabled={push.busy}>
-                  Turn off
-                </button>
-              </p>
-            )}
-            {remindersOff && !push.subscribed && (
-              <p className="auth-panel__note" role="status">
-                Reminders are off for this device.
-              </p>
-            )}
-
             <p className="auth-panel__note">Your schedule is private to your account.</p>
           </div>
         </div>
+
+        {/* The dots, over the whole stage. Decoration, and never a target. */}
+        <canvas ref={morphCanvasRef} className="auth-morph" aria-hidden="true" />
       </div>
+
+      {/* Outside the form's panel on purpose: on a desktop the panel is not there
+          until someone asks for it, and "stop my reminders" has to be on the screen
+          you land on after signing out, not behind a button first. */}
+      {(push.subscribed || (remindersOff && !push.subscribed)) && (
+        <div className="auth-notice">
+          {push.subscribed && (
+            <p role="status">
+              Reminders are still on for this device.{' '}
+              <button type="button" className="link-button" onClick={turnOffReminders} disabled={push.busy}>
+                Turn off
+              </button>
+            </p>
+          )}
+          {remindersOff && !push.subscribed && (
+            <p role="status">Reminders are off for this device.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,12 @@
    the dot field. Imported last in App.jsx because it builds on auth.css and
    shell.css (`.primary-button`) and overrides neither. */
 
+/* The sign-in screen's topbar has no rule under it any more (the hero is a page,
+   not a frame); this page is a frame under a bar, so it keeps the one it had. */
+.not-found .auth-topbar {
+  border-bottom: 1px solid var(--color-border);
+}
+
 .not-found__body {
   position: relative;
   flex: 1;
