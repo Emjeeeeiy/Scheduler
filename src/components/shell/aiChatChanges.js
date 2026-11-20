@@ -8,6 +8,11 @@
  * something already booked, a time that has already passed today, a value the
  * model gave that could not be read.
  *
+ * The same file holds the two other small, pure pieces of wording the chat needs
+ * that are not about a change: the first name it greets someone by, and the
+ * greeting itself (firstNameOf, greetingFor), and the plain-text account of ideas
+ * it offered but that were not added yet (ideasContext).
+ *
  * Pure, and JSX-free so it is tested under node:test; AiChatModal draws the rows.
  * It runs BEFORE the items are applied, because an update needs the task as it is
  * now to show "was". Nothing here is sent anywhere except `context`, the same
@@ -86,6 +91,7 @@ function clashNote(clashes) {
  *   today     today's day key
  *   nowMin    minutes since midnight now, or null
  * @return rows: { action, title, meta[], changes[], tag, note, warnings[], context }
+ *   (a create row also has `when`, e.g. "on 2026-08-25 at 07:00 for 60 min")
  */
 export function describeChanges(items, { tasks = [], tags = [], dayItems = () => [], today, nowMin = null }) {
   const taskById = new Map(tasks.map((task) => [task.id, task]))
@@ -214,6 +220,9 @@ export function describeChanges(items, { tasks = [], tags = [], dayItems = () =>
       tag: item.tagId ? (tagById.get(item.tagId) ?? null) : null,
       note: item.notes || null,
       warnings,
+      // The same phrase the context is built from, for an idea that has not been
+      // created yet and so cannot say "Created" (see ideasContext).
+      when: when.join(' '),
       context: `Created "${item.title}" ${when.join(' ')}.`,
     }
   })
@@ -230,4 +239,37 @@ export function skippedNote(skipped) {
 /** The rows as plain text for the model, so a later turn knows what was done. */
 export function changesContext(rows) {
   return rows.map((row) => row.context).join('\n')
+}
+
+/** Ideas the assistant offered, as plain text for the model: what was suggested
+    and that none of it exists yet, so "add the first two" has something to point
+    at and "that is already on my list" is not taken for a created task. Added
+    ones are reported on their own lines, by applyAndReport, as any change is. */
+export function ideasContext(rows) {
+  return rows
+    .map((row) => {
+      const what = `Suggested "${row.title}" ${row.when ?? ''}`.trim()
+      return `${what} (not added yet).`
+    })
+    .join('\n')
+}
+
+/** The first word of an account's display name, or '' when there is none. Only
+    this word is ever sent to the AI route (never the whole name), and a display
+    name that is really an email address is not a name to greet someone by. */
+export function firstNameOf(displayName) {
+  if (typeof displayName !== 'string') return ''
+  const word = displayName.trim().split(/\s+/)[0] ?? ''
+  return word.includes('@') ? '' : word
+}
+
+/** "Good evening, Sam" — by the time of day, and plain "Good evening" without a
+    name. Small hours get a plain "Hello": "good evening" at 2 AM reads as a slip. */
+export function greetingFor(minOfDay, firstName) {
+  const hour = Number.isFinite(minOfDay) ? Math.floor(minOfDay / 60) : -1
+  let hello = 'Hello'
+  if (hour >= 5 && hour < 12) hello = 'Good morning'
+  else if (hour >= 12 && hour < 17) hello = 'Good afternoon'
+  else if (hour >= 17 && hour < 22) hello = 'Good evening'
+  return firstName ? `${hello}, ${firstName}` : hello
 }

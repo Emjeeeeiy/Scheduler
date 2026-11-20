@@ -20,6 +20,7 @@ import { configDefaults, defineConfig } from 'vitest/config'
 const testFiles = ['tests/**/*.test.jsx']
 const apiTests = [
   'tests/apiHandlers.test.jsx',
+  'tests/geminiGenerateJson.test.jsx',
   'tests/auth.test.jsx',
   'tests/appCheck.test.jsx',
   'tests/pushHandlers.test.jsx',

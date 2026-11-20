@@ -8,7 +8,7 @@
    ones) — never its images or drawings — to note-tasks. Nothing else in the
    Journal sends anything, and the writing is never read in the background. */
 export const AI_DISCLOSURE =
-  'AI features send task titles (and, in Ask AI, your messages) to Google Gemini. In the Journal, pressing Plan it also sends that note’s text (or your selection) — never its images or drawings. On its free tier, Google may use what it is sent to improve its products.'
+  'AI features send task titles (and, in Ask AI, your messages and the first word of your name) to Google Gemini. In the Journal, pressing Plan it also sends that note’s text (or your selection) — never its images or drawings. On its free tier, Google may use what it is sent to improve its products.'
 
 /** The shorter line for the Plan it button's tooltip and panel: just the Journal's
     part, where the person is deciding whether to press it. */

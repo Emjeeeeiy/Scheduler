@@ -1,12 +1,17 @@
 /* POST /api/ai-schedule
  *
  * Backs the command palette's "AI" action (src/components/shell/AiChatModal.jsx):
- * a small chat, not a form. Someone describes what they want in plain
- * language — create, change, or remove one or several tasks, in one message
- * or a few back and forth — and this route either acts directly or asks
- * exactly one follow-up question when the request is too vague to act on at
- * all, or refers to a task ambiguously (more than one real task plausibly
- * matches and there is no honest way to tell which).
+ * a small chat, not a form, and a friendly one. Someone can just talk (a hello,
+ * a question about their day, "I'm stuck"), or describe what they want in plain
+ * language — create, change, or remove one or several tasks, in one message or a
+ * few back and forth. Each turn the route does exactly one of three things:
+ * REPLY in words (including one clarifying question when a request is too vague
+ * to act on, or names a task ambiguously), ACT on the tasks they asked for, or
+ * SUGGEST a few ideas that only become tasks when the person taps Add.
+ *
+ * What leaves the device: the conversation, the account's first name (the first
+ * word of its display name, to greet someone by), tag names, the next week's free
+ * windows, a sample of recent task titles and the open tasks.
  *
  * Tasks only, deliberately — no events. Every item is a task, which can
  * honestly stay undated ("sometime, no rush"), so creating one never hits a
@@ -42,8 +47,14 @@
  * free windows only guide a time chosen for a vague phrase ("tomorrow
  * afternoon"); an overlap is the person's business, and the chat warns about it.
  *
- * RESPONSE: { status: 'ask', question, items: [], skipped: 0 } or
- * { status: 'act', question: null, items, skipped }. An item is
+ * RESPONSE: always { status, reply, items, skipped }.
+ *   'reply'   { reply, items: [], skipped: 0 } — words only, nothing changes.
+ *   'act'     { reply, items, skipped } — apply the items now. `reply` is one
+ *             friendly sentence, or null when the model gave none usable.
+ *   'suggest' { reply, items, skipped: 0 } — ideas, never applied until tapped.
+ *             Only 'create' items, at most MAX_SUGGESTIONS.
+ * `reply` is plain text (no markdown), at most MAX_REPLY_LEN characters, and is
+ * never empty for 'reply' or 'suggest'. An item is
  * { action: 'create', title, date, startMin, durationMin, tagId, notes,
  *   priority, issues } | { action: 'update', taskId, patch, issues } |
  * { action: 'remove', taskId, issues }; `issues` lists any of 'date' | 'time' |
@@ -60,10 +71,12 @@ import { enforceAiLimits } from './_lib/rateLimit.js'
 import {
   ISO_DATE,
   readExistingTasks,
+  readFirstName,
   readHistory,
   readMessages,
   readSlots,
   readTags,
+  readText,
 } from './_lib/aiInput.js'
 
 // Started on GEMINI_MODEL_PLAN (gemini-3.5-flash) since this route reasons
@@ -83,7 +96,14 @@ const MODEL = process.env.GEMINI_MODEL_FAST ?? 'gemini-3.5-flash-lite'
 // everything past the tenth without a word. `skipped` now says so if even this
 // is exceeded.
 const MAX_ITEMS = 20
-const MAX_QUESTION_LEN = 300
+// A chat reply is a few sentences; a list of ideas can run to a short paragraph.
+const MAX_REPLY_LEN = 1200
+// "Here are a few ideas" is three to five; more is a wall of choices.
+const MAX_SUGGESTIONS = 5
+// A ceiling, not a target: the longest honest answer (five ideas and a sentence)
+// is well under a thousand tokens. Free text has no other bound, so a model that
+// rambles is cut off here instead of running into the timeout.
+const MAX_OUTPUT_TOKENS = 4096
 // The calendar line in the prompt (see calendarLine): enough to resolve "next
 // Tuesday" or "the 28th" without the model working a weekday out from a date.
 const CALENDAR_DAYS = 14
@@ -93,14 +113,24 @@ const MAX_NOTES_LEN = 500
 
 const PRIORITIES = new Set(['low', 'normal', 'high'])
 
-const SYSTEM_INSTRUCTION = `You manage someone's real task list from a short, conversational request. Every item is a TASK — something to get done, tickable off a list. This system has no separate notion of an event; do not treat anything as one.
-You are given: the conversation so far, today's date and weekday, a calendar of the next two weeks, the current time of day, their existing tags, their REAL free time for the next 7 days, a sample of their own recent tasks with how each was actually tagged and timed (to learn their patterns from), and their current OPEN tasks, each with a real id, which you may update or remove.
+const SYSTEM_INSTRUCTION = `You are Cadence's planning companion: a warm, upbeat assistant inside someone's personal planner. You talk like a friendly person, not a form, and you can also manage their real task list. Every item you create, change or remove is a TASK — something to get done, tickable off a list. This system has no separate notion of an event; do not treat anything as one.
+You are given: the conversation so far, their first name (when known), today's date and weekday, a calendar of the next two weeks, the current time of day, their existing tags, their REAL free time for the next 7 days, a sample of their own recent tasks with how each was actually tagged and timed (to learn their patterns from), and their current OPEN tasks, each with a real id, which you may update or remove. You are NOT given their events, so you cannot say what is in their calendar beyond their tasks and free time; if they ask about events, say so plainly.
 
-Every time of day, in what you are given and in what you return, is a 24-hour "HH:MM" clock time (07:00 is 7 in the morning, 19:30 is half past seven in the evening).
+Every time of day, in what you are given and in what you return in startTime, is a 24-hour "HH:MM" clock time (07:00 is 7 in the morning, 19:30 is half past seven in the evening). In the words you say to the person (the reply), write times the way people say them: "7 PM", "7:30 AM" — never "19:00".
 
-Decide, for THIS turn only, one of two things:
-- status "act": you have enough to create, update, or remove at least one task. Return the items.
-- status "ask": the request is too vague to act on — not merely missing a date or time, since a task can honestly stay undated when someone means "sometime, no rush" — or it refers to an existing task ambiguously (more than one open task plausibly matches and you cannot honestly tell which they mean). Ask exactly one short, specific question and return no items.
+HOW TO TALK (the "reply" field, which is always present):
+- Sound like a kind, relaxed friend who is good at planning. Usually one to three short sentences. Plain text only: no markdown, no asterisks, no headings, no emoji. A short list is allowed only for tasks or ideas, one per line, each line starting with "- ".
+- Use their first name now and then, such as in a greeting or when encouraging them — not in every message, and never when no first name was given.
+- Answer in the language they write in.
+- Vary your wording. Never repeat a sentence you already said earlier in this conversation; if you are offering ideas again, say it differently and make the ideas different.
+- Use only what you were given. Never invent a task, a time or a fact about their day, and never say you did something that is not in "items".
+- Never create, change or remove anything they did not ask for. "Actually nothing", "no thanks", "never mind" and "I'm good" are not requests: answer kindly with status "reply" and say you are here if they want help.
+- Stay on their day, their tasks and planning. For anything else (a poem, trivia, code), give one short friendly line and steer back to their day. No essays.
+
+Decide, for THIS turn only, exactly one status:
+- "reply": just talk. A greeting, thanks, a question about their tasks or free time, planning advice, light chat — or, only when a request to change something is too vague to act on (not merely missing a date or time, since a task can honestly stay undated when someone means "sometime, no rush"), or refers to an existing task ambiguously (more than one open task plausibly matches and you cannot honestly tell which they mean), ONE short, specific question. Return no items.
+- "act": they clearly asked to create, update or remove at least one task. Return those items, and a reply of one short, friendly sentence about what you did. The app lists every detail underneath, so do not repeat titles and times in a list.
+- "suggest": they want ideas or are stuck — "what should I do today", "give me suggestions", "anything you suggest", "you choose", "give me a list", or a shrug in answer to your own offer of ideas. NEVER answer such a message with a question: they are asking you to decide. Return 3 to 5 distinct, concrete "create" items (never update or remove), and a reply of one short sentence introducing them. Base them on how they actually spend their time (their recent tasks), the time of day, and their free time: put each one inside a free window of today — or of tomorrow, when little of today is left — with a realistic length, a fitting tag if one clearly fits, and a few words on why in notes. Do not suggest what is already among their open tasks; if an open task has no day, you may name it in the reply and offer to schedule it. Nothing is created until they tap Add, so never say anything was added.
 
 Per item, action is exactly one of:
 - "create": a brand-new task. taskId must be null.
@@ -118,13 +148,25 @@ tagId: the id of the single best-fitting tag from the ones offered, or null if n
 notes: one short, genuinely useful sentence of context, or null if there is nothing worth adding, or it isn't changing.
 priority: "low", "normal", or "high" for a genuinely new or changing priority — null otherwise. Defaults to "normal" for a brand-new task if you have no reason to pick otherwise.
 
-A single message can describe many actions at once, and it can be long. Read it to the END and return one item for EACH distinct task it mentions, each with its own day and time — never merge two tasks into one, never stop early, and never leave a task out because it comes late in the message. Use the whole conversation, not just the latest message: once you have asked a question, the next user message is very likely just the missing answer to it, about the same item(s) discussed before. Earlier assistant turns describe what was already created, changed or removed, with its day and time: a follow-up like "make that 8pm instead" refers to one of those, so match it to the open task with the same title.`
+A single message can describe many actions at once, and it can be long. Read it to the END and return one item for EACH distinct task it mentions, each with its own day and time — never merge two tasks into one, never stop early, and never leave a task out because it comes late in the message. Use the whole conversation, not just the latest message: once you have asked a question, the next user message is very likely just the missing answer to it, about the same item(s) discussed before. Earlier assistant turns describe what was already created, changed or removed, with its day and time: a follow-up like "make that 8pm instead" refers to one of those, so match it to the open task with the same title.
+
+Examples of the voice and the status to pick — they show the tone, not words to copy (the name here is only an example):
+They say "Hi!" and their first name is Alex: status "reply", reply "Hi Alex! Good to see you. Want to plan something, or just look at what is on your list?"
+They say "Actually nothing": status "reply", reply "No problem! If something comes up, or you would like a few ideas for today, just say so."
+They say "I don't know what to do today, any suggestions?": status "suggest", reply "Here are a few ideas that fit the free time you have today. Tap Add on any you like.", and three to five create items.
+You offered ideas and they say "anything you suggest": status "suggest" again, with ideas — never another question.`
 
 const SCHEMA = {
   type: 'object',
   properties: {
-    status: { type: 'string', enum: ['ask', 'act'] },
-    question: { type: ['string', 'null'] },
+    status: { type: 'string', enum: ['reply', 'act', 'suggest'] },
+    // What the assistant says, always. For 'act' it is one friendly sentence about
+    // what it did; for 'reply' and 'suggest' it is the message itself.
+    reply: { type: 'string' },
+    // No maxItems here: the SDK types it as a string (an int64), which this
+    // schema style does not otherwise use, and a wrongly typed keyword fails the
+    // whole request. MAX_ITEMS / MAX_SUGGESTIONS cap it in sanitize, and the
+    // prompt asks for three to five ideas.
     items: {
       type: 'array',
       items: {
@@ -154,7 +196,7 @@ const SCHEMA = {
       },
     },
   },
-  required: ['status', 'question', 'items'],
+  required: ['status', 'reply', 'items'],
 }
 
 /** A real calendar day, not just something shaped like one: "2026-02-31" matches
@@ -350,6 +392,29 @@ function sanitizeItem(raw, ctx) {
   return sanitizeCreate(raw, ctx)
 }
 
+/* What the person reads when the model gave nothing usable. These are the route's
+   own words, so they are written as the companion would say them — never a
+   status line. */
+const LOST_THREAD_REPLY = 'Sorry, I lost my train of thought — could you say that another way?'
+const NO_ITEMS_REPLY = "Hmm, I couldn't tell which task you meant or what to change — could you tell me a bit more?"
+const NO_IDEAS_REPLY = "I'm drawing a blank on ideas right now — tell me what you're in the mood for and I'll help you plan it."
+
+/** Two titles are the same task when they differ only in case or spacing. */
+const titleKey = (title) => String(title ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+
+/** The model's own words, made safe to show: plain text (no markdown the chat
+    would print as literal asterisks), clipped, or null when nothing is left. The
+    chat shows replies as text and never as markup, so this is about how it reads,
+    not about injection. */
+function sanitizeReply(raw) {
+  if (typeof raw !== 'string') return null
+  const plain = raw
+    .replace(/\*\*|__/g, '')
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]*[*•][ \t]+/gm, '- ')
+  return readText(plain, MAX_REPLY_LEN) || null
+}
+
 /** Not exported, matching enrich-task.js's own sanitize — every route here
     is tested through its handler with generateJson mocked (see
     tests/apiHandlers.test.jsx), never by calling a sanitizer directly, so
@@ -362,18 +427,32 @@ function sanitize(result, { tags, existingTasks, today, nowMin }) {
     (Array.isArray(existingTasks) ? existingTasks : []).map((task) => [task.id, task]),
   )
 
-  const status = result?.status === 'ask' || result?.status === 'act' ? result.status : 'ask'
+  const reply = sanitizeReply(result?.reply)
+  const talk = (text) => ({ status: 'reply', reply: text, items: [], skipped: 0 })
 
-  if (status === 'ask') {
-    const question =
-      typeof result?.question === 'string' && result.question.trim()
-        ? result.question.trim().slice(0, MAX_QUESTION_LEN)
-        : "Sorry, I didn't catch that — could you say more?"
-    return { status: 'ask', question, items: [], skipped: 0 }
-  }
+  // Anything that is not clearly an action or a list of ideas is just talk: the
+  // safest reading of a garbled status, since talking changes nothing.
+  const status = result?.status === 'act' || result?.status === 'suggest' ? result.status : 'reply'
+  if (status === 'reply') return talk(reply ?? LOST_THREAD_REPLY)
 
   const ctx = { knownTagIds, existingById, today, nowMin }
   const proposed = Array.isArray(result?.items) ? result.items : []
+
+  if (status === 'suggest') {
+    // Ideas are only ever new tasks. An update or a removal slipped in among them
+    // must not reach a button that says Add.
+    // Nor may one repeat a task they already have open: tapping Add would make a
+    // duplicate, and the prompt only asks the model not to suggest it.
+    const openTitles = new Set([...existingById.values()].map((task) => titleKey(task.title)))
+    const ideas = proposed
+      .filter((item) => item?.action === 'create')
+      .map((item) => sanitizeCreate(item, ctx))
+      .filter((item) => item && !openTitles.has(titleKey(item.title)))
+      .slice(0, MAX_SUGGESTIONS)
+    if (ideas.length === 0) return talk(reply ?? NO_IDEAS_REPLY)
+    return { status: 'suggest', reply: reply ?? 'Here are a few ideas for you.', items: ideas, skipped: 0 }
+  }
+
   const items = proposed
     .map((item) => sanitizeItem(item, ctx))
     .filter(Boolean)
@@ -381,21 +460,15 @@ function sanitize(result, { tags, existingTasks, today, nowMin }) {
 
   // Nothing survived — every candidate item failed validation (a missing
   // title, an unrecognised task id, an update that changed nothing real).
-  // Asking is more honest than silently "succeeding" at doing nothing and
-  // leaving the person to wonder if it worked.
-  if (items.length === 0) {
-    return {
-      status: 'ask',
-      question: "I couldn't pin that down well enough to act on — could you be more specific about what and when?",
-      items: [],
-      skipped: 0,
-    }
-  }
+  // Saying so, and asking for more, is more honest than silently "succeeding" at
+  // doing nothing and leaving the person to wonder if it worked. The model's own
+  // sentence is NOT used here: it was written for a change that did not happen.
+  if (items.length === 0) return talk(NO_ITEMS_REPLY)
 
   // What the model proposed and this route dropped (a missing title, an id that
   // was never offered, an update that changed nothing, or past MAX_ITEMS). Said
   // out loud by the chat, so a long list that lost a few is never "all done".
-  return { status: 'act', question: null, items, skipped: proposed.length - items.length }
+  return { status: 'act', reply, items, skipped: proposed.length - items.length }
 }
 
 export default route('ai-schedule', ['POST'], async (req, res) => {
@@ -411,6 +484,7 @@ export default route('ai-schedule', ['POST'], async (req, res) => {
     throw new ApiError(400, 'today must be a YYYY-MM-DD date key.')
   }
 
+  const firstName = readFirstName(body.firstName)
   const safeTags = readTags(body.tags)
   const safeSlots = readSlots(body.slots, { dated: true })
   // Titles, tags and durations only — same privacy stance enrich-task.js
@@ -435,6 +509,7 @@ export default route('ai-schedule', ['POST'], async (req, res) => {
     `today: ${today} (${DAY_SHORT[weekdayOf(today)]})`,
     `the next ${CALENDAR_DAYS} days: ${calendarLine(today)}`,
     `current time: ${nowMin === null ? '(not given)' : clockLabel(nowMin)}`,
+    `their first name: ${firstName ? JSON.stringify(firstName) : '(not given)'}`,
     '',
     'available tags:',
     ...(safeTags.length
@@ -491,6 +566,7 @@ export default route('ai-schedule', ['POST'], async (req, res) => {
     // seen adding real latency on top of Gemini's own response time for
     // every other route in this app.
     timeoutMs: 27000,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
   })
 
   return res

@@ -27,6 +27,9 @@ export const CAPS = {
   taskTitle: 200,
   existingTasks: 40,
   messages: 12,
+  // The first word of an account's display name, so the chat can greet someone by
+  // name. Nothing longer is a first name worth sending.
+  firstName: 40,
   // Raised from 2000: a detailed message that lists a week of tasks is where the
   // times are, and clipping it dropped whatever came last without a word. The
   // composer stops typing at this length (AiChatModal's MAX_MESSAGE_CHARS), so
@@ -130,6 +133,18 @@ export function readExistingTasks(raw) {
       durationMin: finiteOrNull(task.durationMin),
       tagId: isId(task.tagId) ? task.tagId : null,
     }))
+}
+
+/** A first name: the first word of whatever was sent, clipped, or '' when there is
+    none. Only a name to greet someone by: a full display name or a sentence is cut
+    down to its first word, and a word that is too long to be a name, or that is an
+    email address (some accounts use one as their display name), is dropped rather
+    than sent. */
+export function readFirstName(raw) {
+  if (typeof raw !== 'string') return ''
+  const word = raw.trim().split(/\s+/)[0] ?? ''
+  if (word.includes('@')) return ''
+  return [...word].length <= CAPS.firstName ? word : ''
 }
 
 const ROLES = new Set(['user', 'assistant'])

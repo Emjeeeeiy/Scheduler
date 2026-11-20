@@ -37,8 +37,12 @@ function getClient() {
  *                          forever — the caller (a route with a heuristic
  *                          already on screen) has a fallback ready and
  *                          would rather give up quickly than sit waiting
+ * @param maxOutputTokens   optional ceiling on how much the model may write,
+ *                          for a route whose reply is free text and so has no
+ *                          other bound. Left out of the request when not given,
+ *                          so every other route is unchanged.
  */
-export async function generateJson({ model, systemInstruction, prompt, schema, timeoutMs = 8000 }) {
+export async function generateJson({ model, systemInstruction, prompt, schema, timeoutMs = 8000, maxOutputTokens }) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -51,6 +55,7 @@ export async function generateJson({ model, systemInstruction, prompt, schema, t
         responseMimeType: 'application/json',
         responseSchema: schema,
         abortSignal: controller.signal,
+        ...(Number.isInteger(maxOutputTokens) && maxOutputTokens > 0 ? { maxOutputTokens } : {}),
       },
     })
 

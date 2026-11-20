@@ -367,7 +367,14 @@ expect(
 expect('Create sheet is a dialog named Create', create.includes('role="dialog"') && create.includes('aria-label="Create"'))
 
 const ai = render(<AiChatModal onClose={noop} />)
-expect('Ask AI opens on an empty state with examples', ai.includes('What should I schedule?') && ai.includes('Gym Monday 7am'))
+// A greeting by the time of day and the account's first word ("Smoke" of "Smoke Tester"), then the examples.
+expect(
+  'Ask AI opens on a greeting by first name, with examples',
+  /ai-chat__greeting">(Good (morning|afternoon|evening)|Hello), Smoke</.test(ai) &&
+    !ai.includes('Tester') &&
+    ai.includes('What should I do today?') &&
+    ai.includes('Gym Monday 7am'),
+)
 expect('Ask AI has one composer with Send inside it', ai.includes('ai-chat__box') && ai.includes('aria-label="Send"') && !ai.includes('modal__foot'))
 expect('Ask AI is the full-screen sheet on a phone, and has no field label', ai.includes('modal--sheet') && !ai.includes('What do you need?'))
 
