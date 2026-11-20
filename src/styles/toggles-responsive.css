@@ -19,10 +19,15 @@
   cursor: pointer;
 }
 
-/* Not on a selected chip: that one is a filled Ink pill, and a hover step to a
-   light surface left its (light) text unreadable on it. */
+/* Not on a selected chip: that one is a filled coral pill, and a hover step to
+   a neutral surface would read as deselecting it. It takes coral's own step. */
 .filter-chip:hover:not(:disabled):not(.filter-chip--on) {
   background: var(--color-surface-2);
+}
+
+.filter-chip--on:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
 }
 
 .filter-chip:disabled {
@@ -31,9 +36,9 @@
 }
 
 .filter-chip--on {
-  background: var(--color-text-primary);
-  border-color: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
   font-weight: var(--font-weight-item);
 }
 
@@ -231,8 +236,20 @@
     font-weight: var(--font-weight-item);
   }
 
-  /* The bar's centre +: a 48px Ink disc — Ink Invert, the one filled look the app
-     has — and the only control in the bar that starts something rather than going
+  /* On the bar the label is 10px under its icon, so the two say "here" together:
+     both coral, where the desktop rail colours the icon alone. */
+  .sidebar__nav .sidebar__link--active {
+    color: var(--color-accent-text);
+  }
+
+  /* One colour for the pair: the icon takes its label's text step here rather
+     than the line step it wears alone on the desktop rail. */
+  .sidebar__nav .sidebar__link--active .sidebar__icon {
+    color: inherit;
+  }
+
+  /* The bar's centre +: a 48px coral disc — the primary button's fill — and the
+     only control in the bar that starts something rather than going
      somewhere. Flat, no shadow: the bar is chrome at rest, not a floating layer.
      Its own margins sit beside the four tabs' equal columns without disturbing
      them; the bar is still short of the 76px the content reserves under it. */
@@ -247,14 +264,14 @@
     margin: 0 4px;
     border: 0;
     border-radius: 50%;
-    background: var(--color-text-primary);
-    color: var(--color-page);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
     cursor: pointer;
     transition: background 120ms ease;
   }
 
   .sidebar__create:hover {
-    background: var(--color-text-secondary);
+    background: var(--color-accent-hover);
   }
 
   .sidebar__create-icon {

@@ -37,7 +37,7 @@ CI runs all of these. To know which a change needs, use `/cadence-verify`.
 
 ## UI rules (the full set is in DESIGN.md)
 
-- Zero accent colour. Colour is a user's tag colour (a *slot name*, via `--tag`) or a system status. New colours are tokens declared in three places in `tokens.css`.
+- One accent: coral, only through the `--color-accent*` tokens, and only for action, selection and now (never data, a meter, a frame, or a ring round another colour). On a coral fill the label is `--color-on-accent` (black); coral as text uses `--color-accent-text`, as a line or ring `--color-accent-line`. Any other colour is a user's tag colour (a *slot name*, via `--tag`) or a system status. New colours are tokens declared in three places in `tokens.css`.
 - Inter for words, Space Mono only for a bare numeral. Icons are drawn in `icons.jsx`, never emoji. Hover is a background step; shadow only on floating layers.
 - Every modal uses `useModalA11y` and is added to `modalOpen` in `App.jsx`. A tag colour always comes with its text label.
 - Components take data from context hooks; plain BEM classes in the area's stylesheet (Tailwind is installed but not used in existing components).

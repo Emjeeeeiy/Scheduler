@@ -65,8 +65,8 @@
 .hero {
   display: flex;
   flex-direction: column;
-  /* The one decorative wash on the Dashboard — an ink-tinted glow, not a
-     repeat of any accent, since there is no accent left to echo. */
+  /* The one decorative wash on the Dashboard — an ink-tinted glow, not coral:
+     the hero is a surface at rest, and coral is for action, selection and now. */
   background-image: radial-gradient(ellipse 70% 60% at 100% 0%, var(--color-glow-neutral), transparent 70%);
 }
 
@@ -139,7 +139,7 @@
   width: 8px;
   height: 8px;
   flex: none;
-  background: var(--color-text-primary);
+  background: var(--color-accent);
   opacity: 0;
 }
 
@@ -176,6 +176,8 @@
    fourth that animates is a different component wearing the same colours. The
    compositor-safe alternative, scaleX, is not available either: it would
    squash the 999px caps this bar is drawn with. */
+/* Ink, like the week bar's: it turns critical red when the day is heavy, and
+   a coral bar would blur that change. */
 .hero__load-fill {
   display: block;
   height: 100%;
@@ -547,7 +549,7 @@
 }
 
 .chart__swatch--done {
-  background: var(--color-text-primary);
+  background: var(--color-accent);
 }
 
 .chart__swatch--planned {
@@ -643,7 +645,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-text-primary);
+  /* Done is solid coral against the hollow planned bar: the series still part
+     by fill versus outline, and the legend swatch above uses the same pair. */
+  background: var(--color-accent);
   border-radius: 0;
 }
 

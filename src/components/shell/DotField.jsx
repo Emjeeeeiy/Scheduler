@@ -54,7 +54,7 @@ export function DotField() {
     let height = 0
     let ratio = 1
     let dotColour = ''
-    let inkColour = 'currentcolor'
+    let ribbonColour = 'currentcolor'
     let frame = 0
     let last = 0
 
@@ -63,7 +63,8 @@ export function DotField() {
     function readColours() {
       const style = getComputedStyle(canvas)
       dotColour = style.getPropertyValue('--color-dot').trim()
-      inkColour = style.getPropertyValue('--color-text-primary').trim() || 'currentcolor'
+      // The ribbon is coral, the grid under it stays neutral.
+      ribbonColour = style.getPropertyValue('--color-accent').trim() || 'currentcolor'
     }
 
     function paintGrid() {
@@ -120,7 +121,7 @@ export function DotField() {
         band[i] = alpha < 0.012 ? 255 : Math.min(BANDS - 1, Math.floor((alpha / ALPHA_CEIL) * BANDS))
       }
 
-      ctx.fillStyle = inkColour
+      ctx.fillStyle = ribbonColour
       for (let b = 0; b < BANDS; b += 1) {
         ctx.globalAlpha = ((b + 0.5) / BANDS) * ALPHA_CEIL
         ctx.beginPath()

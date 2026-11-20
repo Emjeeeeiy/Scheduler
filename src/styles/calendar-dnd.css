@@ -9,7 +9,7 @@
   right: 1px;
   border-radius: var(--radius-tight);
   background: var(--color-surface-2);
-  border: 1px dashed var(--color-text-primary);
+  border: 1px dashed var(--color-accent-line);
   pointer-events: none;
   z-index: 3;
   display: flex;
@@ -22,7 +22,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-nano);
   font-weight: var(--font-weight-nano);
-  color: var(--color-text-primary);
+  color: var(--color-accent-text);
 }
 
 /* Siblings of the block, not children: the block is `draggable`, and a native
@@ -65,7 +65,9 @@
    (it is not `draggable` either — see DayColumn): the edge handle was 8px, a
    30-minute block is 26px, and a thumb scrolling past one started a resize and
    blocked the scroll where it landed. A block becomes editable only after it has
-   been held. Armed, it gets an Ink outline — no shadow, the system's rule — and
+   been held. Armed, it gets an Ink outline — no shadow, the system's rule; Ink and
+   not coral, because the block inside it is a tag colour and a red or orange tag
+   would swallow a coral ring — and
    grips a finger can actually hit: a 28px target drawn as a 32×4px pill, hung off
    each edge. `touch-action: none` lives only here, so an idle page scrolls under
    any finger. */
@@ -566,8 +568,8 @@
 }
 
 .mini-cal__day--today .mini-cal__num {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .mini-cal__dots {

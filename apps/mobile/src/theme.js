@@ -9,6 +9,13 @@ export const colors = {
   paperDark: '#050505',
   panelDark: '#131313',
   inkDark: '#ffffff',
+  // Coral, the one accent (DESIGN.md → Accent: Coral). A fill takes onAccent on
+  // it in both themes; coral as text on a light surface takes the deeper
+  // accentText step, and on a dark one the coral itself (accentTextDark).
+  accent: '#f95c4b',
+  onAccent: '#0b0b0b',
+  accentText: '#c22e1b',
+  accentTextDark: '#f95c4b',
 }
 
 export const radius = { micro: 2, tight: 3, sm: 4, md: 7, lg: 10, pill: 999 }

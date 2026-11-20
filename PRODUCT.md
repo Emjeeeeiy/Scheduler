@@ -60,7 +60,7 @@ None — personal project, no testimonials, case studies, or third-party proof t
 3. **Closing the loop matters.** Dashboard's Trends section exists so planning has a visible consequence: what you actually did versus what you meant to do.
 4. **Personal-scale simplicity.** One listener, no sharing/team model, optimized for one person's hundreds of documents — not enterprise scale.
 5. **Color-code responsibly.** Tag color is validated for accessibility and never carries meaning alone; a label is always present too.
-6. **A note is the writer's.** In the Journal, paper, ink and typeface are the writer's choices; the toolbar and list around a note stay as neutral as the rest of the app. And a note is never overwritten by a copy that failed to load — an unreadable note opens read-only, not empty.
+6. **A note is the writer's.** In the Journal, paper, ink and typeface are the writer's choices; the toolbar and list around a note follow the app's own colours (neutral, with coral only for what is pressed or chosen), never the note's. And a note is never overwritten by a copy that failed to load — an unreadable note opens read-only, not empty.
 
 ## Accessibility & Inclusion
 

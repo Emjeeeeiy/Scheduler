@@ -103,6 +103,12 @@
   font-weight: var(--font-weight-title);
 }
 
+/* Where you are: the surface step and the weight say it, and the icon says it in
+   coral. The label stays Ink so a row of names reads as one list. */
+.sidebar__link--active .sidebar__icon {
+  color: var(--color-accent-line);
+}
+
 .sidebar__icon {
   width: 18px;
   height: 18px;
@@ -344,8 +350,10 @@
   height: 15px;
   padding: 0 3px;
   border-radius: 999px;
-  background: var(--color-critical);
-  color: #fff;
+  /* Unread is news, not a problem: coral with its black numeral, not the
+     critical red (and the white literal) it used to wear. */
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-family: var(--font-mono);
   font-size: var(--text-nano);
   font-weight: var(--font-weight-nano);
@@ -408,7 +416,7 @@
   width: 13px;
   height: 13px;
   margin-top: 1px;
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
   flex: none;
 }
@@ -489,7 +497,7 @@
 }
 
 .notif__dot--now {
-  background: var(--color-text-primary);
+  background: var(--color-accent);
 }
 
 .notif__dot--soon {
@@ -589,17 +597,20 @@
   transition: background 120ms ease, border-color 120ms ease;
 }
 
+/* Coral, with a near-black label in both themes (white on coral fails contrast).
+   Hover is one step of the same coral, the background-step feedback every other
+   control uses. */
 .primary-button {
-  background: var(--color-text-primary);
-  color: var(--color-page);
-  border-color: var(--color-text-primary);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
   padding: 7px 14px;
   font-weight: var(--font-weight-item);
 }
 
 .primary-button:hover:not(:disabled) {
-  background: var(--color-text-secondary);
-  border-color: var(--color-text-secondary);
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
 }
 
 .primary-button:disabled {
@@ -610,6 +621,26 @@
 .primary-button--lg {
   padding: 11px 22px;
   font-size: var(--text-icon);
+}
+
+/* The quiet primary: a coral hairline round an Ink label (black in light, white in
+   dark), on the same light grey the selected rail row sits on. For a primary action
+   that sits somewhere a solid coral block would out-shout the page — the rail's
+   New task (top of every page) and the Dashboard hero's Plan something for today
+   (beside the hero's own figure). Compound selectors, because `.primary-button`
+   and its hover rule are one class shorter and would otherwise win. The border is
+   the line step — 3:1 on every surface in both themes. Hover is that grey with a
+   little Ink mixed in: one step on in light (darker) and in dark (lighter), where
+   the next surface token down (sunken) would go darker than the page itself. */
+.primary-button.primary-button--outlined {
+  background: var(--color-surface-2);
+  border-color: var(--color-accent-line);
+  color: var(--color-text-primary);
+}
+
+.primary-button.primary-button--outlined:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-2));
+  border-color: var(--color-accent-line);
 }
 
 .ghost-button {
@@ -707,7 +738,7 @@
    text label to carry it, so the fill has to. */
 .icon-button--on {
   background: var(--color-surface-2);
-  color: var(--color-text-primary);
+  color: var(--color-accent-line);
   border-color: var(--color-border);
 }
 
@@ -906,13 +937,16 @@
   transition: background 120ms ease, color 120ms ease;
 }
 
-.view-tabs__tab:hover {
+/* Not on the current tab: `:hover` out-ranks the --active class, and a touch
+   screen keeps hover after the tap, so the chosen tab lost its coral the moment
+   it was chosen. */
+.view-tabs__tab:hover:not(.view-tabs__tab--active) {
   color: var(--color-text-primary);
 }
 
 .view-tabs__tab--active {
   background: var(--color-surface-2);
-  color: var(--color-text-primary);
+  color: var(--color-accent-text);
   font-weight: var(--font-weight-title);
 }
 

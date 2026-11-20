@@ -35,8 +35,8 @@
 /* ------------------------------------------------------------------- the nav -- */
 
 /* The sidebar's own row idiom (see `.sidebar__link`): quiet text, a surface
-   step on hover, and the current one on that same surface step with ink text and
-   the heavier weight — no accent, no fill. Sticky, so a long panel (the tags)
+   step on hover, and the current one on that same surface step in coral text and
+   the heavier weight — the accent's "selected", with no fill. Sticky, so a long panel (the tags)
    keeps its navigation in view. */
 .settings-nav {
   display: flex;
@@ -67,14 +67,16 @@
   cursor: pointer;
 }
 
-.settings-nav__item:hover {
+/* Not on the current one: `:hover` out-ranks the --active class and would turn
+   its coral back to Ink while the pointer rests on it. */
+.settings-nav__item:hover:not(.settings-nav__item--active) {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
 }
 
 .settings-nav__item--active {
   background: var(--color-surface-2);
-  color: var(--color-text-primary);
+  color: var(--color-accent-text);
   font-weight: var(--font-weight-title);
 }
 
@@ -417,6 +419,7 @@
   .settings-nav__item:hover,
   .settings-nav__item--active {
     background: transparent;
+    color: var(--color-text-primary);
     font-weight: var(--font-weight-label);
   }
 

@@ -153,12 +153,14 @@
   cursor: copy;
 }
 
+/* Where a click would create: the line in the accent's line step (a graphic,
+   3:1 against the grid), the time on a coral tab. */
 .day-column__hover {
   position: absolute;
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--color-text-primary);
+  background: var(--color-accent-line);
   pointer-events: none;
   z-index: 3;
 }
@@ -170,8 +172,8 @@
   font-family: var(--font-mono);
   font-size: var(--text-nano);
   font-weight: var(--font-weight-title);
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   border-radius: 2px;
   padding: 0 4px;
 }
@@ -346,7 +348,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--color-text-primary);
+  background: var(--color-accent);
   flex: none;
 }
 
@@ -489,6 +491,8 @@
   overflow: hidden;
 }
 
+/* Ink, not coral, on purpose: past ten hours this bar turns critical red, and a
+   coral bar would blur exactly that change. A meter is data, not a selection. */
 .week__load-fill {
   display: block;
   height: 100%;
@@ -501,8 +505,8 @@
 }
 
 .week__day--today .week__date {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   border-radius: 999px;
   min-width: 26px;
   height: 26px;
@@ -512,7 +516,8 @@
 }
 
 /* A day with a Journal note (DayNoteMark): the Journal's own icon, small and in
-   the secondary text colour — a fact about the day, never an accent. Out of the
+   the secondary text colour — a fact about the day, not coral, which is for
+   today and now. Out of the
    flow wherever it sits, so a marked day is exactly the size of an unmarked one
    and nothing beside it shifts. The words are in the day's accessible name. */
 .day-note-mark {
@@ -599,7 +604,7 @@
 }
 
 .week__allday-cell--drop {
-  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  background: var(--color-accent-wash);
 }
 
 .week__hint {
@@ -788,12 +793,12 @@
   color: var(--color-text-muted);
 }
 
-/* Today is the Ink circle on its number — the mark the mini calendar and the
+/* Today is the coral circle on its number — the mark the mini calendar and the
    week header already use — not a heavy ring round the whole cell, which was
    the loudest thing on the page for the one cell that needed saying once. */
 .month__cell--today .month__daynum {
-  background: var(--color-text-primary);
-  color: var(--color-page);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   border-radius: 999px;
   min-width: 22px;
   padding: 1px 5px;
@@ -801,11 +806,13 @@
 }
 
 .month__cell--today .month__daynum:hover {
-  background: var(--color-text-secondary);
+  background: var(--color-accent-hover);
 }
 
+/* Where the dragged item will land: the accent's wash — a target is an
+   interactive moment, the same coral as anything else you act on. */
 .month__cell--drop {
-  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  background: var(--color-accent-wash);
 }
 
 .month__load-strip {
@@ -958,15 +965,15 @@
   padding: 0;
 }
 
-/* The Ink Invert drop-target idiom, same as `.day-column__draft`: a dashed
-   ink border rather than a filled colour. `margin: -1px` keeps the outer
-   edge from shifting when the border switches on — it briefly outranks
+/* The drop-target idiom, same as `.day-column__draft`: a dashed coral border
+   over the accent's wash rather than a filled colour. `margin: -1px` keeps the
+   outer edge from shifting when the border switches on — it briefly outranks
    `.day-layout`'s own hairline divider, which is exactly the point: this is
    the one moment the inbox reads as a target, not a quiet column. */
 .inbox--drop {
-  border: 1px dashed var(--color-text-primary);
+  border: 1px dashed var(--color-accent-line);
   margin: -1px;
-  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface-1));
+  background: var(--color-accent-wash);
 }
 
 .quick-add {
@@ -1110,7 +1117,7 @@
   margin-top: 3px;
   width: 15px;
   height: 15px;
-  accent-color: var(--color-text-primary);
+  accent-color: var(--color-accent);
   cursor: pointer;
   flex: none;
 }

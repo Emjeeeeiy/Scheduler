@@ -8,8 +8,8 @@ export const DAY_NOTE_WORDS = 'journal note'
 
 /**
  * The quiet sign that a day has a Journal note: the Journal's own icon, small,
- * in the secondary text colour — never an accent (DESIGN.md's Zero Accent
- * Rule). It sits INSIDE the day's existing button (a week column's header, a
+ * in the secondary text colour — not coral, which DESIGN.md's One Accent Rule
+ * keeps for action, selection and now. It sits INSIDE the day's existing button (a week column's header, a
  * month day's number, a mini-calendar day) rather than being a second control:
  * those already open the Day view, which is where the day's journal button is.
  */

@@ -26,12 +26,12 @@ Walk the sections for the areas the diff touched. Items marked **(sweep)** are a
 ## UI (see `cadence-ui`)
 
 - [ ] **Registration is complete.** A new view is in `isViewId`, `NAV_ITEMS`/`SCHEDULE_TABS`, the render branch, `SKELETONS`, `LANDING_VIEW_OPTIONS` (if landable), `viewRestore`'s table. A new modal is in `modalOpen`, uses `useModalA11y` (`drift.mjs`), and has a smoke case. A new shortcut is in `SHORTCUT_ACTIONS`, `DEFAULT_SHORTCUTS` and the keydown effect's dependency array.
-- [ ] No accent colour; no hex in components or CSS (tokens only); a colour that differs in dark is declared in all three places in `tokens.css`. **(sweep)**
+- [ ] One accent only, coral, through the `--color-accent*` tokens, for action, selection or now (not a meter, a surface at rest, or a ring round a tag/ink colour); black (`--color-on-accent`) on a coral fill, `--color-accent-text` for coral as text; no hex in components or CSS (tokens only); a colour that differs in dark is declared in all three places in `tokens.css`. **(sweep)**
 - [ ] Hover is a background step; no shadow, lift or scale as feedback; shadow only on floating layers. **(sweep, note)**
 - [ ] No coloured left/top stripe except the time-grid block. **(sweep)**
 - [ ] Two faces only; `--font-mono` for bare numerals only, never mixed within one text run. **(sweep)**
 - [ ] Icons are drawn in `icons.jsx`, no glyph/emoji. **(sweep)**
-- [ ] A tag colour is accompanied by its text label; selected state is not a hue.
+- [ ] A tag colour is accompanied by its text label; selected state is coral (fill or text) or a surface step, never another hue.
 - [ ] New page sections are `.frame` / `.stack` / `.divided-row`, not bordered boxes.
 - [ ] A phone layout is a CSS change on one DOM tree, not a JS branch; touch block editing still requires a hold to arm.
 - [ ] Data comes from context hooks; no Firestore import in a component. **(sweep)**
