@@ -245,6 +245,7 @@ The system once carried Signal Violet, then went to zero accent with an Ink Inve
 **What stays neutral, on purpose:**
 
 - **Every load meter:** the week bar, the month strip, the mini-calendar's dots, the Dashboard hero's bar. Each turns critical red when a day is heavy, and a coral bar would blur exactly that change. A meter is data, not a selection.
+- **The Trends range switch:** Dashboard's Last 7 / Last 30 days keeps its Ink Invert fill (see the toggle chip under Components). A view setting beside a heading is not something the page is waiting on, so it does not take the selected-state coral.
 - **A ring around a colour:** the selected tag-colour dot and the Journal's ink swatch. A coral ring would vanish around a red or orange swatch, so these rings stay Ink. The same goes for the outline of a held block on touch: the block inside is a tag colour.
 - **Decoration and the rest:** the Dashboard glow, the 404 dot grid under the ribbon, the brand mark, the block's resize grip, text, borders, hover steps, scrims and shadows. Also the user's tag colours, the status colours, the Journal's paper and ink, and Google's button.
 
@@ -362,7 +363,7 @@ One exception remains: a `.frame` — the base unit everywhere except a modal �
 - **Icon:** 30×30px, transparent, Hover Surface on hover, holds a 16px icon (see Icons below) — theme toggle, notification bell, close, date-nav chevrons.
 
 ### Chips
-- **Toggle chip** (`.filter-chip`, `.weekday-picker__day`): The system's one reusable "selected" idiom. At rest: Panel background, hairline border, Soft Ink text. Selected: coral fill, near-black label, no border needed; hovering a selected chip steps the coral, never back to a neutral surface (that would read as deselecting it). Used for Dashboard's trends date-range picker, the repeat-frequency picker, and the weekday picker — same visual contract everywhere something is chosen from a small fixed set.
+- **Toggle chip** (`.filter-chip`, `.weekday-picker__day`): The system's one reusable "selected" idiom. At rest: Panel background, hairline border, Soft Ink text. Selected: coral fill, near-black label, no border needed; hovering a selected chip steps the coral, never back to a neutral surface (that would read as deselecting it). Used for the repeat-frequency picker, the weekday picker and every other small fixed set — same visual contract everywhere something is chosen. The one exception is Dashboard's Trends range switch (Last 7 / Last 30 days): it keeps the Ink Invert fill it had before coral (Ink fill, Paper text — black on white in dark, white on black in light), scoped to `.trends__head`, because it is a quiet view setting beside a heading rather than a choice the page is waiting on.
 - **Tag chip:** A small colored dot (7px, from the tag's own `--tag` custom property) plus a text label — never the dot alone.
 - **Calendar chip** (`.chip`, month view / week all-day row): Hover Surface background, 3px radius, truncates with ellipsis; a done chip drops to 55% opacity with a strikethrough.
 
