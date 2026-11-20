@@ -31,7 +31,7 @@ function getClient() {
  *
  * @param model             Gemini model id (see GEMINI_MODEL_FAST/_PLAN env vars)
  * @param systemInstruction fixed behavioural framing for this route
- * @param prompt            the actual per-request content
+ * @param prompt            the actual per-request contentnue
  * @param schema            JSON Schema the response must satisfy
  * @param timeoutMs         a genuinely dead network must not hang a request
  *                          forever — the caller (a route with a heuristic

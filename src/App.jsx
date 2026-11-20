@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { firebaseReady, missingConfigKeys } from './firebase.js'
 import { AuthProvider, useAuth } from './state/AuthContext.jsx'
 import { ScheduleProvider, useSchedule } from './state/ScheduleContext.jsx'
@@ -43,6 +43,7 @@ import { DEFAULT_SETTINGS_SECTION, isSettingsSection } from './components/settin
 import { ItemManager } from './components/editors/ItemManager.jsx'
 import { NotificationBell } from './components/shell/NotificationBell.jsx'
 import { AccountMenu } from './components/shell/AccountMenu.jsx'
+import { CreateSheet } from './components/shell/CreateSheet.jsx'
 import { ToastStack } from './components/shell/ToastStack.jsx'
 import { ErrorBoundary } from './components/shell/ErrorBoundary.jsx'
 import { SettingsView } from './components/views/SettingsView.jsx'
@@ -371,6 +372,8 @@ function AppShell() {
   const [todoOpen, setTodoOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  // The bottom bar's centre + (phones): the sheet of things to start.
+  const [createOpen, setCreateOpen] = useState(false)
   // What the Journal should do the moment it is showing ('new' = start a note).
   const [journalIntent, setJournalIntent] = useState(null)
   // Bumped to retry a Journal chunk that failed to load (see retryJournal).
@@ -395,6 +398,7 @@ function AppShell() {
     todoOpen ||
     paletteOpen ||
     aiOpen ||
+    createOpen ||
     Boolean(agendaRange)
 
   /* The editor is one slot holding either kind. `kind` decides which component
@@ -923,7 +927,7 @@ function AppShell() {
         </button>
 
         <nav className="sidebar__nav" aria-label="Views">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.map((item, index) => {
             const active = item.id === 'schedule' ? SCHEDULE_VIEWS.includes(view) : view === item.id
             // The Schedule entry mirrors whichever of Day/Week/Month/Review
             // is actually open rather than a fixed calendar glyph — the
@@ -935,17 +939,36 @@ function AppShell() {
                 ? (SCHEDULE_TABS.find((tab) => tab.id === view)?.Icon ?? item.Icon)
                 : item.Icon
             return (
-              <button
-                key={item.id}
-                type="button"
-                className={`sidebar__link${active ? ' sidebar__link--active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-                title={item.label}
-                onClick={() => goTo(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
-              >
-                <Icon className="sidebar__icon" />
-                <span className="sidebar__label">{item.label}</span>
-              </button>
+              <Fragment key={item.id}>
+                <button
+                  type="button"
+                  className={`sidebar__link${active ? ' sidebar__link--active' : ''}`}
+                  aria-current={active ? 'page' : undefined}
+                  title={item.label}
+                  onClick={() => goTo(item.id === 'schedule' ? (SCHEDULE_VIEWS.includes(view) ? view : 'today') : item.id)}
+                >
+                  <Icon className="sidebar__icon" />
+                  <span className="sidebar__label">{item.label}</span>
+                </button>
+                {/* The centre of the phone's bottom bar, between the second tab and
+                    the third: where a thumb rests, and the one place that starts
+                    anything. In the same <nav> so there is one DOM at every
+                    width; from 901px it is not drawn (the sidebar's own
+                    "New task" button is the desktop's). Not a .sidebar__link, so
+                    it is no tab: no label in the tab row, never current. */}
+                {index === 1 && (
+                  <button
+                    type="button"
+                    className="sidebar__create"
+                    aria-haspopup="dialog"
+                    title="Create"
+                    onClick={() => setCreateOpen(true)}
+                  >
+                    <PlusIcon className="sidebar__create-icon" />
+                    <span className="visually-hidden">Create</span>
+                  </button>
+                )}
+              </Fragment>
             )
           })}
         </nav>
@@ -1031,7 +1054,6 @@ function AppShell() {
         <div className="sidebar__footer">
           <NotificationBell onEdit={openEdit} />
           <AccountMenu
-            onNewTask={() => openCreate({})}
             onOpenTodo={() => setTodoOpen(true)}
             onOpenItems={() => setItemsOpen(true)}
             onOpenSettings={() => openSettings()}
@@ -1258,6 +1280,27 @@ function AppShell() {
         />
       )}
       {aiOpen && <AiChatModal onClose={() => setAiOpen(false)} />}
+      {createOpen && (
+        <CreateSheet
+          onClose={() => setCreateOpen(false)}
+          // The same day rule as the `n` and `e` keys and the palette: on a dated
+          // page the new item starts on the day on screen, anywhere else on today.
+          onNewTask={() => openCreate(SCHEDULE_VIEWS.includes(view) ? { date: focusKey } : {})}
+          onNewEvent={() =>
+            openCreateEvent(
+              SCHEDULE_VIEWS.includes(view)
+                ? { startDate: focusKey, endDate: focusKey }
+                : { startDate: todayKey(), endDate: todayKey() },
+            )
+          }
+          onNewNote={() => {
+            goTo('journal')
+            setJournalIntent('new')
+          }}
+          onAskAi={() => setAiOpen(true)}
+          emailVerified={emailVerified}
+        />
+      )}
     </div>
   )
 }

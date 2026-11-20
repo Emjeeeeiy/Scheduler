@@ -44,6 +44,7 @@ import { NotificationBell } from '../../src/components/shell/NotificationBell.js
 import { SettingsView } from '../../src/components/views/SettingsView.jsx'
 import { CommandPalette } from '../../src/components/shell/CommandPalette.jsx'
 import { AiChatModal } from '../../src/components/shell/AiChatModal.jsx'
+import { CreateSheet } from '../../src/components/shell/CreateSheet.jsx'
 import { DashboardIcon } from '../../src/components/icons.jsx'
 import { mockValue } from './mockSchedule.jsx'
 
@@ -141,6 +142,10 @@ const cases = [
   ['TagsSection', <TagsSection />],
   ['CommandPalette', <CommandPalette actions={paletteActions} onClose={noop} />],
   ['AiChatModal', <AiChatModal onClose={noop} />],
+  [
+    'CreateSheet',
+    <CreateSheet onClose={noop} onNewTask={noop} onNewEvent={noop} onNewNote={noop} onAskAi={noop} emailVerified />,
+  ],
 ]
 
 let failed = 0
@@ -353,6 +358,14 @@ expect('Item index asks for the full-screen sheet layout on a phone', items.incl
 
 // Ask AI is a chat: an empty state with examples, one composer with Send inside it, no
 // instructions paragraph, no footer with a second Close, and the phone sheet.
+// The bottom bar's centre +: one sheet, the four things you start from nothing.
+const create = render(<CreateSheet onClose={noop} onNewTask={noop} onNewEvent={noop} onNewNote={noop} onAskAi={noop} emailVerified />)
+expect(
+  'Create sheet offers a task, an event, a note and Ask AI',
+  ['New task', 'New event', 'New note', 'Ask AI'].every((label) => create.includes(`>${label}<`)),
+)
+expect('Create sheet is a dialog named Create', create.includes('role="dialog"') && create.includes('aria-label="Create"'))
+
 const ai = render(<AiChatModal onClose={noop} />)
 expect('Ask AI opens on an empty state with examples', ai.includes('What should I schedule?') && ai.includes('Gym Monday 7am'))
 expect('Ask AI has one composer with Send inside it', ai.includes('ai-chat__box') && ai.includes('aria-label="Send"') && !ai.includes('modal__foot'))

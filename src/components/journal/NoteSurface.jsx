@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { TITLE_MAX, bodyBytes, bodyLimitState, normalizePaper, summarizeDoc } from '@cadence/shared/journal.js'
 import { downloadText } from '../../lib/download.js'
@@ -11,7 +11,9 @@ import { useOnline } from '../../lib/useOnline.js'
 import { useTheme } from '../../state/ThemeContext.jsx'
 import { ChevronLeftIcon, CloseIcon, TrashIcon, WarningIcon } from '../icons.jsx'
 import { EditorToolbar } from './EditorToolbar.jsx'
-import { PushPinIcon, SidePanelIcon } from './journalIcons.jsx'
+import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
+import { DockedLayer } from '../shell/DockedLayer.jsx'
+import { MoreIcon, PushPinIcon, SidePanelIcon } from './journalIcons.jsx'
 import { NotePlanPanel } from './NotePlanPanel.jsx'
 import { useNoteScheduleTools } from './NoteScheduleTools.jsx'
 import { ShortcutsHelp } from './ShortcutsHelp.jsx'
@@ -105,6 +107,17 @@ export function NoteSurface({
   const [title, setTitle] = useState(note.title)
   // Set when an exit was refused because what is on screen could not be saved.
   const [exitBlocked, setExitBlocked] = useState(false)
+  /* The header's ⋯ menu (a phone: Trash is behind it, away from Pin, so a thumb
+     aiming at one cannot land on the other). A bottom sheet at phone width. */
+  const [menuOpen, setMenuOpen] = useState(false)
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
+  const menu = usePopoverPlacement({
+    open: menuOpen,
+    onDismiss: closeMenu,
+    width: 220,
+    maxHeight: 120,
+    sheet: true,
+  })
 
   const editorRef = useRef(null)
   const imageInputRef = useRef(null)
@@ -501,9 +514,50 @@ export function NoteSurface({
           >
             <PushPinIcon />
           </button>
-          <button type="button" className="icon-button" aria-label="Move note to trash" title="Move to trash" onClick={onTrash}>
+          {/* Both are in the document; the stylesheet shows the Trash icon beside a
+              wide screen's header and the ⋯ menu holding it on a phone. */}
+          <button type="button" className="icon-button note-head__trash" aria-label="Move note to trash" title="Move to trash" onClick={onTrash}>
             <TrashIcon />
           </button>
+          <div className="note-head__more">
+            <button
+              ref={menu.triggerRef}
+              type="button"
+              className="icon-button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="More note actions"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreIcon />
+            </button>
+            {menuOpen && menu.placement && (
+              <DockedLayer docked={menu.docked}>
+                {menu.docked && <div className="popover-scrim" aria-hidden="true" />}
+                {/* The account menu's own panel and rows — one menu look. */}
+                <div
+                  ref={menu.panelRef}
+                  className={`account__panel note-menu${menu.docked ? ' popover--sheet' : ''}`}
+                  style={menu.style}
+                  role="menu"
+                  aria-label="Note actions"
+                >
+                  <button
+                    type="button"
+                    className="account__item"
+                    role="menuitem"
+                    onClick={() => {
+                      closeMenu()
+                      onTrash()
+                    }}
+                  >
+                    <TrashIcon className="sidebar__icon" />
+                    Move to trash
+                  </button>
+                </div>
+              </DockedLayer>
+            )}
+          </div>
           {/* Two-pane widths only: below 1200px the Back arrow at the left is the
               way out, and a second one would say the same thing twice. */}
           <button type="button" className="icon-button note-head__exit" aria-label="Exit note" title="Exit note — your changes are kept" onClick={exit}>

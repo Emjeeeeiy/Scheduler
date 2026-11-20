@@ -608,3 +608,47 @@ describe('exiting a note with the phone’s Back button', () => {
     expect(actions.saveNote).toHaveBeenCalledTimes(1)
   })
 })
+
+/* On a phone the header is back, the name, how it is saving, Pin and a ⋯ menu, and
+   Trash is inside the menu — a tap away from Pin rather than beside it. Both the
+   Trash icon and the ⋯ button are in the document at every width (the stylesheet
+   shows one); what is pinned here is the menu: it is a real menu, it holds Trash,
+   and choosing it trashes once and closes. */
+describe('the header’s ⋯ menu', () => {
+  const more = () => screen.getByRole('button', { name: 'More note actions' })
+
+  it('is a button that says it opens a menu, closed to begin with', async () => {
+    const { container } = mount()
+    await editorOf(container)
+    expect(more().getAttribute('aria-haspopup')).toBe('menu')
+    expect(more().getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('holds Move to trash, and choosing it trashes the note once and closes the menu', async () => {
+    const { container, props } = mount()
+    await editorOf(container)
+    fireEvent.click(more())
+    expect(more().getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('menu', { name: 'Note actions' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move to trash' }))
+    expect(props.onTrash).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('closes on Escape, and trashes nothing', async () => {
+    const { container, props } = mount()
+    await editorOf(container)
+    fireEvent.click(more())
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(props.onTrash).not.toHaveBeenCalled()
+  })
+
+  it('leaves the Trash icon in the header as well — which one is drawn is the stylesheet’s', async () => {
+    const { container, props } = mount()
+    await editorOf(container)
+    fireEvent.click(screen.getByRole('button', { name: 'Move note to trash' }))
+    expect(props.onTrash).toHaveBeenCalledTimes(1)
+  })
+})

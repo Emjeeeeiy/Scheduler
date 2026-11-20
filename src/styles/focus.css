@@ -332,6 +332,45 @@
   .app-content:has(.focus-page) .app__main {
     margin-top: 8px;
   }
+
+  /* Timer · Stats. The stats band was three bands down, under the fold; it is a tab
+     away instead (PaneTabs, in FocusMode), `data-pane` saying which shows. The
+     timer's pane is the timer and the task it is for. */
+  .focus-page[data-pane='timer'] > .focus__stats,
+  .focus-page[data-pane='stats'] > .focus__timer,
+  .focus-page[data-pane='stats'] > .focus__tasks {
+    display: none;
+  }
+
+  /* Alone, the stats band is the first thing on the page: the sibling rule's
+     hairline above it would be a rule under the tabs and nothing else. */
+  .focus-page[data-pane='stats'] > .focus__stats {
+    border-top: 0;
+  }
+
+  .focus-tabs {
+    margin-bottom: 6px;
+  }
+
+  /* Start / Pause and Reset sit in a bar fixed just above the bottom tab bar —
+     where a thumb already is — rather than wherever the clock happens to leave
+     them. It is chrome at rest, so a hairline and no shadow. It belongs to the
+     timer's pane (the stats pane has no timer to control), and the page keeps room
+     under its last band so nothing ends up behind it. */
+  .focus__controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    z-index: 25;
+    padding: 10px var(--focus-gutter);
+    background: var(--color-page);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .focus-page[data-pane='timer'] {
+    padding-bottom: 72px;
+  }
 }
 
 @media (max-width: 640px) {

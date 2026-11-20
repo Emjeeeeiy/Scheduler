@@ -3,7 +3,7 @@
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(11, 11, 11, 0.45);
+  background: var(--color-scrim);
   display: grid;
   place-items: center;
   padding: 20px;
@@ -1851,5 +1851,265 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 1px 5px;
+}
+
+/* ============================================================== sheets == */
+
+/* On a phone a layer that floats above the page rises from the bottom edge: full
+   width, rounded only at the top, a grab handle, content scrolling inside, and
+   its actions where a thumb rests. A sheet is a floating layer, so it keeps the
+   one shadow the system allows and the dim behind it. Below this section the
+   same shape is given to every dialog (≤640px) and to the two menus that ask for
+   it (usePopoverPlacement's `sheet`). */
+
+@keyframes sheet-rise {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* The dim behind a docked menu. A real element, not a pseudo-element of the
+   panel: a child painted behind its own parent cannot be both under the panel's
+   face and over the page. */
+.popover-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: var(--color-scrim);
+}
+
+.popover--sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-width: none;
+  max-height: min(72dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-width: 1px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 22px 14px calc(14px + env(safe-area-inset-bottom));
+  z-index: 60;
+  animation: sheet-rise 180ms ease-out;
+}
+
+/* The grab handle: a quiet pill that says "this comes away". */
+.popover--sheet::before {
+  content: '';
+  display: block;
+  align-self: center;
+  flex: none;
+  width: 36px;
+  height: 4px;
+  margin: -12px auto 10px;
+  border-radius: 999px;
+  background: var(--color-baseline);
+}
+
+/* Rows a thumb can hit. */
+.popover--sheet .account__item {
+  min-height: 52px;
+  padding: 12px;
+  font-size: var(--text-body);
+}
+
+/* ------------------------------------------------------------- create -- */
+
+.create-sheet {
+  max-width: 420px;
+}
+
+.create-sheet__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A row says what it starts and, under it, what that is — a hairline apart, no
+   boxes. Tall enough (64px) that the four read as four, not as a menu. */
+.create-sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 4px;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.create-sheet__list li:first-child .create-sheet__row {
+  border-top: 0;
+}
+
+.create-sheet__row:hover {
+  background: var(--color-surface-2);
+}
+
+.create-sheet__icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+.create-sheet__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.create-sheet__label {
+  font-size: var(--text-body);
+  font-weight: var(--font-weight-item);
+}
+
+.create-sheet__detail {
+  font-size: var(--text-meta);
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------ dialogs, on a phone -- */
+
+/* Every dialog is a bottom sheet at 640px and under — the line the phone layout
+   already turns at. Wider than that (a tablet) a dialog stays a centred card: an
+   800px-wide sheet reads as a bug, not a sheet.
+
+   The shape: full width, rounded only at the top, rising from the bottom edge,
+   its content scrolling inside, a grab handle on its head, and its actions in a
+   footer pinned where a thumb rests. Closing: its X, the dim above it, Back, or a
+   swipe down on the head (useModalA11y). The two list/chat dialogs that already
+   fill the screen (`modal--sheet`: All items, Ask AI) keep that shape and only
+   take the keyboard and the swipe. */
+@media (max-width: 640px) {
+  .modal {
+    place-items: end center;
+    padding: 0;
+    /* Above the on-screen keyboard. useModalA11y writes the keyboard's height here
+       while a dialog is open; with no keyboard it is 0 and costs nothing. A sheet
+       bottom-aligned in the layout viewport would otherwise sit behind it, hiding
+       the Save button exactly when a field is being typed in. */
+    padding-bottom: var(--keyboard-inset, 0px);
+  }
+
+  .modal__panel {
+    max-width: none;
+    /* Always leaves a strip of the dim above it to press, however tall the form. */
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - var(--keyboard-inset, 0px));
+    border-width: 1px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+    animation: sheet-rise 180ms ease-out;
+  }
+
+  /* The handle, drawn on the sticky head so it never scrolls away; the head gives
+     it room. Also the part you drag to close. */
+  .modal__head {
+    padding-top: 22px;
+  }
+
+  .modal__head::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: 999px;
+    background: var(--color-baseline);
+  }
+
+  .modal--sheet .modal__head::before {
+    display: none;
+  }
+
+  /* The footer: pinned to the bottom of the sheet and bled out to its edges, over
+     the content that scrolls beneath. A dialog's footer is secondary actions (Delete,
+     Save as template, Tomorrow, Next week) then main ones (Cancel, Save), with a
+     spacer between — which here becomes the line break, so the secondary ones sit
+     on a row of their own and the main ones share the next, equal and 44px tall,
+     in thumb reach. */
+  .modal__foot {
+    position: sticky;
+    bottom: calc(-14px - env(safe-area-inset-bottom));
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: 0 8px;
+    margin: 18px -14px calc(-14px - env(safe-area-inset-bottom));
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+    background: var(--color-surface-1);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .modal__foot > * {
+    min-height: 44px;
+  }
+
+  .modal__foot .ghost-button--sm {
+    min-height: 40px;
+  }
+
+  .modal__spacer {
+    flex: 0 0 100%;
+    height: 0;
+    min-height: 0;
+  }
+
+  /* No secondary actions: nothing to break from. */
+  .modal__spacer:first-child {
+    display: none;
+  }
+
+  .modal__spacer:not(:first-child) ~ * {
+    margin-top: 8px;
+  }
+
+  .modal__spacer ~ .ghost-button,
+  .modal__spacer ~ .primary-button {
+    flex: 1 1 0;
+  }
+
+  /* Search is a tall sheet of a fixed height, so the results appearing and
+     disappearing as you type do not make it jump. */
+  .modal__panel.palette__panel {
+    height: min(88dvh, calc(100dvh - 24px - env(safe-area-inset-top) - var(--keyboard-inset, 0px)));
+    max-height: none;
+    padding: 0 0 env(safe-area-inset-bottom);
+  }
+
+  /* The full-screen sheets stand clear of the keyboard too: their composer and
+     search field are at the bottom and top, and a field typed in must stay in view. */
+  .modal--sheet > .modal__panel.item-manager,
+  .modal--sheet > .modal__panel.ai-chat {
+    height: calc(100dvh - var(--keyboard-inset, 0px));
+  }
+}
+
+/* The head is the drag zone for swipe-to-close, and a touch that starts there is a
+   drag, not a scroll. Only on a touch screen: with a mouse nothing is dragged. */
+@media (max-width: 640px) and (pointer: coarse) {
+  .modal__head {
+    touch-action: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover--sheet,
+  .modal__panel {
+    animation: none;
+  }
 }
 

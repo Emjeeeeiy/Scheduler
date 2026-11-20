@@ -23,7 +23,6 @@ vi.mock('../src/state/ScheduleContext.jsx', () => ({
 import { AccountMenu } from '../src/components/shell/AccountMenu.jsx'
 
 const handlers = () => ({
-  onNewTask: vi.fn(),
   onOpenTodo: vi.fn(),
   onOpenItems: vi.fn(),
   onOpenSettings: vi.fn(),
@@ -113,12 +112,15 @@ describe('the menu', () => {
     expect(h.signOut).toHaveBeenCalledTimes(1)
   })
 
-  it('carries the phone\'s extra entries — and no Tags, which is a Settings category now', () => {
+  // New task is not here any more: the phone's bottom bar has a + that opens a
+  // Create sheet with it (CreateSheet.jsx), so a second, buried copy would only
+  // be the thing nobody looks for.
+  it('carries the phone\'s extra entries — and no Tags, which is a Settings category now, and no New task, which the + has', () => {
     const on = handlers()
     render(<AccountMenu {...on} />)
     open()
     const labels = screen.getAllByRole('menuitem').map((el) => el.textContent)
-    expect(labels).toEqual(['New task', 'To-do', 'All items', 'Settings', 'Account', 'Log out'])
+    expect(labels).toEqual(['To-do', 'All items', 'Settings', 'Account', 'Log out'])
     fireEvent.click(screen.getByRole('menuitem', { name: 'Settings' }))
     expect(on.onOpenSettings).toHaveBeenCalledTimes(1)
   })

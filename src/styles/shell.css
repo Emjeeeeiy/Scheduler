@@ -70,6 +70,12 @@
   gap: 2px;
 }
 
+/* The phone bottom bar's centre + (toggles-responsive.css draws it). Not here: a
+   desktop has the sidebar's own New task button. */
+.sidebar__create {
+  display: none;
+}
+
 .sidebar__link {
   display: flex;
   align-items: center;
@@ -908,6 +914,17 @@
   background: var(--color-surface-2);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-title);
+}
+
+/* A tab row that swaps which pane of a page shows (PaneTabs.jsx) — a phone's answer
+   to a page that is columns side by side on a desktop, where every pane is already
+   in view. Not drawn here, so not in the accessibility tree either; the 900px block
+   in toggles-responsive.css draws it, and the page's own stylesheet hides the panes
+   it is not pointing at. `-band` is the same row as its own band on a page built
+   from `.stack` (the Dashboard). */
+.pane-tabs,
+.pane-tabs-band {
+  display: none;
 }
 
 /* =============================================== frames & common bits == */

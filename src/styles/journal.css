@@ -92,6 +92,13 @@
   max-height: calc(100dvh - 120px);
 }
 
+/* The head and the search together (NoteList). No box of its own here — the two are
+   the list's own flex items as they always were; on a phone it is the block that is
+   pinned (below). */
+.note-list__top {
+  display: contents;
+}
+
 /* The name at the left, the two ways to start a note at the right. */
 .note-list__head {
   display: flex;
@@ -353,6 +360,12 @@
   align-items: center;
   gap: 2px;
   flex: none;
+}
+
+/* The ⋯ menu beside Pin: only on a phone, where it holds the Trash icon (hidden
+   there, below). The note header is one markup at every width. */
+.note-head__more {
+  display: none;
 }
 
 .note-head__exit {
@@ -1722,6 +1735,21 @@ a.ghost-button {
     margin-inline: var(--gutter);
   }
 
+  /* The title with its buttons, and the search, pinned just under the top bar while
+     the notes scroll beneath: a long list used to carry both off the top, and
+     starting a note or finding one meant scrolling back up. Its own surface and a
+     hairline keep the notes from showing through. */
+  .note-list__top {
+    display: grid;
+    gap: 10px;
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 3;
+    padding-block: 8px 10px;
+    background: var(--color-page);
+    border-bottom: 1px solid var(--color-border);
+  }
+
   /* The shell's header is empty and hidden here, so the page starts one short
      step under the top bar rather than under the main area's 18px as well. */
   .app-content:has(.journal) .app__main {
@@ -1890,6 +1918,17 @@ a.ghost-button {
 
   .note-title {
     font-size: var(--text-title);
+  }
+
+  /* The header on a phone: back, the name, how it is saving, Pin, and ⋯ — Trash is
+     inside the menu, a tap away from Pin rather than beside it. (The menu is a
+     bottom sheet at this width; usePopoverPlacement.) */
+  .note-head__trash {
+    display: none;
+  }
+
+  .note-head__more {
+    display: block;
   }
 
   /* The day's band: the date on its line, the summary under it, instead of the

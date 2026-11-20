@@ -902,6 +902,32 @@ code {
   }
 }
 
+/* Log in | Sign up as a switch at the top of the form, on a phone (PaneTabs, in
+   SignIn). The link that did this at the very foot of the form — under every field,
+   and under the keyboard once one is focused — is not drawn while the switch is; the
+   password-reset screen has no switch, so its own link stays. */
+@media (max-width: 900px) {
+  .auth-tabs {
+    margin-bottom: 22px;
+  }
+
+  .auth-panel__inner[data-tabs] .auth-form__switch {
+    display: none;
+  }
+}
+
+/* Controls a thumb can hit: the primary action, Google's button and the fields. */
+@media (max-width: 640px) {
+  .auth-form .primary-button--lg,
+  .google-button {
+    min-height: 48px;
+  }
+
+  .auth-form .input {
+    min-height: 48px;
+  }
+}
+
 .auth-divider {
   display: flex;
   align-items: center;

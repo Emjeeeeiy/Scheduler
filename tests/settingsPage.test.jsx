@@ -323,6 +323,20 @@ describe('on a phone: a list, then a screen', () => {
     expect(screenOf(container)).toBe('list')
   })
 
+  // The way out of a long category (Tags, Your data) is pinned under the top bar
+  // while its rows scroll, so it is one bar holding the back button and the
+  // screen's name — not a button above a title above the rows.
+  it('keeps the way back and the screen’s name together in one bar, ahead of the rows', () => {
+    const { container } = render(<SettingsView />)
+    fireEvent.click(screen.getByRole('button', { name: 'Tags' }))
+    const panel = container.querySelector('.settings-panel')
+    const bar = panel.querySelector('.settings-panel__bar')
+    expect(bar).toBeTruthy()
+    expect(within(bar).getByRole('button', { name: 'Settings' })).toBeTruthy()
+    expect(within(bar).getByRole('heading', { level: 3, name: 'Tags' })).toBeTruthy()
+    expect([...panel.children].map((el) => el.className)).toEqual(['settings-panel__bar', 'settings-panel__rows'])
+  })
+
   it('keeps the category you were on when you go back', () => {
     render(<SettingsView />)
     fireEvent.click(screen.getByRole('button', { name: 'Keyboard' }))

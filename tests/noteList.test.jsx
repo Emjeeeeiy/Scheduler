@@ -82,6 +82,29 @@ describe('the header', () => {
   })
 })
 
+// On a phone the title with its buttons and the search are one block pinned under
+// the top bar while the notes scroll. They have to be in ONE container for that to
+// be possible; the stylesheet gives it `display: contents` everywhere else, so a
+// desktop sees the same two flex items as before.
+describe('the pinned top', () => {
+  it('holds the header and the search together, ahead of the notes', () => {
+    const { container } = mount({ notes: [note('a', { title: 'First' })] })
+    const top = container.querySelector('.note-list__top')
+    expect(top).toBeTruthy()
+    expect([...top.children].map((el) => el.className.split(' ')[0])).toEqual(['note-list__head', 'note-list__search'])
+    expect(container.querySelector('.note-list__body')).toBeTruthy()
+    expect(top.contains(container.querySelector('.note-list__body'))).toBe(false)
+  })
+
+  it('does the same inside the trash, where the header is the way back', () => {
+    const { container } = mount({ trashed: [note('t', { title: 'Gone' })], notes: [] })
+    fireEvent.click(screen.getByRole('button', { name: /Trash/ }))
+    const top = container.querySelector('.note-list__top')
+    expect(within(top).getByRole('button', { name: /Notes/ })).toBeTruthy()
+    expect(within(top).getByRole('searchbox')).toBeTruthy()
+  })
+})
+
 describe('the notes', () => {
   it('lists them with no group labels when none is pinned', () => {
     const { container } = mount({ notes: [note('Alpha'), note('Beta', { updatedAt: NOW - 2 * DAY })] })

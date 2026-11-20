@@ -4,6 +4,7 @@ import { durationLabel, todayKey, weekKeys } from '@cadence/shared/date.js'
 import { focusByTag, focusStatsFor } from '@cadence/shared/stats.js'
 import { usePersistentState } from '../../lib/usePersistentState.js'
 import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
+import { PaneTabs } from '../shell/PaneTabs.jsx'
 import { showLocalNotification } from '@cadence/shared/notifications.js'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
@@ -141,6 +142,8 @@ export function FocusMode({ onEdit }) {
     ...stored,
   }))
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Phone only (the stylesheet decides): the timer, or what it has added up to.
+  const [pane, setPane] = useState('timer')
   const [taskId, setTaskId] = useState(null)
   const taskSelectId = useId()
   const lengthsPanelId = useId()
@@ -370,12 +373,46 @@ export function FocusMode({ onEdit }) {
   const roundText = phase === 'long' ? 'Cycle complete' : `Round ${roundInCycle} of ${cycleLength}`
 
   return (
-    <div className="focus-page frame stack">
+    <>
+    {/* On a phone: Timer · Stats. Stats were three bands down, under the fold; they
+        are a tap away. Above the frame rather than in its stack, so the stack's own
+        hairline-and-padding rules between bands do not treat it as one. A running
+        round says so on its tab, since the other pane hides the clock. Not drawn
+        on a desktop, where all of it is in view. */}
+    <div className="pane-tabs-band focus-tabs">
+      <PaneTabs
+        label="Focus page"
+        tabs={[
+          {
+            id: 'timer',
+            label: (
+              <>
+                Timer
+                {running && (
+                  <>
+                    {/* The space is its own text node: inside the hidden span a
+                        leading space is trimmed from the tab's accessible name. */}
+                    {' '}
+                    <span className="now-next__dot" aria-hidden="true" />
+                    <span className="visually-hidden">(running)</span>
+                  </>
+                )}
+              </>
+            ),
+          },
+          { id: 'stats', label: 'Stats' },
+        ]}
+        value={pane}
+        onChange={setPane}
+        idPrefix="focus-pane"
+      />
+    </div>
+    <div className="focus-page frame stack" data-pane={pane}>
       {/* Three bands, read top to bottom: the timer (the page), the task it is for,
           and what the timer has added up to. The title is the phase — the thing
           this page is about — rather than "Focus mode" over a second label that
           says "Focus session". */}
-      <section className="focus__timer" aria-label="Timer">
+      <section id="focus-pane-timer" className="focus__timer" aria-label="Timer">
         <div className="focus__head">
           <div className="focus__heading">
             <h2 className="section-head__title focus__phase">
@@ -500,7 +537,7 @@ export function FocusMode({ onEdit }) {
       {/* What the timer has added up to, always in view — it used to be a button
           that opened a panel, plus a run-on line of the same numbers under the
           title. */}
-      <section className="focus__stats" aria-label="Focus time">
+      <section id="focus-pane-stats" className="focus__stats" aria-label="Focus time">
         {hasHistory ? (
           <>
             <dl className="figures focus__figures">
@@ -566,5 +603,6 @@ export function FocusMode({ onEdit }) {
         </div>
       )}
     </div>
+    </>
   )
 }

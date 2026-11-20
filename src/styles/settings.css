@@ -101,6 +101,12 @@
   min-width: 0;
 }
 
+/* The way back and the screen's title (SettingsView). One bar on a phone, below; here
+   it adds no box of its own, so the two are exactly the loose siblings they were. */
+.settings-panel__bar {
+  display: contents;
+}
+
 /* The screen's title on a phone. Beside the navigation it is not drawn — the
    highlighted item is the title — but it stays in the outline for a screen reader. */
 .settings-panel__title {
@@ -456,8 +462,27 @@
     flex: none;
   }
 
+  /* One bar — the way back at the left, the screen's name centred — pinned just
+     under the top bar, so leaving a long category (Tags, Your data) is never a
+     scroll back up the page. The rows scroll beneath it; its own surface and hairline
+     keep them from showing through. Equal outer columns keep the name on the true
+     centre, the top bar's own arrangement. */
+  .settings-panel__bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 4;
+    min-height: 48px;
+    background: var(--color-page);
+    border-bottom: 1px solid var(--color-border);
+  }
+
   .settings-panel__title {
-    padding: 2px var(--settings-gutter) 16px;
+    grid-column: 2;
+    padding: 0;
+    text-align: center;
   }
 
   /* The loading skeleton's version of those rows: a short bar where a label

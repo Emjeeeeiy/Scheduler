@@ -185,6 +185,106 @@ describe('Day', () => {
   })
 })
 
+/* On a phone the Day page is two panes — the day, and the inbox with the day's
+ * checklist — behind a Timeline · Inbox tab row, instead of one under the other below a
+ * 24-hour grid. Which pane shows is the stylesheet's (a `data-pane` on the layout,
+ * checked by eye); what is worth pinning is the row, that the plan is never drawn
+ * in a pane that is not showing, and that the grid opens at the right hour again
+ * when the day comes back (a hidden pane loses its scroll position). The grid and
+ * everything in the day pane are untouched.
+ */
+describe('Timeline · Inbox, on a phone', () => {
+  const day = () =>
+    render(<TodayView focusKey={TODAY} onEdit={noop} onCreate={noop} onEditEvent={noop} onCreateEvent={noop} />)
+  const tabs = () => screen.getAllByRole('tab')
+  const layout = (container) => container.querySelector('.day-layout')
+  const gridWrites = () => scrolled.filter((s) => s.element.classList.contains('grid-scroll'))
+
+  it('is a Timeline tab and an Inbox tab, the inbox carrying how many open tasks it holds', () => {
+    state.inbox = [task('3', 'Idea', null), task('4', 'Another', null), task('5', 'Done one', null, { done: true })]
+    day()
+    expect(screen.getByRole('tablist', { name: 'Day page' })).toBeTruthy()
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['Timeline', 'Inbox2'])
+  })
+
+  it('shows no count for an empty inbox rather than a zero', () => {
+    day()
+    expect(tabs().map((tab) => tab.textContent)).toEqual(['Timeline', 'Inbox'])
+  })
+
+  it('opens on the day', () => {
+    const { container } = day()
+    expect(layout(container).dataset.pane).toBe('day')
+    expect(screen.getByRole('tab', { name: 'Timeline' }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('switches to the inbox and back', () => {
+    const { container } = day()
+    fireEvent.click(screen.getByRole('tab', { name: /^Inbox/ }))
+    expect(layout(container).dataset.pane).toBe('inbox')
+    fireEvent.click(screen.getByRole('tab', { name: 'Timeline' }))
+    expect(layout(container).dataset.pane).toBe('day')
+  })
+
+  it('points each tab at the pane it switches', () => {
+    day()
+    for (const tab of tabs()) {
+      expect(document.getElementById(tab.getAttribute('aria-controls'))).toBeTruthy()
+    }
+    expect(document.getElementById('day-pane-day').classList.contains('day-panel')).toBe(true)
+    expect(document.getElementById('day-pane-inbox').classList.contains('day-side')).toBe(true)
+  })
+
+  // Regression guard: the layout draws a hairline and a gap before every sibling
+  // after its first column. A tab row INSIDE it would be that first column, and
+  // the day under it would be ruled off from it.
+  it('sits above the layout, not inside it', () => {
+    const { container } = day()
+    expect(container.firstElementChild.matches('.pane-tabs-band')).toBe(true)
+    expect(layout(container).querySelector('.pane-tabs')).toBeNull()
+    expect(layout(container).children).toHaveLength(2)
+  })
+
+  it('keeps both panes in the document, so a desktop shows them side by side', () => {
+    state.inbox = [task('3', 'Idea', null)]
+    const { container } = day()
+    expect(container.querySelector('.day-panel')).toBeTruthy()
+    expect(container.querySelector('.day-side .inbox')).toBeTruthy()
+  })
+
+  // Regression guard: the plan is drawn in the day's pane. Asked for from the inbox
+  // (its own button), it would appear in a pane that is not showing.
+  it('brings the day back when a plan is asked for from the inbox', () => {
+    state.inbox = [task('3', 'Idea', null, { durationMin: 30 })]
+    const { container } = day()
+    fireEvent.click(screen.getByRole('tab', { name: /^Inbox/ }))
+    expect(layout(container).dataset.pane).toBe('inbox')
+    fireEvent.click(within(container.querySelector('.day-side')).getByRole('button', { name: 'Plan my day' }))
+    expect(layout(container).dataset.pane).toBe('day')
+  })
+
+  it('opens the grid at the right hour again each time the day comes back', () => {
+    const { container } = day()
+    const before = gridWrites().length
+    expect(before).toBeGreaterThan(0)
+    const first = gridWrites()[0].value
+    fireEvent.click(screen.getByRole('tab', { name: /^Inbox/ }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Timeline' }))
+    const after = gridWrites()
+    expect(after.length).toBeGreaterThan(before)
+    expect(after[after.length - 1].value).toBe(first)
+    expect(layout(container).dataset.pane).toBe('day')
+  })
+
+  it('does not move the grid for anything but a change of what is showing', () => {
+    day()
+    const settled = gridWrites().length
+    // A clock tick is not a reason to yank the grid from under a reader.
+    vi.advanceTimersByTime(61_000)
+    expect(gridWrites().length).toBe(settled)
+  })
+})
+
 describe('the inbox', () => {
   it('shows "Plan my day" only for a caller that can plan, and only with something to plan', () => {
     state.inbox = [task('3', 'Idea', null)]

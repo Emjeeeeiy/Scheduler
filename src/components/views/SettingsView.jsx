@@ -153,16 +153,22 @@ export function SettingsView({ section, onSectionChange, detail, onDetailChange 
         </nav>
 
         <section className="settings-panel" aria-labelledby="settings-panel-title">
-          {/* Only drawn on a phone, where the panel is a screen of its own. */}
-          <button type="button" className="settings-back" onClick={back}>
-            <ChevronLeftIcon className="settings-back__icon" aria-hidden="true" />
-            Settings
-          </button>
-          {/* The screen's title on a phone; beside the navigation it is visually
-              hidden (the highlighted item says it) but stays in the outline. */}
-          <h3 className="settings-panel__title" id="settings-panel-title">
-            {current.label}
-          </h3>
+          {/* The way back and the screen's title: one bar on a phone, pinned under the
+              top bar while the rows scroll beneath it, so the way out is never a
+              scroll up the page. Beside the navigation it is `display: contents`, so
+              the two are exactly the loose siblings they were. */}
+          <div className="settings-panel__bar">
+            {/* Only drawn on a phone, where the panel is a screen of its own. */}
+            <button type="button" className="settings-back" onClick={back}>
+              <ChevronLeftIcon className="settings-back__icon" aria-hidden="true" />
+              Settings
+            </button>
+            {/* The screen's title on a phone; beside the navigation it is visually
+                hidden (the highlighted item says it) but stays in the outline. */}
+            <h3 className="settings-panel__title" id="settings-panel-title">
+              {current.label}
+            </h3>
+          </div>
           <div className="settings-panel__rows">
             <Panel />
           </div>

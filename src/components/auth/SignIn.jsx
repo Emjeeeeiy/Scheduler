@@ -7,6 +7,7 @@ import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
 import { rememberMeChoice } from '../../lib/sessionHint.js'
 import { AuthCalendar } from './AuthCalendar.jsx'
 import { AuthWeek } from './AuthWeek.jsx'
+import { PaneTabs } from '../shell/PaneTabs.jsx'
 import { ClockIcon, GoogleIcon, ListIcon, TrendIcon, WarningIcon } from '../icons.jsx'
 
 const HOW_IT_WORKS = [
@@ -100,7 +101,24 @@ export function SignIn() {
         </div>
 
         <div className="auth-panel">
-          <div className="auth-panel__inner">
+          <div className="auth-panel__inner" data-tabs={isForgot ? undefined : 'true'}>
+            {/* On a phone: Log in | Sign up as a switch at the top of the form, where
+                a thumb starts, instead of a link at its very foot under a keyboard.
+                Not drawn on a desktop, where that link stays. The reset form has its
+                own way back, so it has no tabs. */}
+            {!isForgot && (
+              <div className="pane-tabs-band auth-tabs">
+                <PaneTabs
+                  label="Account"
+                  tabs={[
+                    { id: 'login', label: 'Log in' },
+                    { id: 'register', label: 'Sign up' },
+                  ]}
+                  value={isRegister ? 'register' : 'login'}
+                  onChange={switchTo}
+                />
+              </div>
+            )}
             <div className="auth-panel__head">
               <h2 className="auth-panel__title">
                 {isForgot ? 'Reset your password' : isRegister ? 'Sign up' : 'Log in'}

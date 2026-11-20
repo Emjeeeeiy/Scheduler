@@ -483,6 +483,12 @@
   border-left: 1px solid var(--color-border);
 }
 
+/* "Show chart" — a phone's way of folding the detail behind the answer. A desktop
+   has the room and shows it all, so there is no button. */
+.trends__toggle {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .trends__body {
     grid-template-columns: minmax(0, 1fr);
@@ -806,6 +812,79 @@
 
   .dashboard.stack > .trends {
     padding-inline: var(--dash-gutter);
+  }
+
+  /* The queues, one at a time. Next up, Overdue and Pinned were three lists stacked
+     down a phone, the second and third far below the fold; they are a tab row over
+     one list instead (PaneTabs), `data-pane` saying which. The row is its own band,
+     ruled off from the hero above and flowing straight into the list below with no
+     hairline between — the tabs belong to the list they switch. */
+  .dashboard.stack > .pane-tabs-band {
+    display: block;
+    padding-inline: var(--dash-gutter);
+  }
+
+  /* One class more than the stack's own "every band but the last has bottom air"
+     rule, which this has to beat: the list's own top padding is the air. */
+  .dashboard.frame.stack > .pane-tabs-band:not(:last-child) {
+    padding-bottom: 0;
+  }
+
+  .dashboard.stack > .pane-tabs-band + .queue-row {
+    border-top: 0;
+  }
+
+  .queue-row > section {
+    display: none;
+  }
+
+  .queue-row[data-pane='next'] > [data-queue='next'],
+  .queue-row[data-pane='overdue'] > [data-queue='overdue'],
+  .queue-row[data-pane='pinned'] > [data-queue='pinned'] {
+    display: block;
+  }
+
+  /* The siblings' hairline above a later column: the one showing is alone now. */
+  .dashboard .queue-row.divided-row > section[data-queue] {
+    border-top: 0;
+  }
+
+  /* The tab already names the list, so its heading is not said twice. It stays in
+     the document for the outline; what is left of the head — the inbox count, the
+     "Go to" button — sits at the right, and a head with nothing else in it is not
+     drawn at all. */
+  .queue-row .section-head__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .queue-row .section-head {
+    justify-content: flex-end;
+  }
+
+  .queue-row .section-head:not(:has(> :not(.section-head__title))) {
+    display: none;
+  }
+
+  /* Trends: the takeaway and the four figures are the answer; the chart and the tag
+     breakdown are the detail, a tap away. */
+  .trends__toggle {
+    display: inline-flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    margin-top: var(--dash-pad);
+  }
+
+  .trends[data-chart='closed'] .trends__body {
+    display: none;
   }
 }
 

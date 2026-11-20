@@ -65,6 +65,10 @@
   /* The Dashboard hero card's glow — a low-alpha step of Ink, not a hue,
      since there is no accent left to echo. */
   --color-glow-neutral:    rgba(11, 11, 11, 0.05);
+  /* The dim behind a floating layer — a modal, and a bottom sheet's scrim. The same
+     black wash in both themes (a darkening, not a surface), so it is declared once;
+     it was a literal in `.modal` until a second layer needed it. */
+  --color-scrim:           rgba(11, 11, 11, 0.45);
   /* The 404 page's dot grid — the same low-alpha step of Ink as the glow, one
      notch firmer so a 1px dot still registers. */
   --color-dot:             rgba(11, 11, 11, 0.12);

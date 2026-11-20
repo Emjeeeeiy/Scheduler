@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useSettings } from '../../state/SettingsContext.jsx'
 import { useNow } from '../../lib/useNow.js'
+import { usePersistentState } from '../../lib/usePersistentState.js'
 import {
   HEAVY_DAY_MIN,
   bestDayOfWeek,
@@ -30,6 +31,7 @@ import { TagBars } from '../stats/TagBars.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { MiniCalendar } from '../calendar/MiniCalendar.jsx'
 import { DayNoteButton } from '../calendar/DayNoteButton.jsx'
+import { PaneTabs } from '../shell/PaneTabs.jsx'
 import { PixelType } from './PixelType.jsx'
 
 /* Repeats land at least weekly, so two weeks of expansion always contains the
@@ -64,6 +66,13 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
   const { settings } = useSettings()
   const now = useNow()
   const [days, setDays] = useState(7)
+  /* Phone only (the stylesheet decides; on a desktop everything is in view): which
+     of the queues shows, and whether the Trends chart is unfolded. Remembered, so
+     the page opens as it was left — a choice made once, not every visit. */
+  const [queue, setQueue] = usePersistentState('cadence-app:dash-queue', 'next', (stored) =>
+    stored === 'overdue' || stored === 'pinned' ? stored : 'next',
+  )
+  const [chartOpen, setChartOpen] = usePersistentState('cadence-app:dash-chart', false, (stored) => stored === true)
 
   const today = tasksOn(now.key)
   const todayTotals = dayStats(today)
@@ -86,6 +95,17 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
   // own rule document is never itself "on" a day (see isSeriesTemplate in
   // stats.js), so it has no business in a dated pinned list either.
   const pinned = tasks.filter((t) => t.pinned && !t.done && !isSeriesTemplate(t))
+
+  /* The queues as tabs, on a phone: only the ones that have something in them,
+     each with its count, so a queue you are not looking at still says what it
+     holds. One queue is no choice, so no row. If the remembered one has emptied
+     since (nothing overdue any more), it is Next up that shows. */
+  const queues = [
+    { id: 'next', label: 'Next up' },
+    overdue.length > 0 && { id: 'overdue', label: 'Overdue', count: overdue.length, tone: 'critical' },
+    pinned.length > 0 && { id: 'pinned', label: 'Pinned', count: pinned.length },
+  ].filter(Boolean)
+  const activeQueue = queues.some((q) => q.id === queue) ? queue : 'next'
 
   /* Today's load against the same 10-hour reference the week bar, month strip,
      and mini calendar all scale to — the hero states the number, this says how
@@ -190,9 +210,17 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
           because it is always there — a column that keeps its place is easier to
           read than one that slides left whenever nothing is overdue. Overdue and
           Pinned join it when they exist; `.divided-row` rules off only the
-          siblings that are actually rendered. */}
-      <div className="queue-row divided-row">
-        <section aria-label="Next up">
+          siblings that are actually rendered.
+
+          On a phone they are tabs instead — one list at a time, not three stacked
+          below one another — and `data-pane` says which one the stylesheet shows. */}
+      {queues.length > 1 && (
+        <div className="pane-tabs-band">
+          <PaneTabs label="Queues" tabs={queues} value={activeQueue} onChange={setQueue} idPrefix="dash-queue" />
+        </div>
+      )}
+      <div className="queue-row divided-row" data-pane={activeQueue}>
+        <section id="dash-queue-next" data-queue="next" aria-label="Next up">
           <div className="section-head">
             <h2 className="section-head__title">Next up</h2>
             {openInbox > 0 && <span className="section-head__meta">{openInbox} in the inbox</span>}
@@ -209,7 +237,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
         </section>
 
         {overdue.length > 0 && (
-          <section aria-label="Overdue">
+          <section id="dash-queue-overdue" data-queue="overdue" aria-label="Overdue">
             <div className="section-head">
               <h2 className="section-head__title">
                 Overdue <span className="count-pill count-pill--critical">{overdue.length}</span>
@@ -231,7 +259,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
         )}
 
         {pinned.length > 0 && (
-          <section aria-label="Pinned">
+          <section id="dash-queue-pinned" data-queue="pinned" aria-label="Pinned">
             <div className="section-head">
               <h2 className="section-head__title">Pinned</h2>
             </div>
@@ -244,7 +272,7 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
         )}
       </div>
 
-      <section className="trends" aria-label="Trends">
+      <section className="trends" data-chart={chartOpen ? 'open' : 'closed'} aria-label="Trends">
         <div className="trends__head">
           <div className="trends__intro">
             <h2 className="section-head__title">Trends</h2>
@@ -327,7 +355,21 @@ export function Dashboard({ onFocusDay, onFocusMonth, onEdit, onCreate, onOpenDa
               </div>
             </dl>
 
-            <div className="trends__body">
+            {/* Phone only: the takeaway and the four figures are the answer, and the
+                chart and the tag breakdown are the detail behind it — a tap away, not
+                two screens of scrolling past. A desktop shows it all and has no
+                button. */}
+            <button
+              type="button"
+              className="ghost-button trends__toggle"
+              aria-expanded={chartOpen}
+              aria-controls="dash-trends-body"
+              onClick={() => setChartOpen((open) => !open)}
+            >
+              {chartOpen ? 'Hide chart' : 'Show chart'}
+            </button>
+
+            <div className="trends__body" id="dash-trends-body">
               <BarChart
                 rows={rangeRows}
                 label="Planned vs completed"

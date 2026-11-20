@@ -133,6 +133,30 @@ tasks, swap in a date-range query — that is the point to revisit, not before.
 the local cache including pending writes, so there is no local reducer mirroring
 server state — which is where this kind of app usually rots.
 
+**The phone layout is CSS over one DOM, plus three small pieces.** Below 900px the
+app is laid out for a thumb (see DESIGN.md), and the rule that keeps it
+maintainable is the one the rest of the app follows: **the tree does not branch on
+the viewport**. A control that only exists on a phone (the bottom bar's +, a page's
+tab row) is in the document at every width and `display: none` above its
+breakpoint; a pane that is hidden on a phone is still rendered. What has to be
+script is in three places. `PaneTabs` is the one tab row (a real tablist with arrow
+keys) used by the Dashboard, the Day page, Focus and sign-in; the page's own
+stylesheet shows one pane from a `data-pane` on its container, and the row goes in
+a band of its own *above* a `.stack` or `.divided-row` layout, never inside it,
+because those rules treat a first child as the first column. `useModalA11y` — which
+every dialog already uses — gives every dialog the two things only a script can: it
+writes the keyboard's height (from `visualViewport`) to `--keyboard-inset` so a
+bottom sheet stands clear of it, and it adds swipe-down-to-close on the head,
+refused whenever Escape is. And `DockedLayer` draws a docked menu on `<body>`:
+`position: fixed` leaves a parent's box but not its stacking context, and the page's
+content sits below the fixed tab bar's, so a sheet opened from inside content
+(the Journal's ⋯ menu) was painted under it. Anything fixed to the bottom or pinned
+under the top bar uses `--tabbar-h` / `--topbar-h` (62px each, set on `.app-shell`
+at 900px and under) rather than a copied number. What a screenshot cannot be
+replaced by is a test of *which pane is showing* — that is the stylesheet — so the
+tests pin the rows, the state, the wiring and the behaviour, and the look is
+checked in a phone-sized browser, dark first.
+
 **Back is a stack of layers, not a route.** There is no router (the page you are
 on is remembered state), so nothing gave the Back button anything to step
 through and it left the app from under an open dialog. `src/lib/backStack.js`
@@ -361,7 +385,9 @@ src/
     stats/               Dashboard's data display — StatTile, BarChart, TagBars
     shell/               chrome that belongs to no one view — NotificationBell,
                          SetupNotice, ToastStack, ErrorBoundary, NotFound (the 404
-                         page) and its DotField canvas backdrop
+                         page) and its DotField canvas backdrop, CreateSheet (the
+                         phone's centre +), PaneTabs (a phone's tab row over a
+                         page's panes) and DockedLayer (a bottom sheet on <body>)
     journal/             the Journal: NoteList, NoteSurface (the open note),
                          EditorToolbar, PaperPicker, DrawingBlock, and extensions/
                          (the editor's own nodes and shortcuts)
