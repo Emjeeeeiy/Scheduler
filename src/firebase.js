@@ -19,6 +19,7 @@ import {
   updateProfile,
 } from 'firebase/auth'
 import { setAppCheckTokenProvider } from './lib/appCheck.js'
+import { TERMS_VERSION } from './lib/legalContent.js'
 import {
   clearIndexedDbPersistence,
   doc,
@@ -161,7 +162,6 @@ function appError(code, message) {
   return error
 }
 
-
 /* Registration touches Firestore before there is anything useful to show the
    person typing, so it can fail for a reason that has nothing to do with their
    credentials. `permission-denied` here means one thing in practice: the rules
@@ -202,7 +202,14 @@ function actionCodeSettings() {
  * it (api/_lib/auth.js, functions/index.js), so an address nobody controls can
  * never be signed up for them.
  */
-export async function registerAccount({ username, email, password, rememberMe = true }) {
+export async function registerAccount({
+  username,
+  email,
+  password,
+  rememberMe = true,
+  termsAccepted = false,
+  termsVersion,
+}) {
   if (!auth || !db) throw new Error('Firebase is not configured.')
 
   const displayName = username.trim().slice(0, DISPLAY_NAME_MAX)
@@ -213,10 +220,16 @@ export async function registerAccount({ username, email, password, rememberMe = 
 
   try {
     await updateProfile(credential.user, { displayName })
+    /* The UI gates registration on the agreement, so these are written with
+       the profile doc in the same call that creates it — there is no window
+       in which an account exists with no consent record. */
     await setDoc(doc(db, 'users', credential.user.uid), {
       username: displayName,
       email: credential.user.email,
       createdAt: Date.now(),
+      ...(termsAccepted
+        ? { termsVersion: termsVersion ?? TERMS_VERSION, termsAcceptedAt: Date.now() }
+        : {}),
     })
   } catch (caught) {
     // An Auth user with no profile is dead weight, not a recoverable state.

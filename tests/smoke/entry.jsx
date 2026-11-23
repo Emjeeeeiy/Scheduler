@@ -36,6 +36,7 @@ import { normalizeNote } from '@cadence/shared/journal.js'
 import { SignIn } from '../../src/components/auth/SignIn.jsx'
 import { LoginForm } from '../../src/components/auth/LoginForm.jsx'
 import { RegisterForm } from '../../src/components/auth/RegisterForm.jsx'
+import { LegalModal } from '../../src/components/auth/LegalModal.jsx'
 import { SetupNotice } from '../../src/components/shell/SetupNotice.jsx'
 import { NotFound } from '../../src/components/shell/NotFound.jsx'
 import { NotificationBell } from '../../src/components/shell/NotificationBell.jsx'
@@ -91,6 +92,7 @@ const cases = [
   ['SignIn', <SignIn />],
   ['LoginForm', <LoginForm onSwitchToRegister={noop} />],
   ['RegisterForm', <RegisterForm onSwitchToLogin={noop} />],
+  ['LegalModal (terms)', <LegalModal kind="terms" onClose={noop} onNavigate={noop} />],
   ['Dashboard', <Dashboard onFocusDay={noop} onEdit={noop} onCreate={noop} />],
   ['TodayView', <TodayView focusKey={KEY} onEdit={noop} onCreate={noop} />],
   ['WeekGrid', <WeekGrid focusKey={KEY} onEdit={noop} onCreate={noop} />],
@@ -228,6 +230,12 @@ expect('Sign-in no longer draws the calendar or week previews', !signIn.includes
 const register = render(<RegisterForm onSwitchToLogin={noop} />)
 expect('Register form asks for a confirm-password field', register.includes('Confirm password'))
 expect('Register form asks for an email (Firebase Auth requires one)', register.includes('type="email"'))
+expect('The agreement checkbox belongs to the register form, not the login form', !signIn.includes('register-terms') && register.includes('register-terms'))
+const legal = render(<LegalModal kind="terms" onClose={noop} onNavigate={noop} />)
+/* React puts a comment between the two text nodes of "Read the {title}",
+   the same way the Journal note rows do. */
+const legalText = legal.replace(/<!-- -->/g, '')
+expect('Terms dialog is a named modal with real prose and a way to the Privacy Policy', legalText.includes('role="dialog"') && legalText.includes('aria-label="Terms of Service"') && legalText.includes('Your content') && legalText.includes('Read the Privacy Policy'))
 
 // The fixture's "Overdue thing" is fixed two days before "today", so it is
 // overdue no matter what real wall-clock time this suite happens to run at

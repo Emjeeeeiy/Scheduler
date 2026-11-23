@@ -10,7 +10,8 @@ service cloud.firestore {
     // The only fields the profile doc holds. Anything else is refused, so the
     // doc can't be used as a free-form dumping ground.
     function profileKeys() {
-      return ['username', 'email', 'displayName', 'createdAt', 'photoBase64', 'dailyDigestEnabled'];
+      return ['username', 'email', 'displayName', 'createdAt', 'photoBase64', 'dailyDigestEnabled',
+              'termsAcceptedAt', 'termsVersion'];
     }
 
     // Checks only the fields this write actually sets (`keys`). A removed field
@@ -34,7 +35,14 @@ service cloud.firestore {
         && fieldOk(data, keys, 'photoBase64', data.get('photoBase64', '') is string
              && data.get('photoBase64', '').size() <= 200000
              && data.get('photoBase64', '').matches('^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$'))
-        && fieldOk(data, keys, 'dailyDigestEnabled', data.get('dailyDigestEnabled', false) is bool);
+        && fieldOk(data, keys, 'dailyDigestEnabled', data.get('dailyDigestEnabled', false) is bool)
+        // Which version of the registration agreement this account accepted,
+        // and when (a plain millisecond stamp, like every other timestamp here).
+        // The version's VALUE is the client's: the rules can only check its
+        // shape, since they cannot know which copy is current.
+        && fieldOk(data, keys, 'termsAcceptedAt', data.get('termsAcceptedAt', 0) is number)
+        && fieldOk(data, keys, 'termsVersion', data.get('termsVersion', '') is string
+             && data.get('termsVersion', '').size() <= 40);
     }
 
     // The profile doc. Written by registration, Google sign-in, the photo

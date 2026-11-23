@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { useAuth } from '../../state/AuthContext.jsx'
 import { PasswordField } from './PasswordField.jsx'
+import { TERMS_VERSION } from '../../lib/legalContent.js'
 import { DISPLAY_NAME_MAX } from '../../firebase.js'
 
 const PASSWORD_MIN = 8
 
-export function RegisterForm({ onSwitchToLogin }) {
+export function RegisterForm({ onOpenLegal, onSwitchToLogin }) {
   const { register, reportError, clearError } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  /* The agreement belongs to registration alone: the Google button and the
+     password login do not show a checkbox and are not gated by one. */
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   async function onSubmit(event) {
@@ -18,6 +22,12 @@ export function RegisterForm({ onSwitchToLogin }) {
     if (submitting) return
     clearError()
 
+    /* Enter from inside a field submits the form without pressing the
+       Create account button, so the check lives here, not on the button. */
+    if (!termsAccepted) {
+      reportError('Please agree to the Terms of Service and Privacy Policy.')
+      return
+    }
     if (password !== confirmPassword) {
       reportError("Passwords don't match.")
       return
@@ -29,7 +39,7 @@ export function RegisterForm({ onSwitchToLogin }) {
 
     setSubmitting(true)
     try {
-      await register({ username, email, password })
+      await register({ username, email, password, termsAccepted, termsVersion: TERMS_VERSION })
     } finally {
       setSubmitting(false)
     }
@@ -83,6 +93,33 @@ export function RegisterForm({ onSwitchToLogin }) {
           autoComplete="new-password"
           minLength={PASSWORD_MIN}
         />
+      </div>
+
+      {/* Directly under the two password fields, so nobody can reach Create
+          account without passing it. The document names are buttons beside
+          the label text rather than inside a <label>: a button in a label
+          would join the checkbox's accessible name and clicking it would
+          toggle the box as well as opening the document. */}
+      <div className="checkbox-row auth-consent">
+        <input
+          id="register-terms"
+          name="termsAccepted"
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+          aria-label="I agree to the Terms of Service and Privacy Policy"
+        />
+        <span className="auth-consent__text">
+          <label htmlFor="register-terms">I agree to the</label>{' '}
+          <button type="button" className="link-button" onClick={() => onOpenLegal('terms')}>
+            Terms of Service
+          </button>{' '}
+          and{' '}
+          <button type="button" className="link-button" onClick={() => onOpenLegal('privacy')}>
+            Privacy Policy
+          </button>
+          .
+        </span>
       </div>
 
       <button type="submit" className="primary-button primary-button--lg" disabled={submitting}>

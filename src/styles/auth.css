@@ -535,3 +535,63 @@ code {
 .auth-form__options .link-button.auth-form__forgot {
   margin: 0;
 }
+
+/* The agreement row above every way into an account. It reuses .checkbox-row
+   from modals.css for the accent-coloured box; only the wrapping and the
+   sentence around the two document links are auth-specific. */
+.auth-consent {
+  align-items: flex-start;
+  margin: -4px 0 14px;
+  font-size: var(--text-label);
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.auth-consent input {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin: 1px 0 0;
+}
+
+.auth-consent__text {
+  min-width: 0;
+}
+
+/* A form can be submitted by Enter from inside a field as well as by click.
+   The gating is in the forms too; this only makes the disabled Google button
+   read as unavailable rather than as a button that does nothing. */
+.google-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The legal dialogs use the shared .modal panel (head, foot, bottom sheet and
+   shadow from modals.css); only the reading column is different. Written one
+   class heavier because modals.css is imported after this file. */
+.auth-shell .modal__panel.legal {
+  max-width: 560px;
+}
+
+.legal__meta {
+  color: var(--color-text-muted);
+  font-size: var(--text-meta);
+}
+
+.legal__section {
+  margin-top: 18px;
+}
+
+.legal__heading {
+  font-size: var(--text-item);
+  font-weight: var(--font-weight-item);
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.legal__paragraph {
+  font-size: var(--text-label);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}

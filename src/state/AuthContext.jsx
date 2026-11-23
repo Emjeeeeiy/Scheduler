@@ -182,10 +182,17 @@ export function AuthProvider({ children }) {
         }
       },
 
-      async register({ username, email, password, rememberMe = true }) {
+      async register({
+        username,
+        email,
+        password,
+        rememberMe = true,
+        termsAccepted = false,
+        termsVersion,
+      }) {
         setError(null)
         try {
-          await registerAccount({ username, email, password, rememberMe })
+          await registerAccount({ username, email, password, rememberMe, termsAccepted, termsVersion })
         } catch (caught) {
           console.error('Registration failed.', caught)
           setError(friendlyMessage(caught))
