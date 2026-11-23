@@ -5,6 +5,7 @@ import { startDotMorph } from '../../lib/dotMorphRun.js'
 import { LoginForm } from './LoginForm.jsx'
 import { RegisterForm } from './RegisterForm.jsx'
 import { ForgotPasswordForm } from './ForgotPasswordForm.jsx'
+import { LegalModal } from './LegalModal.jsx'
 import { rememberMeChoice } from '../../lib/sessionHint.js'
 import { DotField } from '../shell/DotField.jsx'
 import { PaneTabs } from '../shell/PaneTabs.jsx'
@@ -75,6 +76,12 @@ export function SignIn() {
      on after signing out — not behind a login you may not want to do. */
   const push = usePushNotifications()
   const [remindersOff, setRemindersOff] = useState(false)
+
+  /* The legal dialogs can be opened from the register form's agreement line
+     and from the Privacy Policy link at the foot of the form. Only the
+     register form asks for agreement — logging in and Google sign-in are
+     deliberately untouched. */
+  const [legalOpen, setLegalOpen] = useState(null)
 
   async function turnOffReminders() {
     if (await push.disable()) setRemindersOff(true)
@@ -147,19 +154,24 @@ export function SignIn() {
 
   useEffect(() => {
     if (focusTick === 0) return
-    panelRef.current?.querySelector('input')?.focus()
+    /* Focus the first field of the form, not the first input in the panel:
+       the form owns its own agreement checkbox now, further down. */
+    panelRef.current?.querySelector('.auth-form input')?.focus()
   }, [focusTick])
 
   /* Escape goes back — but only from a form that was asked for. An error that put
      the form there is not something to dismiss by accident with a stray key. */
   useEffect(() => {
-    if (view !== 'form') return undefined
+    /* While a legal document is open its own useModalA11y handler owns Escape.
+       Leaving this one mounted too would close the form under it on the same
+       key press. */
+    if (view !== 'form' || legalOpen) return undefined
     function onKeyDown(event) {
       if (event.key === 'Escape') closeForm()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [view, closeForm])
+  }, [view, closeForm, legalOpen])
 
   return (
     <div
@@ -258,9 +270,7 @@ export function SignIn() {
                 <button
                   type="button"
                   className="google-button"
-                  onClick={() => {
-                    signIn({ rememberMe: rememberMeChoice() })
-                  }}
+                  onClick={() => signIn({ rememberMe: rememberMeChoice() })}
                 >
                   <GoogleIcon /> Sign in with Google
                 </button>
@@ -277,7 +287,12 @@ export function SignIn() {
                 onForgotPassword={() => switchTo('forgot')}
               />
             )}
-            {mode === 'register' && <RegisterForm onSwitchToLogin={() => switchTo('login')} />}
+            {mode === 'register' && (
+              <RegisterForm
+                onOpenLegal={setLegalOpen}
+                onSwitchToLogin={() => switchTo('login')}
+              />
+            )}
             {mode === 'forgot' && <ForgotPasswordForm onSwitchToLogin={() => switchTo('login')} />}
 
             {error && (
@@ -286,13 +301,26 @@ export function SignIn() {
               </p>
             )}
 
-            <p className="auth-panel__note">Your schedule is private to your account.</p>
+            <p className="auth-panel__note">
+              Your schedule is private to your account.{' '}
+              <button type="button" className="link-button" onClick={() => setLegalOpen('privacy')}>
+                Privacy Policy
+              </button>
+            </p>
           </div>
         </div>
 
         {/* The dots, over the whole stage. Decoration, and never a target. */}
         <canvas ref={morphCanvasRef} className="auth-morph" aria-hidden="true" />
       </div>
+
+      {legalOpen && (
+        <LegalModal
+          kind={legalOpen}
+          onClose={() => setLegalOpen(null)}
+          onNavigate={setLegalOpen}
+        />
+      )}
 
       {/* Outside the form's panel on purpose: on a desktop the panel is not there
           until someone asks for it, and "stop my reminders" has to be on the screen

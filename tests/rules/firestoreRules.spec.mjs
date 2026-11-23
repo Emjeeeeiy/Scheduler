@@ -103,6 +103,32 @@ describe('the profile doc', () => {
     )
   })
 
+  it('accepts the sign-in agreement version and timestamp from its owner', async () => {
+    await seed('users/alice', { username: 'Alice' })
+    await assertSucceeds(
+      setDoc(
+        doc(alice(), 'users/alice'),
+        { termsVersion: '2026-11-23', termsAcceptedAt: 1_765_000_000_000 },
+        { merge: true },
+      ),
+    )
+    await assertSucceeds(
+      updateDoc(doc(alice(), 'users/alice'), { termsVersion: '2027-01-01' }),
+    )
+  })
+
+  it('refuses a malformed agreement stamp or version, and never from another account', async () => {
+    await seed('users/alice', { username: 'Alice' })
+    await assertFails(setDoc(doc(alice(), 'users/alice'), { termsAcceptedAt: 'yesterday' }, { merge: true }))
+    await assertFails(setDoc(doc(alice(), 'users/alice'), { termsVersion: 42 }, { merge: true }))
+    await assertFails(
+      setDoc(doc(alice(), 'users/alice'), { termsVersion: 'x'.repeat(41) }, { merge: true }),
+    )
+    await assertFails(
+      setDoc(doc(bob(), 'users/alice'), { termsAcceptedAt: 1, termsVersion: '1' }, { merge: true }),
+    )
+  })
+
   it('is invisible to everyone else', async () => {
     await seed('users/alice', { username: 'Alice' })
     await assertFails(getDoc(doc(bob(), 'users/alice')))

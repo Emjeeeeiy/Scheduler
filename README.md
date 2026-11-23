@@ -71,7 +71,7 @@ no production module knows it is being tested.
 
 ```text
 users/{uid}                    profile — username (display name)  email  createdAt
-                                 displayName  photoBase64  dailyDigestEnabled
+                                 displayName  photoBase64  dailyDigestEnabled  termsVersion  termsAcceptedAt
 users/{uid}/tasks/{taskId}
   title  notes  date  startMin  durationMin  tagId  done
   completedAt  createdAt  updatedAt
@@ -508,6 +508,14 @@ What the app relies on, and where it's enforced:
   CSP reports in the browser console across sign-in (email and Google), the
   Journal (fonts, images, drawing), push and AI, rename the header to
   `Content-Security-Policy` to enforce it.
+- **The registration agreement is recorded on the profile.** The checkbox at
+  the foot of the register form (under the two password fields) gates account
+  creation: without it, `Create account` reports an error and nothing is
+  written. The accepted `termsVersion` and `termsAcceptedAt` are written to
+  `users/{uid}` with the profile doc. Google sign-in and password login are
+  not gated. The Terms and Privacy Policy are in-app dialogs from
+  `src/lib/legalContent.js`; their wording describes this build and needs a
+  legal review and a contact address before publishing.
 - **Signing out wipes this browser's offline copy** of the account (Firestore's
   IndexedDB cache), and with "Remember me" unticked also stops push on that
   device.
