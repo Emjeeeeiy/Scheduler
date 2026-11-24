@@ -995,6 +995,16 @@ a.ghost-button {
   padding: 12px;
 }
 
+/* Docked as a bottom sheet on a phone: `.popover--sheet` brings its own padding
+   (22px sides, bottom safe-area), so give the two-class selector the same
+   padding — higher specificity than `.tb-pop--paper` alone so it wins the
+   cascade over the 12px frame padding. */
+@media (max-width: 640px) {
+  .tb-pop--paper.popover--sheet {
+    padding: 22px 14px calc(14px + env(safe-area-inset-bottom));
+  }
+}
+
 .paper-form {
   display: grid;
   gap: 14px;
@@ -1015,6 +1025,21 @@ a.ghost-button {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px 8px;
+}
+
+/* Four preset cards fit a desktop panel; on a phone two side by side, and one
+   per row on the narrowest screens, so labels like "Engineering" and "Cornell"
+   never cramp or overflow. */
+@media (max-width: 640px) {
+  .paper-presets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .paper-presets {
+    grid-template-columns: 1fr;
+  }
 }
 
 .paper-preset {

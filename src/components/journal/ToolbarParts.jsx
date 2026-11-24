@@ -80,9 +80,16 @@ export function ToolPopover({
   width = 240,
   maxHeight = 360,
   className = '',
+  sheet = false,
 }) {
   const onDismiss = useCallback(() => onOpenChange(false), [onOpenChange])
-  const { placement, triggerRef, panelRef } = usePopoverPlacement({ open, onDismiss, width, maxHeight })
+  const { placement, docked, triggerRef, panelRef } = usePopoverPlacement({
+    open,
+    onDismiss,
+    width,
+    maxHeight,
+    sheet,
+  })
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
   useEffect(() => {
@@ -132,10 +139,10 @@ export function ToolPopover({
       {open && placement && (
         <div
           ref={panelRef}
-          className={`tb-pop${className ? ` ${className}` : ''}`}
+          className={`tb-pop${className ? ` ${className}` : ''}${docked ? ' popover--sheet' : ''}`}
           role="dialog"
           aria-label={label}
-          style={{ ...placement, width, maxHeight }}
+          style={docked ? undefined : { ...placement, width, maxHeight }}
           onKeyDown={onPanelKeyDown}
         >
           {typeof children === 'function' ? children({ close }) : children}

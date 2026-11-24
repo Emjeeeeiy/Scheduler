@@ -674,6 +674,7 @@ function ActiveToolbar({
   useRovingFocus(ref)
   const s = useEditorState({ editor, selector: ({ editor: e }) => readState(e) })
   const off = !s.editable
+  const [paperOpen, setPaperOpen] = useState(false)
 
   return (
     <div ref={ref} className="journal-toolbar" role="toolbar" aria-label="Formatting" aria-controls="note-editor">
@@ -733,7 +734,7 @@ function ActiveToolbar({
         <div className="tb-group">
           <InsertMenu editor={editor} onInsertDrawing={onInsertDrawing} onInsertImage={onInsertImage} disabled={off} />
           {s.inTable ? <TableMenu editor={editor} disabled={off} /> : null}
-          <PaperMenu {...paperProps} />
+          <PaperMenu {...paperProps} open={paperOpen} onOpenChange={setPaperOpen} />
           <MoreMenu editor={editor} state={s} onHelp={onHelp} onPrint={onPrint} onExport={onExport} disabled={off} />
         </div>
       </OverflowMenu>

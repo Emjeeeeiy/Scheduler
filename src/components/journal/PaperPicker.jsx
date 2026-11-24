@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { MARGIN_STYLES, OPACITY_RANGE, PAPER_SPACING, PAPER_WEIGHTS } from '@cadence/shared/journal.js'
 import { PAPER_COLORS, PATTERN_COLORS } from '../../lib/journalColors.js'
 import { PAPER_PRESETS, PATTERN_META, canSnap, matchPreset, paperStyle, presetPaper } from '../../lib/journalPaper.js'
@@ -216,15 +216,41 @@ function PaperForm({ paper, onChange, onUseForNew, onReset, close }) {
   )
 }
 
-export function PaperMenu({ paper, onChange, onUseForNew, onReset, disabled }) {
-  const [open, setOpen] = useState(false)
-  const width = typeof window === 'undefined' ? 360 : Math.min(360, window.innerWidth - 24)
+export function PaperMenu({
+  paper,
+  onChange,
+  onUseForNew,
+  onReset,
+  disabled,
+  open: openProp,
+  onOpenChange,
+}) {
+  const [openLocal, setOpenLocal] = useState(false)
+  /* Controlled when the parent passes `open`, otherwise self-managed so the
+     picker still works on its own. */
+  const open = openProp !== undefined ? openProp : openLocal
+  const setOpen = onOpenChange ? onOpenChange : setOpenLocal
+
+  const [panelWidth, setPanelWidth] = useState(() =>
+    typeof window === 'undefined' ? 360 : Math.min(360, window.innerWidth - 24)
+  )
+  /* Re-measure on resize so the popover stays the right width if the window
+     is turned or reshaped while the panel is open. */
+  useEffect(() => {
+    function onResize() {
+      setPanelWidth(Math.min(360, window.innerWidth - 24))
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   return (
     <ToolPopover
       open={open}
       onOpenChange={setOpen}
+      sheet
       label="Page and paper"
-      width={width}
+      width={panelWidth}
       maxHeight={560}
       className="tb-pop--paper"
       renderTrigger={(props) => (
