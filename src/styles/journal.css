@@ -1001,6 +1001,9 @@ a.ghost-button {
    cascade over the 12px frame padding. */
 @media (max-width: 640px) {
   .tb-pop--paper.popover--sheet {
+    /* Keep the editor picker in its Journal context, just above the fixed tab
+       bar, so its controls remain both visible and interactive. */
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
     padding: 22px 14px calc(14px + env(safe-area-inset-bottom));
   }
 }

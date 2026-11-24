@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { usePopoverPlacement } from '../../lib/usePopoverPlacement.js'
 import { CheckIcon } from '../icons.jsx'
-import { DockedLayer } from '../shell/DockedLayer.jsx'
 import { ChevronDownIcon } from './journalIcons.jsx'
 import { SHORTCUTS, ariaKeys, formatKeys, withShortcut } from './shortcuts.js'
 import { keepSelection } from './toolbarUtils.js'
@@ -138,18 +137,16 @@ export function ToolPopover({
         },
       })}
       {open && placement && (
-        <DockedLayer docked={docked}>
-          <div
-            ref={panelRef}
-            className={`tb-pop${className ? ` ${className}` : ''}${docked ? ' popover--sheet' : ''}`}
-            role="dialog"
-            aria-label={label}
-            style={docked ? undefined : { ...placement, width, maxHeight }}
-            onKeyDown={onPanelKeyDown}
-          >
-            {typeof children === 'function' ? children({ close }) : children}
-          </div>
-        </DockedLayer>
+        <div
+          ref={panelRef}
+          className={`tb-pop${className ? ` ${className}` : ''}${docked ? ' popover--sheet' : ''}`}
+          role="dialog"
+          aria-label={label}
+          style={docked ? undefined : { ...placement, width, maxHeight }}
+          onKeyDown={onPanelKeyDown}
+        >
+          {typeof children === 'function' ? children({ close }) : children}
+        </div>
       )}
     </>
   )
