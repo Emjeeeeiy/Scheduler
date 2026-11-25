@@ -301,12 +301,14 @@ export function SignIn() {
               </p>
             )}
 
-            <p className="auth-panel__note">
-              Your schedule is private to your account.{' '}
-              <button type="button" className="link-button" onClick={() => setLegalOpen('privacy')}>
-                Privacy Policy
-              </button>
-            </p>
+            {mode === 'login' && (
+              <p className="auth-panel__note">
+                Your schedule is private to your account.{' '}
+                <button type="button" className="link-button" onClick={() => setLegalOpen('privacy')}>
+                  Privacy Policy
+                </button>
+              </p>
+            )}
           </div>
         </div>
 
