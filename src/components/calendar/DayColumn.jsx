@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSchedule } from '../../state/ScheduleContext.jsx'
 import { useToast } from '../../state/ToastContext.jsx'
 import { layoutDay, minToPercent, ratioToMin } from '@cadence/shared/layout.js'
-import { DRAG_TASK, hasDrag, readDrag } from '../../lib/dnd.js'
+import { DRAG_TASK, DRAG_TEMPLATE, hasDrag, readDrag } from '../../lib/dnd.js'
 import { useCoarsePointer } from '../../lib/useCoarsePointer.js'
 import { BACK_RANK, useBackLayer } from '../../lib/useBackLayer.js'
 import { durationLabel, formatDayLabel, minToLabel, snapMin } from '@cadence/shared/date.js'
@@ -72,7 +72,7 @@ export function DayColumn({
   nowMinute = null,
   peekOnTouch = false,
 }) {
-  const { scheduleTask, toggleDone, getTag } = useSchedule()
+  const { scheduleTask, addTask, toggleDone, getTag } = useSchedule()
   const { pushError, pushUndo } = useToast()
   const coarse = useCoarsePointer()
   const surfaceRef = useRef(null)
@@ -477,6 +477,13 @@ export function DayColumn({
   }
 
   function onDragOver(event) {
+    if (hasDrag(event, DRAG_TEMPLATE)) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+      const at = minuteAt(event.clientY)
+      setHoverMin((current) => (current === at ? current : at))
+      return
+    }
     if (!hasDrag(event, DRAG_TASK)) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
@@ -485,9 +492,33 @@ export function DayColumn({
   }
 
   async function onDrop(event) {
-    if (!hasDrag(event, DRAG_TASK)) return
     event.preventDefault()
     setHoverMin(null)
+
+    if (hasDrag(event, DRAG_TEMPLATE)) {
+      const payload = readDrag(event, DRAG_TEMPLATE)
+      if (!payload) return
+      const startMin = snapMin(minuteAt(event.clientY), SNAP_MIN)
+      try {
+        const ref = await addTask({
+          date: dateKey,
+          startMin,
+          title: payload.title,
+          tagId: payload.tagId,
+          durationMin: payload.durationMin,
+          priority: payload.priority,
+        })
+        offerUndo(`Added “${payload.title}”.`, () =>
+          scheduleTask(ref.id, { date: null, startMin: null }),
+        )
+      } catch (caught) {
+        console.error('Could not add the template.', caught)
+        pushError('Could not add the task. Try again.')
+      }
+      return
+    }
+
+    if (!hasDrag(event, DRAG_TASK)) return
     const payload = readDrag(event, DRAG_TASK)
     if (!payload?.id) return
     const startMin = snapMin(minuteAt(event.clientY) - (payload.grabOffsetMin ?? 0), SNAP_MIN)

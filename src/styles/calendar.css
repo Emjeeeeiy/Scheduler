@@ -965,6 +965,57 @@
   padding: 0;
 }
 
+/* Saved templates, shown in the Day sidebar above today's tasks. Drag one
+   onto the time grid to start a task pre-filled with its title, tag and
+   duration at the drop point. */
+.template-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+}
+
+.template-list__list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.template-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  cursor: grab;
+  min-width: 0;
+}
+
+.template-item:active {
+  cursor: grabbing;
+}
+
+.template-item__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-item);
+  color: var(--color-text-primary);
+}
+
+.template-item__length {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-nano);
+  color: var(--color-text-secondary);
+}
+
 /* The drop-target idiom, same as `.day-column__draft`: a dashed coral border
    over the accent's wash rather than a filled colour. `margin: -1px` keeps the
    outer edge from shifting when the border switches on — it briefly outranks

@@ -14,6 +14,7 @@
 
 export const DRAG_TASK = 'application/x-cadence-task'
 export const DRAG_EVENT = 'application/x-cadence-event'
+export const DRAG_TEMPLATE = 'application/x-cadence-template'
 
 /** Read a payload back off a drop, tolerating anything that is not ours. */
 export function readDrag(event, type) {

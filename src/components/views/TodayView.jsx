@@ -23,6 +23,8 @@ import { TaskInbox } from '../calendar/TaskInbox.jsx'
 import { TaskRow } from '../calendar/TaskRow.jsx'
 import { PaneTabs } from '../shell/PaneTabs.jsx'
 import { SpanIcon } from '../icons.jsx'
+import { TagGlyph } from '../editors/TagGlyph.jsx'
+import { DRAG_TEMPLATE } from '../../lib/dnd.js'
 
 const HOUR_HEIGHT = 52
 const HEAVY_DAY_MIN = 10 * 60
@@ -49,7 +51,7 @@ function taskHappeningNow(tasks, nowMin) {
 }
 
 export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent, onCreateEvent, onOpenDayNote }) {
-  const { tasksOn, eventsOn, getTag, inbox, scheduleTask } = useSchedule()
+  const { tasksOn, eventsOn, getTag, inbox, scheduleTask, templates } = useSchedule()
   const { settings } = useSettings()
   const { pushError, pushUndo } = useToast()
   const now = useNow()
@@ -548,6 +550,49 @@ export function TodayView({ focusKey, planSignal, onEdit, onCreate, onEditEvent,
           onPlanDay={proposePlan}
           planOpen={plan !== null}
         />
+
+        {templates.length > 0 && (
+          <section className="template-list" aria-label="Templates">
+            <div className="section-head">
+              <h2 className="section-head__title">Templates</h2>
+            </div>
+            <ul className="template-list__list">
+              {templates.map((template) => {
+                const tag = getTag(template.tagId)
+                return (
+                  <li
+                    key={template.id}
+                    className="template-item"
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'copy'
+                      event.dataTransfer.setData(
+                        DRAG_TEMPLATE,
+                        JSON.stringify({
+                          title: template.title,
+                          tagId: template.tagId,
+                          durationMin: template.durationMin,
+                          priority: template.priority,
+                        }),
+                      )
+                    }}
+                  >
+                    <span className="template-item__title">{template.title}</span>
+                    {tag && (
+                      <span className="tag-chip">
+                        <TagGlyph tag={tag} variant="chip" className="tag-chip__dot" />
+                        {tag.name}
+                      </span>
+                    )}
+                    <span className="template-item__length">
+                      {durationLabel(template.durationMin)}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )}
 
         <section className="today-list" aria-label={isToday ? "Today's tasks" : 'Tasks on this day'}>
           <div className="section-head">
